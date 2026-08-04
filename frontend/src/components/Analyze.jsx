@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Button, Container, OverlayTrigger, Card, Row, Col, Tab, Tabs, Tooltip } from "react-bootstrap";
+import { Alert, Button, Container, OverlayTrigger, Card, Row, Col, Tab, Tabs, Tooltip } from "react-bootstrap";
 import { Chart as ChartJS, ArcElement, Legend, Tooltip as ChartTooltip , CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { Bar, Doughnut } from "react-chartjs-2";
 import axios from "axios";
 import "./Analyze.css";
 import ReactMarkdown from 'react-markdown';
+import { API_URL, getApiErrorMessage } from '../api';
 
 ChartJS.register(
   ChartTooltip,
@@ -18,6 +19,7 @@ ChartJS.register(
 
 const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
   const [summary, setSummary] = useState("");
+  const [error, setError] = useState(null);
   
   useEffect(() => {
     if (results && results.summary) {
@@ -25,12 +27,13 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
     } else {
       const fetchSummary = async () => {
         try {
-          const response = await axios.get(`${import.meta.env.VITE_URL}/session/${sessionId}/download-final-dataset`);
+          const response = await axios.get(`${API_URL}/session/${sessionId}/download-final-dataset`);
           if (response.data && response.data.summary) {
             setSummary(response.data.summary);
           }
         } catch (error) {
           console.error("Error fetching summary:", error);
+          setError(getApiErrorMessage(error, "We couldn't load the analysis summary."));
         }
       };
       
@@ -39,8 +42,9 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
   }, [results, sessionId]);
 
   const handleDownloadJSON = async () => {
+    setError(null);
     try {
-      const response = await axios.get(`${import.meta.env.VITE_URL}/session/${sessionId}/download-final-dataset`);
+      const response = await axios.get(`${API_URL}/session/${sessionId}/download-final-dataset`);
       const data = response.data;
 
       if (response.status === 200) {
@@ -52,10 +56,11 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
         link.click();
         URL.revokeObjectURL(url);
       } else {
-        console.error("Error downloading dataset:", data.error);
+        setError(`We couldn't download the dataset. ${data.error || 'Please try again.'}`);
       }
     } catch (error) {
       console.error("Error fetching dataset:", error);
+      setError(getApiErrorMessage(error, "We couldn't download the dataset."));
     }
   };
   
@@ -91,6 +96,12 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
           <h3 className="mb-0">Analysis Results</h3>
         </Card.Header>
       </Card>
+
+      {error && (
+        <Alert variant="danger" role="alert" dismissible onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
       
       <Tabs defaultActiveKey="summary" className="mb-4">
         <Tab eventKey="summary" title="Summary">

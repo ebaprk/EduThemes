@@ -7,6 +7,7 @@ import ChatForm from "./ChatForm";
 import "./Chatbot.css";
 import ChatMessage from "./ChatMessage";
 import axios from "axios";
+import { API_URL, getApiErrorMessage } from "../api";
 
 const Chatbot = ({ sessionId, currentStage, projectMetadata }) => {
   const [chatHistory, setChatHistory] = useState([]);
@@ -70,7 +71,7 @@ const Chatbot = ({ sessionId, currentStage, projectMetadata }) => {
     setIsLoading(true);
     
     try {
-      const response = await axios.post(`${import.meta.env.VITE_URL}/session/${sessionId}/analyze-text`, {
+      const response = await axios.post(`${API_URL}/session/${sessionId}/analyze-text`, {
         message: userMessage,
         currentStage: currentStage,
         apiKey: projectMetadata?.apiKey || ""
@@ -95,7 +96,7 @@ const Chatbot = ({ sessionId, currentStage, projectMetadata }) => {
         ...currentHistory,
         {
           role: "model",
-          text: "I'm sorry, I encountered an error processing your question.",
+          text: getApiErrorMessage(error, "I couldn't process your question."),
           pageContext: currentStage
         }
       ]);

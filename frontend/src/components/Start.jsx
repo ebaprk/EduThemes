@@ -1,19 +1,34 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Container } from 'react-bootstrap';
+import React, { useState } from 'react';
+import { Alert, Button, Spinner } from 'react-bootstrap';
 import axios from 'axios';
 import { FaFileAlt, FaSyncAlt, FaListUl, FaLightbulb } from 'react-icons/fa';
-import { MdHeight } from 'react-icons/md';
+import { API_URL, getApiErrorMessage } from '../api';
 
 const Start = ({ onSessionStart, onAdvanceStage, setLabels }) => {
+    const [isStarting, setIsStarting] = useState(false);
+    const [error, setError] = useState(null);
 
     const startSession = async () => {
+        if (isStarting) return;
+
+        setError(null);
+        setIsStarting(true);
+
         try {
+            const response = await axios.post(`${API_URL}/session/start`);
+
+            if (!response.data?.session_id) {
+                throw new Error('The server did not return a session ID.');
+            }
+
             setLabels([]);
-            const response = await axios.post(`${import.meta.env.VITE_URL}/session/start`);
             onSessionStart(response.data.session_id);
             onAdvanceStage();
         } catch (error) {
             console.error('Session start error:', error.response || error);
+            setError(getApiErrorMessage(error, 'We couldn\'t start your analysis.'));
+        } finally {
+            setIsStarting(false);
         }
     };
 
@@ -74,7 +89,7 @@ const Start = ({ onSessionStart, onAdvanceStage, setLabels }) => {
 
     return (
         <div style={containerStyle}>
-            <div style={windowStyle} class="bg-light">
+            <div style={windowStyle} className="bg-light">
                 <div style={titleStyle}>EduThemes</div>
                 <div style={{
                     fontSize: '16px',
@@ -92,16 +107,44 @@ const Start = ({ onSessionStart, onAdvanceStage, setLabels }) => {
                 </div>
 
                 <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+                    {error && (
+                        <Alert
+                            variant="danger"
+                            role="alert"
+                            dismissible
+                            onClose={() => setError(null)}
+                            className="text-start"
+                        >
+                            <Alert.Heading as="h2" className="h6">Unable to start analysis</Alert.Heading>
+                            <div>{error}</div>
+                        </Alert>
+                    )}
                     <Button
                         variant="primary"
                         onClick={startSession}
+                        disabled={isStarting}
+                        aria-busy={isStarting}
                         style={{
                             fontWeight: 'bold',
                             padding: '10px 20px',
                             fontSize: '16px',
                         }}
                     >
-                        Start Analysis
+                        {isStarting ? (
+                            <>
+                                <Spinner
+                                    as="span"
+                                    animation="border"
+                                    size="sm"
+                                    role="status"
+                                    aria-hidden="true"
+                                    className="me-2"
+                                />
+                                Starting analysis...
+                            </>
+                        ) : (
+                            'Start Analysis'
+                        )}
                     </Button>
                 </div>
                 <hr/>

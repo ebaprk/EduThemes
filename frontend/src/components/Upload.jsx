@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Form, Alert, Container, Card, Spinner, Row, Col } from 'react-bootstrap';
 import axios from 'axios';
+import { API_URL, getApiErrorMessage } from '../api';
 
 const Upload = ({ sessionId, onAdvanceStage, setDataset, setVisualization, setProjectMetadata }) => {
     const [file, setFile] = useState(null);
@@ -57,7 +58,7 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setVisualization, setPr
 
         setIsLoading(true);
         try {
-            const response = await axios.post(`${import.meta.env.VITE_URL}/session/${sessionId}/upload-dataset`, formData, {
+            const response = await axios.post(`${API_URL}/session/${sessionId}/upload-dataset`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
@@ -78,7 +79,7 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setVisualization, setPr
             onAdvanceStage();
         } catch (err) {
             console.error('Failed to upload dataset:', err);
-            setError('Failed to upload dataset: ' + (err.response?.data?.error || err.message));
+            setError(getApiErrorMessage(err, 'We couldn\'t upload your dataset.'));
         } finally {
             setIsLoading(false);
         }

@@ -5,6 +5,7 @@ import {
 } from 'react-bootstrap';
 import LabelModal from './LabelModal';
 import axios from 'axios';
+import { API_URL, getApiErrorMessage } from '../api';
 
 const Preview = ({ 
   sessionId, 
@@ -127,7 +128,7 @@ const Preview = ({
                 setSuggestedThemes([]);
             }
             
-            const response = await axios.post(`${import.meta.env.VITE_URL}/session/${sessionId}/suggest-themes`, {
+            const response = await axios.post(`${API_URL}/session/${sessionId}/suggest-themes`, {
                 labels: labels,
                 apiKey: projectMetadata.apiKey
             });
@@ -142,7 +143,7 @@ const Preview = ({
             }
         } catch (error) {
             console.error("Error getting suggested themes:", error.response?.data || error.message);
-            setError("Failed to get suggested themes: " + (error.response?.data?.error || error.message));
+            setError(getApiErrorMessage(error, "We couldn't generate theme suggestions."));
         } finally {
             setLoadingSuggestions(false);
         }
@@ -165,6 +166,7 @@ const Preview = ({
     };
 
     const handleReview = async () => {
+        setError(null);
         setIsLoading(true);
         try {
             const manualCodings = dataset
@@ -176,7 +178,7 @@ const Preview = ({
 
             console.log(`Submitting ${manualCodings.length} manually coded responses`);
 
-            const response = await axios.post(`${import.meta.env.VITE_URL}/session/${sessionId}/submit-manual-coding`, {
+            const response = await axios.post(`${API_URL}/session/${sessionId}/submit-manual-coding`, {
                 labels,
                 manual_codings: manualCodings,
                 apiKey: projectMetadata.apiKey
@@ -188,7 +190,7 @@ const Preview = ({
             onAdvanceStage();
         } catch (error) {
             console.error("Error submitting manual coding:", error.response?.data || error.message);
-            setError("Failed to submit manual coding. Please try again.");
+            setError(getApiErrorMessage(error, "We couldn't submit your manual coding."));
         } finally {
             setIsLoading(false);
         }

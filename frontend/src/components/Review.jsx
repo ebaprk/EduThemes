@@ -3,6 +3,7 @@ import { Container, Button, Card, Row, Col, Modal, Badge, Spinner, Alert, Progre
 import { FaCheck, FaTimes, FaUndo } from 'react-icons/fa';
 import axios, { all } from 'axios';
 import LabelCreationWindow from './LabelCreationWindow';
+import { API_URL, getApiErrorMessage } from '../api';
 //import ReviewModal from './ReviewModal';
 
 const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset, claudeData, onAdvanceStage, projectMetadata }) => {
@@ -104,7 +105,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
             setRejectedEntries(rejectedIndices);
             setShowReassignModal(true);
         } else if (currentThemeIndex < allThemes.length - 1) {
-            
+
             setCurrentThemeIndex(currentThemeIndex + 1);
             //testing
             //if (allThemes[currentThemeIndex] == "Unclassified"){
@@ -125,7 +126,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                 setSuggestedThemes([]);
             }
             const responses = themeResponses.map(idx => dataset[idx]?.original || "Response not found").join('\n');
-            const response = await axios.post(`${import.meta.env.VITE_URL}/session/${sessionId}/suggest-themes`, {
+            const response = await axios.post(`${API_URL}/session/${sessionId}/suggest-themes`, {
                 response: responses,
                 specBool: 'true',
                 apiKey: projectMetadata.apiKey
@@ -141,7 +142,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
             }
         } catch (error) {
             console.error("Error getting suggested themes:", error.response?.data || error.message);
-            setError("Failed to get suggested themes: " + (error.response?.data?.error || error.message));
+            setError(getApiErrorMessage(error, "We couldn't generate theme suggestions."));
         } finally {
             setLoadingSuggestions(false);
         }
@@ -295,25 +296,31 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
         })
         console.log('send', sent)
         setAiLoading(true);
-        const response = await axios.post(`${import.meta.env.VITE_URL}/session/${sessionId}/submit-manual-coding`, {
+        setError(null);
+
+        try {
+            const response = await axios.post(`${API_URL}/session/${sessionId}/submit-manual-coding`, {
                 labels: allThemes,
                 response: sent,
                 specBool: 'true',
                 apiKey: projectMetadata.apiKey
-        });
+            });
 
-        const dataReturned = response.data.claude_data;
-        console.log(dataReturned);
-        
-        Object.keys(dataReturned).forEach(key => {
-            for (var x=0; x<dataReturned[key].length; x++){
-                console.log(key, dataset[themeResponses[dataReturned[key][x]]].original)
-                addThemeToCode(key, themeResponses[dataReturned[key][x]])
-            }
-        });
-        
-       
-        setAiLoading(false);
+            const dataReturned = response.data.claude_data;
+            console.log(dataReturned);
+
+            Object.keys(dataReturned).forEach(key => {
+                for (var x=0; x<dataReturned[key].length; x++){
+                    console.log(key, dataset[themeResponses[dataReturned[key][x]]].original)
+                    addThemeToCode(key, themeResponses[dataReturned[key][x]])
+                }
+            });
+        } catch (error) {
+            console.error("Error querying AI:", error.response?.data || error.message);
+            setError(getApiErrorMessage(error, "We couldn't classify these responses."));
+        } finally {
+            setAiLoading(false);
+        }
     }
     
     const addTheme = (theme) => {
@@ -391,7 +398,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
             setDataset(updatedDataset);
 
             const response = await axios.post(
-                `${import.meta.env.VITE_URL}/session/${sessionId}/submit-final-dataset`,
+                `${API_URL}/session/${sessionId}/submit-final-dataset`,
                 { 
                     dataset: updatedDataset,
                     labels: allThemes,
@@ -406,7 +413,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                 setError('Error submitting final dataset: ' + (response.data.error || 'Unknown error'));
             }
         } catch (error) {
-            setError('Failed to submit final dataset: ' + (error.response?.data?.error || error.message));
+            setError(getApiErrorMessage(error, "We couldn't submit the final dataset."));
         } finally {
             setIsLoading(false);
         }
