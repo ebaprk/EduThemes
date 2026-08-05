@@ -7,13 +7,21 @@ import random
 import openai
 
 deflt_key = os.getenv('OPENAI_API_KEY')
+deflt_model = os.getenv('OPENAI_MODEL', 'gpt-5.6-terra')
+
+
+def _create_client(api_key):
+    client_options = {"api_key": api_key}
+    base_url = os.getenv('OPENAI_BASE_URL')
+    if base_url:
+        client_options["base_url"] = base_url
+    return openai.OpenAI(**client_options)
+
+
 class openai_frame:
     @staticmethod
     def suggest_themes(responses, research_question="", project_description="", predefined_themes=None, api_key=deflt_key, max_themes=8):
-        client = openai.OpenAI(
-            api_key=api_key,
-            base_url="https://api.ai.it.ufl.edu" # LiteLLM Proxy is OpenAI compatible, Read More: https://docs.litellm.ai/docs/proxy/user_keys
-        )
+        client = _create_client(api_key)
         
         predefined_text = ""
         if predefined_themes and len(predefined_themes) > 0:
@@ -61,7 +69,7 @@ class openai_frame:
             )
             '''
             response = client.chat.completions.create(
-                model="gpt-oss-120b", # model to send to the proxy
+                model=deflt_model,
                 max_tokens=1000,
                 messages = [
                     {
@@ -119,10 +127,7 @@ class openai_frame:
                     classifications[theme_name] = selected_indices
                 return classifications
         
-        client = openai.OpenAI(
-            api_key=api_key,
-            base_url="https://api.ai.it.ufl.edu" # LiteLLM Proxy is OpenAI compatible, Read More: https://docs.litellm.ai/docs/proxy/user_keys
-        )
+        client = _create_client(api_key)
         
         theme_names = [theme['name'] for theme in themes]
         classifications = {theme_name: [] for theme_name in theme_names}
@@ -197,7 +202,7 @@ class openai_frame:
                 )
                 '''
                 response = client.chat.completions.create(
-                    model="gpt-oss-120b", # model to send to the proxy
+                    model=deflt_model,
                     max_tokens=1000,
                     messages = [
                         {
@@ -259,14 +264,11 @@ class openai_frame:
     @staticmethod
     def generate_summary(responses, themes, classifications, research_question="", project_description="", api_key=deflt_key):
         if api_key is None or api_key == '':
-            api_key = os.environ.get("ANTHROPIC_API_KEY")
+            api_key = os.environ.get("OPENAI_API_KEY")
             if not api_key:
                 print("No API key provided.")
         
-        client = openai.OpenAI(
-            api_key=api_key,
-            base_url="https://api.ai.it.ufl.edu" # LiteLLM Proxy is OpenAI compatible, Read More: https://docs.litellm.ai/docs/proxy/user_keys
-        )
+        client = _create_client(api_key)
         
         theme_stats = {}
         total_responses = len(responses)
@@ -336,7 +338,7 @@ class openai_frame:
         try:
             print(f"Generating summary")
             response = client.chat.completions.create(
-                    model="gpt-oss-120b", # model to send to the proxy
+                    model=deflt_model,
                     messages = [
                         {
                             "role": "user",
@@ -356,15 +358,12 @@ class openai_frame:
     @staticmethod
     def process_chat_query(query, responses, themes, classifications, research_question="", project_description="", api_key=deflt_key):
         if api_key is None or api_key == '':
-            api_key = os.environ.get("ANTHROPIC_API_KEY")
+            api_key = os.environ.get("OPENAI_API_KEY")
             if not api_key:
                 print("No API key provided.")
                 return "I can help analyze your dataset and explain the themes I've identified. What would you like to know more about?"
         
-        client = openai.OpenAI(
-            api_key=api_key,
-            base_url="https://api.ai.it.ufl.edu" # LiteLLM Proxy is OpenAI compatible, Read More: https://docs.litellm.ai/docs/proxy/user_keys
-        )
+        client = _create_client(api_key)
         
         theme_stats = []
         total_responses = len(responses)
@@ -411,7 +410,7 @@ class openai_frame:
             return response.content[0].text
             '''
             response = client.chat.completions.create(
-                    model="gpt-oss-120b", # model to send to the proxy
+                    model=deflt_model,
                     max_tokens=1000,
                     messages = [
                         {

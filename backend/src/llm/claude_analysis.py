@@ -5,7 +5,7 @@ from anthropic import Anthropic
 from typing import List, Dict, Any
 import random
 
-deflt_key = os.getenv('CLAUDE_KEY')
+deflt_key = os.getenv('ANTHROPIC_API_KEY')
 class claude_llm:
     @staticmethod
     def suggest_themes(responses, research_question="", project_description="", predefined_themes=None, api_key=deflt_key, max_themes=8):
