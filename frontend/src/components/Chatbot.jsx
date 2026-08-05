@@ -110,10 +110,13 @@ const Chatbot = ({ sessionId, currentStage, projectMetadata }) => {
   }
 
   return (
-    <div className={`container ${showChatbot ? "show-chatbot" : ""}`}>
+    <div className={`chatbot-shell ${showChatbot ? "show-chatbot" : ""}`}>
       <button
         className="chatbot-toggler d-flex justify-content-center align-items-center"
         onClick={() => setShowChatbot((prev) => !prev)}
+        type="button"
+        aria-label={showChatbot ? "Close interface help" : "Open interface help"}
+        aria-expanded={showChatbot}
       >
         <span>
           <FaCommentAlt className="on" />
@@ -129,7 +132,7 @@ const Chatbot = ({ sessionId, currentStage, projectMetadata }) => {
             <RiRobot3Fill className="bot-logo" />
             <div className="logo-text pt-1">Interface Help</div>
           </div>
-          <button onClick={() => setShowChatbot((prev) => !prev)}>
+          <button type="button" aria-label="Minimize interface help" onClick={() => setShowChatbot((prev) => !prev)}>
             <TiArrowSortedDown />
           </button>
         </div>

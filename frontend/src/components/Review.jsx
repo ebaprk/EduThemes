@@ -4,6 +4,7 @@ import { FaCheck, FaTimes, FaUndo } from 'react-icons/fa';
 import axios, { all } from 'axios';
 import LabelCreationWindow from './LabelCreationWindow';
 import { API_URL, getApiErrorMessage } from '../api';
+import WorkflowHeader from './WorkflowHeader';
 //import ReviewModal from './ReviewModal';
 
 const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset, claudeData, onAdvanceStage, projectMetadata }) => {
@@ -436,50 +437,47 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
     const formattedThemeName = `${currentTheme.name} (${themeResponses.length} responses)`;
 
     return (
-        <Container fluid className="d-flex justify-content-center align-items-start p-0" style={{ padding: '0', height: '90vh' }}>
-            <Row className="h-100 m-0 w-100 gap-3">
-                <Col xs={3} className="p-2 bg-light h-100">
-                    <Card className="mb-2" style={{ height: '20%' }}>
-                        <Card.Body className="rounded d-flex flex-column">
-                            <h5>Theme Review</h5><hr style={{ margin: '0px' }}/>
-                            <p className="text-muted">
-                                Review the AI-generated classifications by theme. Approve or reject each classification.
+        <Container fluid className="workflow-page workflow-page--wide review-page">
+            <WorkflowHeader
+                currentStep={3}
+                eyebrow="Step 3 · Quality review"
+                title="Review every classification with confidence"
+                description="Approve the AI’s theme assignments, correct anything that does not fit, and keep the final dataset grounded in your judgment."
+            />
+
+            {error && <Alert variant="danger" className="workflow-alert" dismissible onClose={() => setError(null)}>{error}</Alert>}
+
+            <Row className="g-4 align-items-stretch">
+                <Col lg={4} xl={3} className="review-sidebar">
+                    <Card>
+                        <Card.Body>
+                            <span className="sidebar-card__label">Review workspace</span>
+                            <h5>Theme review</h5>
+                            <p className="text-muted mb-0">
+                                Approve or reject each response, then continue through the theme list.
                             </p>
-                            {error && <Alert variant="danger">{error}</Alert>}
                         </Card.Body>
                     </Card>
-                    <Card className="mb-2" style={{ height: '28%' }}>
-                        <Card.Body className="rounded d-flex flex-column">
-                            <strong>Current Theme</strong><hr style={{ marginTop: '3px' }}/>
-                            <div className="d-flex align-items-center mb-2">
+                    <Card>
+                        <Card.Body>
+                            <span className="sidebar-card__label">Current theme</span>
+                            <div className="current-theme">
                                 <div 
+                                    className="current-theme__dot"
                                     style={{ 
-                                        width: '20px', 
-                                        height: '20px', 
-                                        borderRadius: '50%', 
-                                        backgroundColor: currentTheme.color,
-                                        marginRight: '10px'
+                                        backgroundColor: currentTheme.color
                                     }}
                                 ></div>
-                                <h5 className="mb-0">{currentTheme.name}</h5>
+                                <h2>{currentTheme.name}</h2>
                             </div>
-                            <div style={{ overflowY: 'auto', maxHeight: '110px' }}>
-                                <p>{currentTheme.description || "No description available"} </p>
-                            </div>
+                            <p className="current-theme__description">{currentTheme.description || "No description available"}</p>
                             
                         </Card.Body>
                     </Card>
-                    <Card className="flex-grow-1" style={{height: '50%' }}>
-                        <Card.Body className="rounded d-flex flex-column">
-                            <strong>Progress</strong><hr/>
-                            
-                            <p className="text-muted">
-                                Reviewing theme {currentThemeIndex + 1} of {totalThemes}
-                            </p>
-                            <p>
-                                <strong>Theme List:</strong>
-                            </p>
-                            <div style={{ overflowY: 'auto', maxHeight: '235px' }}>
+                    <Card>
+                        <Card.Body>
+                            <span className="sidebar-card__label">Progress · {currentThemeIndex + 1} of {totalThemes}</span>
+                            <div className="review-theme-list">
                                 {allThemes.map((label, index) => {
                                     const isComplete = responseActions[label.name] && 
                                         responseActions[label.name].every(action => action !== null);
@@ -487,21 +485,13 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                     return (
                                         <div 
                                             key={index}
-                                            className="d-flex align-items-center mb-2"
-                                            style={{ opacity: index === currentThemeIndex ? 1 : 0.7 }}
+                                            className={`review-theme-list__item${index === currentThemeIndex ? ' is-current' : ''}`}
                                         >
                                             <div 
-                                                style={{ 
-                                                    width: '12px', 
-                                                    height: '12px', 
-                                                    borderRadius: '50%', 
-                                                    backgroundColor: isComplete ? '#28a745' : '#6c757d',
-                                                    marginRight: '10px'
-                                                }}
+                                                className={`review-theme-list__status${isComplete ? ' is-complete' : ''}`}
                                             ></div>
                                             <span>
                                                 {label.name}
-                                                {index === currentThemeIndex && ' (current)'}
                                             </span>
                                         </div>
                                     );
@@ -511,18 +501,17 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                     </Card>
                 </Col>
 
-                <Col xs={8} className="p-2 h-100 d-flex bg-light flex-column">
-                    <Card className="flex-grow-1">
-                        <Card.Header className="d-flex flex-column align-items-center">
-                            <div className="d-flex justify-content-between w-100 mt-2 align-items-center">
-                                <h5>
+                <Col lg={8} xl={9} className="review-main">
+                    <Card className="workflow-panel">
+                        <Card.Header>
+                            <div className="workflow-toolbar">
+                                <h5 className="mb-0">
                                     {formattedThemeName}
                                 </h5>
-                                <div className="d-flex align-items-center">
+                                <div className="workflow-toolbar__group">
                                 {currentTheme.name === "Unclassified" && (<Button 
                                 variant="primary" 
                                 onClick={() => queryAI()}
-                                style={{ marginRight: '10px' }}
                                 >
                                     
                                     {aiLoading ? (
@@ -542,9 +531,8 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                     
                                 </Button>)}
                                 <Button 
-                                    variant="primary" 
+                                    variant="outline-primary"
                                     onClick={() => setShowEditLabels(true)}
-                                    style={{ marginRight: '10px' }}
                                 >
                                     
                                     Edit Themes
@@ -574,15 +562,13 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                             </div>
                         </Card.Header>
                         
-                        <div className="px-3 py-2 border-bottom d-flex justify-content-between align-items-center">
+                        <div className="review-progress-strip">
                             <ProgressBar 
                                 now={progressPercentage} 
                                 label={`${Math.round(progressPercentage)}%`}
-                                variant="info" 
-                                className="mb-0" // Remove margin below if vertically aligned
-                                style={{ width: '60%' }} // Optional: limit width so buttons fit well
+                                className="mb-0"
                             />
-                            <div className="d-flex">
+                            <div className="review-bulk-actions">
                                 <Button 
                                     className="me-2" 
                                     variant="success" 
@@ -602,11 +588,8 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                 </Button>
                             </div>
                         </div>
-                        <Card.Body style={{ height: '1px' }}>
-                            <div 
-                                style={{ overflowY: 'auto', width: '100%', padding: '10px', height: '100%' }}
-                                className="bg-light border rounded"
-                            >
+                        <Card.Body>
+                            <div className="review-response-list">
                                
                                 {themeResponses.length > 0 ? (
                                     themeResponses.map((responseIndex, idx) => {
@@ -617,27 +600,13 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                         return (
                                             <div 
                                                 key={`${currentTheme.name}-${idx}`} 
-                                                className={`p-2 d-flex justify-content-between align-items-center`}
-                                                style={{ 
-                                                    textAlign: 'left', 
-                                                    backgroundColor: currentActions[idx] === 'approve' ? 
-                                                        '#d4edda' : currentActions[idx] === 'deny' ? 
-                                                        '#f8d7da' : 'transparent',
-                                                    marginBottom: `${30*dataset[responseIndex].themes.length}`,
-                                                    
-
-                                                }}
+                                                className={`review-response-card${currentActions[idx] === 'approve' ? ' is-approved' : ''}${currentActions[idx] === 'deny' ? ' is-rejected' : ''}`}
                                             >
                                                 <span>
                                                     {responseText}
                                                 </span>
                                                 <div 
-                                                    className="d-flex flex-column" 
-                                                    style={{ 
-                                                        height: '60px', 
-                                                        justifyContent: currentActions[idx] === null ? 
-                                                            'space-between' : 'center' 
-                                                    }}
+                                                    className="review-response-actions"
                                                 >
                                                     {currentActions[idx] === null && currentTheme.name !== "Unclassified" && (
                                                         <>
@@ -670,11 +639,10 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                                         </Button>
                                                     )}
                                                     {currentTheme.name === "Unclassified" && (
-                                                        <Form.Group controlId={`formThemes-${idx}`} style={{ 
-                                                    maxWidth: '150px'
-                                                    
-
-                                                }}>
+                                                        <Form.Group
+                                                            controlId={`formThemes-${idx}`}
+                                                            className="review-theme-picker"
+                                                        >
                                                             <Form.Control
                                                                 type="text"
                                                                 id={`formThemes-${idx}`}
@@ -782,7 +750,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                         );
                                     })
                                 ) : (
-                                    <p className="text-muted text-center my-4">
+                                    <p className="workflow-empty mb-0">
                                         No responses were classified with this theme.
                                     </p>
                                 )}
@@ -825,6 +793,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                 onHide={() => setShowEditLabels(false)}
                 centered
                 size="lg"
+                scrollable
             >
                 <Modal.Header closeButton>
                 <Modal.Title>Add Themes</Modal.Title>
@@ -835,7 +804,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                     <Tab.Container id="left-tabs-example" defaultActiveKey="first">
                     
                         <Col sm={3}>
-                        <Nav variant="pills" className="flex-column">
+                        <Nav variant="pills" className="review-theme-tabs flex-column">
                             <Nav.Item>
                             <Nav.Link eventKey="first">Cur. Themes</Nav.Link>
                             </Nav.Item>
@@ -887,7 +856,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                             </Tab.Pane>
                             <Tab.Pane eventKey="third">
                                 
-                                <div className="d-flex justify-content-between mb-3">
+                                <div className="suggestions-toolbar">
                                 <span>
                                     {suggestedThemes.length > 0 ? 
                                         `Found ${suggestedThemes.length} theme suggestions` : 
@@ -930,7 +899,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                         return (
                                             <ListGroup.Item 
                                                 key={index}
-                                                className={`d-flex justify-content-between align-items-center ${alreadyAdded ? 'bg-light' : ''}`}
+                                                className={`suggestion-item ${alreadyAdded ? 'bg-light' : ''}`}
                                             >
                                                 <div>
                                                     <h5>{theme.name} {alreadyAdded}</h5>
@@ -940,7 +909,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                                     variant={alreadyAdded ? "outline-secondary" : "outline-primary"}
                                                     onClick={() => {addTheme(theme);}}
                                                     disabled={alreadyAdded}
-                                                    style={{ minWidth: '110px' }}
+                                                    className="suggestion-item__action"
                                                 >
                                                     {alreadyAdded ? 'Added' : 'Add Theme'}
                                                 </Button>

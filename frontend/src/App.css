@@ -2,10 +2,12 @@
 
 .App {
   text-align: left;
-  background-color: #e8e8e8;
+  background:
+    radial-gradient(circle at 8% 4%, rgba(91, 77, 219, 0.085), transparent 30rem),
+    radial-gradient(circle at 96% 26%, rgba(67, 166, 217, 0.07), transparent 26rem),
+    linear-gradient(180deg, #f8f9fd 0%, #f1f4f9 100%);
   min-height: 100vh;
   font-family: 'Roboto';
-
 }
 
 .App-logo {

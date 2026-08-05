@@ -5,7 +5,9 @@ import { Bar, Doughnut } from "react-chartjs-2";
 import axios from "axios";
 import "./Analyze.css";
 import ReactMarkdown from 'react-markdown';
+import { FaDownload, FaRedo } from 'react-icons/fa';
 import { API_URL, getApiErrorMessage } from '../api';
+import WorkflowHeader from './WorkflowHeader';
 
 ChartJS.register(
   ChartTooltip,
@@ -88,35 +90,55 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
   }, [labels]);
 
   const themeData = results || [];
+  const totalMentions = themeData.reduce((total, item) => total + Number(item.frequency || 0), 0);
+  const leadingTheme = themeData.length > 0
+    ? themeData.reduce((leading, item) => Number(item.frequency || 0) > Number(leading.frequency || 0) ? item : leading)
+    : null;
   
   return (
-    <Container className="my-4">
-      <Card className="shadow-sm mb-4">
-        <Card.Header className="bg-primary text-white">
-          <h3 className="mb-0">Analysis Results</h3>
-        </Card.Header>
-      </Card>
+    <Container fluid className="workflow-page analysis-page">
+      <WorkflowHeader
+        currentStep={4}
+        eyebrow="Step 4 · Analysis complete"
+        title="Your themes, clearly summarized"
+        description="Explore the story in your responses, compare theme frequency, and download the outputs for your next step."
+      />
 
       {error && (
-        <Alert variant="danger" role="alert" dismissible onClose={() => setError(null)}>
+        <Alert variant="danger" role="alert" className="workflow-alert" dismissible onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
+
+      <div className="analysis-metrics">
+        <div className="analysis-metric">
+          <span>Themes discovered</span>
+          <strong>{themeData.length}</strong>
+        </div>
+        <div className="analysis-metric">
+          <span>Total classifications</span>
+          <strong>{totalMentions}</strong>
+        </div>
+        <div className="analysis-metric">
+          <span>Leading theme</span>
+          <strong title={leadingTheme?.name}>{leadingTheme?.name || '—'}</strong>
+        </div>
+      </div>
       
-      <Tabs defaultActiveKey="summary" className="mb-4">
+      <Tabs defaultActiveKey="summary" className="analysis-tabs">
         <Tab eventKey="summary" title="Summary">
-          <Card className="shadow-sm">
+          <Card className="workflow-panel analysis-panel">
             <Card.Body>
-              <div className="mb-3 d-flex justify-content-end">
+              <div className="analysis-panel__toolbar">
                 <Button 
                   variant="outline-primary" 
                   onClick={handleDownloadSummary}
-                  className="me-2"
                 >
-                  Download Summary
+                  <FaDownload className="me-2" aria-hidden="true" />
+                  Download summary
                 </Button>
               </div>
-              <div className="summary-content p-3">
+              <div className="summary-content">
                 <ReactMarkdown>
                   {summary || "No summary available."}
                 </ReactMarkdown>
@@ -126,12 +148,12 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
         </Tab>
         
         <Tab eventKey="visualization" title="Visualizations">
-          <Row>
+          <Row className="g-4">
             <Col md={6}>
-              <Card className="shadow-sm mb-4">
+              <Card className="analysis-chart-card h-100">
                 <Card.Header>Theme Distribution</Card.Header>
-                <Card.Body className="d-flex justify-content-center">
-                  <div style={{ width: '100%', maxWidth: '400px', height: '400px'}} >
+                <Card.Body>
+                  <div className="analysis-chart">
                     <Doughnut
                       data={{
                         labels: themeData.map((item) => item.name),
@@ -164,10 +186,10 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
             </Col>
             
             <Col md={6}>
-              <Card className="shadow-sm mb-4" style={{ height: '475px' }}>
+              <Card className="analysis-chart-card h-100">
                 <Card.Header>Theme Frequency</Card.Header>
-                <Card.Body >
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                <Card.Body>
+                <div className="analysis-chart">
                   <Bar
 
                     data={{
@@ -200,21 +222,21 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
         </Tab>
         
         <Tab eventKey="themes" title="Theme List">
-          <Card className="shadow-sm">
+          <Card className="workflow-panel analysis-panel">
             <Card.Body>
-              <div className="mb-3 d-flex justify-content-end">
+              <div className="analysis-panel__toolbar">
                 <Button 
                   variant="outline-primary" 
                   onClick={handleDownloadJSON}
-                  className="me-2"
                 >
-                  Download Dataset (JSON)
+                  <FaDownload className="me-2" aria-hidden="true" />
+                  Download dataset
                 </Button>
               </div>
               
-              <div className="themes-grid p-3">
+              <div>
                 {themeData && themeData.length > 0 ? (
-                  <div className="d-flex flex-wrap justify-content-center gap-3">
+                  <div className="analysis-theme-grid">
                     {themeData.map((item, index) => (
                       <OverlayTrigger
                         key={index}
@@ -230,16 +252,14 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
                       >
                         <div 
                           key={index}
-                          className="theme-card p-3 rounded"
-                          style={{ 
-                            backgroundColor: item.color, 
-                            color: isDarkColor(item.color) ? 'white' : 'black',
-                            minWidth: '200px',
-                            textAlign: 'center',
-                          }}
+                          className="analysis-theme-card"
+                          style={{ '--theme-color': item.color || '#8d95a5' }}
                         >
-                          <h5>{item.name}</h5>
-                          <p className="mb-0">
+                          <div className="analysis-theme-card__topline">
+                            <span className="analysis-theme-card__dot" aria-hidden="true" />
+                            <h3>{item.name}</h3>
+                          </div>
+                          <p>
                             <strong>{item.frequency}</strong> responses
                           </p>
                         </div>
@@ -247,7 +267,7 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-center text-muted">No themes available.</p>
+                  <p className="workflow-empty">No themes available.</p>
                 )}
               </div>
             </Card.Body>
@@ -256,14 +276,14 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
         
       </Tabs>
       
-      <div className="d-flex justify-content-center mt-4">
+      <div className="analysis-new-action">
         <Button 
           variant="primary" 
           size="lg"
           onClick={() => onAdvanceStage()}
-          style={{ marginBottom: '20px' }}
         >
-          Start New Analysis
+          <FaRedo className="me-2" aria-hidden="true" />
+          Start a new analysis
         </Button>
       </div>
     </Container>

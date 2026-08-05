@@ -146,7 +146,7 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
         <>
             <Button variant="primary" onClick={toggleShow}>Edit Themes</Button>
 
-            <Modal show={show} onHide={toggleShow} centered size="lg">
+            <Modal show={show} onHide={toggleShow} centered size="lg" scrollable>
                 <Modal.Header closeButton>
                     <Modal.Title>Manage Themes</Modal.Title>
                 </Modal.Header>
@@ -175,7 +175,7 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
                             />
                         </Form.Group>
                         
-                        <div className="d-flex mb-3 align-items-center">
+                        <div className="theme-editor-actions">
                             <Form.Label>Theme Color - </Form.Label>
                             <Form.Control
                                 type="color"
@@ -186,15 +186,15 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
 
                             {formMode === 'add' ? (
                                 <Button 
-                                    variant="success" 
+                                    variant="primary"
                                     onClick={addLabel}
                                     disabled={!newLabel.trim() || labels.length >= 10}
-                                    className="d-flex ms-auto"
+                                    className="theme-editor-actions__submit"
                                 >
                                     Add Theme
                                 </Button>
                             ) : (
-                                <div className="d-flex ms-auto">
+                                <div className="theme-editor-actions__buttons">
                                     <Button 
                                         variant="primary" 
                                         onClick={updateLabel}
@@ -213,9 +213,9 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
                     
                     <hr />
                     
-                    <div className="d-flex justify-content-between align-items-center mb-3">
+                    <div className="theme-manager-header">
                         <h5 className="mb-0">Current Themes ({labels.length}/10)</h5>
-                        <Form.Group controlId="formFile">
+                        <Form.Group controlId="formFile" className="theme-manager-import">
                             <Form.Control 
                                 type="file" 
                                 accept=".txt,.csv" 
@@ -231,7 +231,7 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
                             delay={{ show: 250, hide: 400 }}
                             overlay={renderTooltip}
                             >
-                                <svg style={{margin: '2px'}} xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-question-circle" viewBox="0 0 16 16">
+                                <svg style={{margin: '2px'}} xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-question-circle" viewBox="0 0 16 16">
                                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
                                     <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"/>
                                 </svg>
@@ -246,8 +246,8 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
                             </p>
                         ) : (
                             labels.map((label, index) => (
-                                <ListGroup.Item key={index} className="d-flex justify-content-between align-items-center">
-                                    <div className="d-flex align-items-center">
+                                <ListGroup.Item key={index} className="theme-manager-item">
+                                    <div className="theme-manager-item__copy">
                                         <div 
                                             style={{ 
                                                 backgroundColor: label.color, 
@@ -265,7 +265,7 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
                                             )}
                                         </div>
                                     </div>
-                                    <div className='d-flex'>
+                                    <div className="theme-manager-item__actions">
                                         <Button 
                                             variant="outline-secondary" 
                                             size="sm" 

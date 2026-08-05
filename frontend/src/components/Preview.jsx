@@ -5,7 +5,9 @@ import {
 } from 'react-bootstrap';
 import LabelModal from './LabelModal';
 import axios from 'axios';
+import { FaArrowRight, FaMagic } from 'react-icons/fa';
 import { API_URL, getApiErrorMessage } from '../api';
+import WorkflowHeader from './WorkflowHeader';
 
 const Preview = ({ 
   sessionId, 
@@ -201,23 +203,32 @@ const Preview = ({
     const percentageCoded = totalResponses > 0 ? ((codedCount / totalResponses) * 100).toFixed(1) : 0;
 
     return (
-        <Container fluid className="d-flex justify-content-center align-items-start p-0" style={{ padding: '0', height: '90vh' }}>
-            <Row className="h-100 m-0 w-100 gap-3">
-                <Col xs={3} className="p-2 bg-light h-100">
-                    <Card className="mb-2" style={{ height: "20%" }}>
-                        <Card.Body className="rounded d-flex flex-column">
-                            <h5>Manual Coding</h5><hr style={{ margin: '0px' }}/>
-                            <p className="text-muted">
-                                This page allows you to create themes and manually code a sample to train the AI assistant.
+        <Container fluid className="workflow-page workflow-page--wide preview-page">
+            <WorkflowHeader
+                currentStep={2}
+                eyebrow="Step 2 · Manual coding"
+                title="Shape the themes in your data"
+                description="Create a useful theme set, code a representative sample, and give the AI a strong foundation for classification."
+            />
+
+            {error && <Alert variant="danger" className="workflow-alert" dismissible onClose={() => setError(null)}>{error}</Alert>}
+
+            <Row className="g-4 align-items-stretch">
+                <Col lg={4} xl={3} className="preview-sidebar">
+                    <Card>
+                        <Card.Body>
+                            <span className="sidebar-card__label">Your workspace</span>
+                            <h5>Manual coding</h5>
+                            <p className="text-muted mb-0">
+                                Select responses from the table, build your theme set, and code examples before review.
                             </p>
-                            {error && <Alert variant="danger">{error}</Alert>}
                         </Card.Body>
                     </Card>
 
-                    <Card className="mb-2">
-                        <Card.Body className="rounded d-flex flex-column">
+                    <Card>
+                        <Card.Body>
                             <div className="d-flex justify-content-between align-items-center mb-2">
-                                <strong>Created Themes - ({labels.length})</strong>
+                                <span className="sidebar-card__label mb-0">Created themes · {labels.length}</span>
                                 <div>
                                     {/* <Button 
                                         variant="outline-secondary" 
@@ -242,19 +253,15 @@ const Preview = ({
                                     </Button> */}
                                 </div>
                             </div>
-                            <hr style={{ margin: '0px' }} />
-                            <div className="overflow-y-auto" style={{ height: '150px', overflowY: 'auto' }}>
+                            <div className="theme-list mt-3">
                             {labels.length > 0 ? (
-                                <div >
+                                <>
                                     {labels.map((label, index) => (
-                                        <div key={index} className="d-flex align-items-center mb-2">
+                                        <div key={index} className="theme-list__item">
                                             <div 
+                                                className="theme-list__dot"
                                                 style={{ 
-                                                    width: '15px', 
-                                                    height: '15px', 
-                                                    borderRadius: '50%', 
-                                                    backgroundColor: label.color,
-                                                    marginRight: '10px'
+                                                    backgroundColor: label.color
                                                 }}
                                             ></div>
                                             <div>
@@ -270,24 +277,28 @@ const Preview = ({
                                             </div>
                                         </div>
                                     ))}
-                                </div>
+                                </>
                             ) : (
-                                <p className="text-muted">No themes defined yet. Create themes using the "Edit Themes" button or get AI suggestions with the "Suggest Themes" button.</p>
+                                <p className="text-muted small mb-0">No themes yet. Use “Edit Themes” or generate suggestions to get started.</p>
                             )}
                             </div>
                         </Card.Body>
                     </Card>
 
-                    <Card className="flex-grow-1" style={{ height: '47%' }}>
-                        <Card.Body className="rounded d-flex flex-column" id="array_chart" style={{ maxHeight: '100%' }}>
+                    <Card>
+                        <Card.Body id="array_chart">
                             {selectedEntry ? (
                                 <>
-                                    <strong>Selected Response</strong>
-                                    <hr style={{ margin: '0px' }}/>
-                                    <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
-                                        { console.log('--',selectedEntry.original)}
-                                    <p><strong>Original:</strong> {selectedEntry.original}</p>
-                                    <p><strong>Cleaned:</strong> {selectedEntry.cleaned}</p>
+                                    <span className="sidebar-card__label">Selected response</span>
+                                    <div className="selected-response">
+                                        <div className="selected-response__block">
+                                            <span>Original</span>
+                                            <p>{selectedEntry.original}</p>
+                                        </div>
+                                        <div className="selected-response__block">
+                                            <span>Cleaned</span>
+                                            <p>{selectedEntry.cleaned}</p>
+                                        </div>
                                     {/*<Form.Group controlId="formThemes">
                                         <strong>Assigned Themes</strong>
                                         {selectedEntry.themes?.length === 0 || selectedEntry.themes === undefined ? (
@@ -349,31 +360,25 @@ const Preview = ({
                     </Card>
                 </Col>
 
-                <Col xs={8} className="p-2 h-100 d-flex bg-light flex-column">
-                    <Card className="flex-grow-1">
-                        <Card.Header className="d-flex justify-content-between align-items-center">
-                            <div className="d-flex align-items-center">
+                <Col lg={8} xl={9} className="preview-main">
+                    <Card className="workflow-panel">
+                        <Card.Header>
+                            <div className="workflow-toolbar">
+                            <div className="workflow-toolbar__group">
                                 <LabelModal labels={labels || []} setLabels={setLabels} />
                                 <Button 
                                     variant="outline-primary" 
-                                    size="m" 
                                     onClick={() => setShowSuggestions(true)}
                                     disabled={loadingSuggestions}
-                                    className="me-2 ms-4"
                                 >
-                                    Suggested Themes
+                                    <FaMagic className="me-2" aria-hidden="true" />
+                                    Suggest themes
                                 </Button>
                             </div>
-                            <div className="d-flex align-items-center">
-                                
-                                <OverlayTrigger
-                                    placement="top"
-                                    overlay={<Tooltip>Number of responses with assigned themes</Tooltip>}
-                                >
-                                    <Button variant="outline-dark" disabled style={{ marginRight: '10px' }}>
-                                        Coded: {codedCount}/{totalResponses} ({percentageCoded}%)
-                                    </Button>
-                                </OverlayTrigger>
+                            <div className="workflow-toolbar__group">
+                                <span className="workflow-stat">
+                                    Coded <strong>{codedCount}/{totalResponses}</strong> · {percentageCoded}%
+                                </span>
                                 <Button 
                                     onClick={handleReview} 
                                     disabled={
@@ -381,7 +386,6 @@ const Preview = ({
                                         !sessionId || 
                                         isLoading
                                     }
-                                    className='ms-3'
                                 >
                                     {isLoading ? (
                                         <>
@@ -395,18 +399,19 @@ const Preview = ({
                                             &nbsp;&nbsp;Processing...
                                         </>
                                     ) : (
-                                        'Review'
+                                        <>
+                                            Review classifications
+                                            <FaArrowRight className="ms-2" aria-hidden="true" />
+                                        </>
                                     )}
                                 </Button>
                             </div>
+                            </div>
                         </Card.Header>
-                        <Card.Body style={{ height: '1px' }} id="given_chart">
-                            <div 
-                                className="bg-light border"
-                                style={{ height: '100%', overflowY: 'auto' }}
-                            >
+                        <Card.Body id="given_chart">
+                            <div className="preview-table-wrap">
                                 {dataset && dataset.length > 0 ? (
-                                    <Table striped hover bordered size="sm" className="m-0">
+                                    <Table hover responsive size="sm" className="preview-table">
                                         <thead>
                                             <tr>
                                                 <th 
@@ -425,10 +430,7 @@ const Preview = ({
                                                 <tr 
                                                     key={index} 
                                                     onClick={() => handleSelectEntry(entry, index)}                                                     
-                                                    style={{ 
-                                                        cursor: 'pointer',
-                                                        backgroundColor: index === selectedIndex ? '#e8f4f8' : 'inherit'
-                                                    }}
+                                                    className={index === selectedIndex ? 'is-selected' : ''}
                                                 >
                                                     <td 
                                                         className="text-center align-middle" 
@@ -444,7 +446,7 @@ const Preview = ({
                                                             entry.original
                                                         }
                                                     </td>
-                                                    <td className="align-middle">
+                                                    <td className="align-middle preview-theme-cell">
                                                         <div className="d-flex flex-wrap gap-1">
                                                             <Form.Control
                                                                 type="text"
@@ -463,11 +465,10 @@ const Preview = ({
                                                                     
                                                                     <Badge
                                                                         key={tidx}
-
+                                                                        className="theme-pill"
                                                                         bg={null}
                                                                         style={{
                                                                             backgroundColor: theme.color,
-                                                                            fontSize: '0.7rem'
                                                                         }}
                                                                         //temp
                                                                         onClick={() => {removeTheme(theme,index,tidx)}} //remove theme
@@ -494,7 +495,7 @@ const Preview = ({
                                         </tbody>
                                     </Table>
                                 ) : (
-                                    <p className="text-muted text-center m-3">
+                                    <p className="workflow-empty mb-0">
                                         No dataset available. Please upload a dataset.
                                     </p>
                                 )}
@@ -509,12 +510,13 @@ const Preview = ({
                 onHide={() => setShowSuggestions(false)}
                 centered
                 size="lg"
+                scrollable
             >
                 <Modal.Header closeButton>
                     <Modal.Title>Theme Suggestions</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <div className="d-flex justify-content-between mb-3">
+                    <div className="suggestions-toolbar">
                         <span>
                             {suggestedThemes.length > 0 ? 
                                 `Found ${suggestedThemes.length} theme suggestions` : 
@@ -557,7 +559,7 @@ const Preview = ({
                                 return (
                                     <ListGroup.Item 
                                         key={index}
-                                        className={`d-flex justify-content-between align-items-center ${alreadyAdded ? 'bg-light' : ''}`}
+                                        className={`suggestion-item ${alreadyAdded ? 'bg-light' : ''}`}
                                     >
                                         <div>
                                             <h5>{theme.name} {alreadyAdded}</h5>
@@ -567,7 +569,7 @@ const Preview = ({
                                             variant={alreadyAdded ? "outline-secondary" : "outline-primary"}
                                             onClick={() => handleAddSuggestedTheme(theme)}
                                             disabled={alreadyAdded}
-                                            style={{ minWidth: '110px' }}
+                                            className="suggestion-item__action"
                                         >
                                             {alreadyAdded ? 'Added' : 'Add Theme'}
                                         </Button>

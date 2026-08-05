@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useLayoutEffect, useState } from "react";
 import "./App.css";
 import Header from "./components/Header";
 import Upload from "./components/Upload";
@@ -7,8 +7,7 @@ import Preview from "./components/Preview";
 import Review from "./components/Review";
 import Analyze from "./components/Analyze";
 import Chatbot from "./components/Chatbot";
-
-import { Container } from "react-bootstrap";
+import "./components/Workflow.css";
 
 const unclassifiedTheme = {
         name: "Unclassified",
@@ -44,10 +43,23 @@ function App() {
     setProjectMetadata(metadata);
   };
 
+  useLayoutEffect(() => {
+    let secondFrame;
+    const firstFrame = window.requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      secondFrame = window.requestAnimationFrame(() => window.scrollTo(0, 0));
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [currentStage]);
+
   return (
     <div className="App">
       <Header />
-      <Container>
+      <div className="app-content">
         {currentStage === "start" && (
           <Start
             onSessionStart={handleSessionStart}
@@ -112,7 +124,7 @@ function App() {
             />
           </div>
         )}
-      </Container>
+      </div>
       <Chatbot 
         sessionId={sessionId} 
         currentStage={currentStage} 

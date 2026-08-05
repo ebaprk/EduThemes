@@ -23,7 +23,7 @@ const ChatForm = ({ generateBotResponse, isLoading }) => {
         required
         disabled={isLoading}
       />
-      <button type="submit" disabled={isLoading}>
+      <button type="submit" aria-label="Send message" disabled={isLoading}>
         <MdArrowUpward />
       </button>
     </form>
