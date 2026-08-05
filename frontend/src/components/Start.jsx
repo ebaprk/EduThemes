@@ -7,7 +7,7 @@ import {
     FaFileAlt,
     FaLightbulb,
     FaListUl,
-    FaMagic,
+    FaTags,
 } from 'react-icons/fa';
 import { API_URL, getApiErrorMessage } from '../api';
 import './Start.css';
@@ -21,9 +21,9 @@ const workflowSteps = [
     },
     {
         number: '02',
-        icon: FaMagic,
-        title: 'Find meaningful patterns',
-        description: 'AI organizes related responses into clear, editable themes.',
+        icon: FaTags,
+        title: 'Build a theme set',
+        description: 'Generate a first pass, then edit the labels and definitions to fit your study.',
     },
     {
         number: '03',
@@ -72,20 +72,16 @@ const Start = ({ onSessionStart, onAdvanceStage, setLabels }) => {
             <section className="start-hero" aria-labelledby="start-title">
                 <div className="start-hero__content">
                     <div className="start-eyebrow">
-                        <span className="start-eyebrow__icon" aria-hidden="true">
-                            <FaMagic />
-                        </span>
-                        Qualitative analysis, made clear
+                        Guided qualitative analysis
                     </div>
 
                     <h1 id="start-title" className="start-title">
-                        Turn open-ended responses into
-                        <span> themes you can act on.</span>
+                        Make sense of open-ended responses.
                     </h1>
 
                     <p className="start-description">
-                        EduThemes helps educators and researchers uncover the ideas behind their
-                        survey data—without hours of manual coding.
+                        EduThemes helps educators and researchers code survey responses, review
+                        themes, and produce a clear analysis while keeping human judgment in the loop.
                     </p>
 
                     <div className="start-actions">
@@ -114,8 +110,14 @@ const Start = ({ onSessionStart, onAdvanceStage, setLabels }) => {
                             )}
                         </Button>
                         <span className="start-file-note">
-                            <FaCheck aria-hidden="true" /> Excel and CSV supported
+                            <FaCheck aria-hidden="true" /> Review every result before export
                         </span>
+                    </div>
+
+                    <div className="start-details" aria-label="Supported workflow details">
+                        <span>Excel and CSV files</span>
+                        <span>Editable themes</span>
+                        <span>Exportable results</span>
                     </div>
 
                     {error && (
@@ -133,14 +135,13 @@ const Start = ({ onSessionStart, onAdvanceStage, setLabels }) => {
                 </div>
 
                 <div className="start-preview" aria-label="Example analysis summary">
-                    <div className="start-preview__glow" aria-hidden="true" />
                     <div className="start-preview__card">
                         <div className="start-preview__header">
                             <div>
-                                <span className="start-preview__label">Analysis preview</span>
+                                <span className="start-preview__label">Example output</span>
                                 <h2>Student feedback</h2>
                             </div>
-                            <span className="start-preview__badge">124 responses</span>
+                            <span className="start-preview__count">124 responses</span>
                         </div>
 
                         <div className="start-preview__theme">
@@ -191,9 +192,9 @@ const Start = ({ onSessionStart, onAdvanceStage, setLabels }) => {
 
             <section className="start-workflow" aria-labelledby="workflow-title">
                 <div className="start-workflow__intro">
-                    <span className="start-section-kicker">How it works</span>
-                    <h2 id="workflow-title">From raw responses to clear direction</h2>
-                    <p>A guided workflow keeps you in control at every step.</p>
+                    <span className="start-section-kicker">Four-step workflow</span>
+                    <h2 id="workflow-title">A clear path from responses to findings</h2>
+                    <p>Each stage has one job, so it is always clear what to do next.</p>
                 </div>
 
                 <div className="start-workflow__grid">

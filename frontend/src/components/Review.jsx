@@ -435,6 +435,9 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
             ? (completedThemes / totalThemes) * 100 
             : 0);
     const formattedThemeName = `${currentTheme.name} (${themeResponses.length} responses)`;
+    const pendingCount = currentTheme.name === "Unclassified"
+        ? 0
+        : currentActions.filter(action => action === null).length;
 
     return (
         <Container fluid className="workflow-page workflow-page--wide review-page">
@@ -526,7 +529,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                             &nbsp;&nbsp;Reassigning...
                                         </>
                                     ) : (
-                                        'Reassign'
+                                        'Reassign responses'
                                     )}
                                     
                                 </Button>)}
@@ -535,7 +538,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                     onClick={() => setShowEditLabels(true)}
                                 >
                                     
-                                    Edit Themes
+                                    Edit themes
                                     
                                 </Button>
                                 <Button 
@@ -555,7 +558,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                             &nbsp;&nbsp;Processing...
                                         </>
                                     ) : (
-                                        currentThemeIndex >= allThemes.length - 1 ? 'Finish' : 'Next Theme'
+                                        currentThemeIndex >= allThemes.length - 1 ? 'Finish analysis' : 'Next theme'
                                     )}
                                 </Button>
                                 </div>
@@ -563,20 +566,26 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                         </Card.Header>
                         
                         <div className="review-progress-strip">
-                            <ProgressBar 
-                                now={progressPercentage} 
-                                label={`${Math.round(progressPercentage)}%`}
-                                className="mb-0"
-                            />
+                            <div className="review-progress-track">
+                                <span>
+                                    {currentTheme.name === "Unclassified"
+                                        ? 'Assign any responses that still need a theme'
+                                        : `${pendingCount} ${pendingCount === 1 ? 'response' : 'responses'} left to review`}
+                                </span>
+                                <ProgressBar
+                                    now={progressPercentage}
+                                    label={`${Math.round(progressPercentage)}%`}
+                                    className="mb-0"
+                                />
+                            </div>
                             <div className="review-bulk-actions">
                                 <Button 
-                                    className="me-2" 
                                     variant="success" 
                                     size="sm" 
                                     onClick={handleAcceptAll} 
                                     disabled={currentTheme.name === "Unclassified"}
                                 >
-                                    Accept All
+                                    Accept all
                                 </Button>
                                 <Button 
                                     variant="danger" 
@@ -584,7 +593,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                     onClick={handleRejectAll} 
                                     disabled={currentTheme.name === "Unclassified"}
                                 >
-                                    Reject All
+                                    Reject all
                                 </Button>
                             </div>
                         </div>
@@ -615,6 +624,8 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                                                 className="d-flex align-items-center" 
                                                                 size="sm"
                                                                 onClick={() => handleAction(idx, 'approve')}
+                                                                aria-label={`Accept response ${idx + 1}`}
+                                                                title="Accept response"
                                                             >
                                                                 <FaCheck/>
                                                             </Button>
@@ -623,20 +634,29 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                                                 className="d-flex align-items-center" 
                                                                 size="sm"
                                                                 onClick={() => handleAction(idx, 'deny')}
+                                                                aria-label={`Reject response ${idx + 1}`}
+                                                                title="Reject response"
                                                             >
                                                                 <FaTimes/>
                                                             </Button>
                                                         </>
                                                     )}
                                                     {currentActions[idx] !== null && currentTheme.name !== "Unclassified" && (
-                                                        <Button 
-                                                            variant="secondary" 
-                                                            className="d-flex align-items-center" 
-                                                            size="sm"
-                                                            onClick={() => handleUndo(idx)}
-                                                        >
-                                                            <FaUndo/>
-                                                        </Button>
+                                                        <>
+                                                            <span className={`review-response-status ${currentActions[idx] === 'approve' ? 'is-approved' : 'is-rejected'}`}>
+                                                                {currentActions[idx] === 'approve' ? 'Accepted' : 'Rejected'}
+                                                            </span>
+                                                            <Button
+                                                                variant="secondary"
+                                                                className="d-flex align-items-center"
+                                                                size="sm"
+                                                                onClick={() => handleUndo(idx)}
+                                                                aria-label={`Undo decision for response ${idx + 1}`}
+                                                                title="Undo decision"
+                                                            >
+                                                                <FaUndo/>
+                                                            </Button>
+                                                        </>
                                                     )}
                                                     {currentTheme.name === "Unclassified" && (
                                                         <Form.Group

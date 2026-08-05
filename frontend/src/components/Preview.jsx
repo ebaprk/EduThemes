@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Container, Spinner, Button, Card, Row, Col, Form, 
-  Table, Badge, Modal, ListGroup, Alert, OverlayTrigger, Tooltip 
+  Container, Spinner, Button, Card, Row, Col, Form,
+  Table, Modal, ListGroup, Alert
 } from 'react-bootstrap';
 import LabelModal from './LabelModal';
 import axios from 'axios';
-import { FaArrowRight, FaMagic } from 'react-icons/fa';
+import { FaArrowRight, FaTags } from 'react-icons/fa';
 import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowHeader from './WorkflowHeader';
 
@@ -154,7 +154,7 @@ const Preview = ({
     const handleAddSuggestedTheme = (theme) => {
         const themeExists = labels.some(label => label.name === theme.name);
         if (!themeExists) {
-            const COLORS = ['#f44336', '#e81e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'];
+            const COLORS = ['#315f9f', '#2f7d68', '#a65c37', '#7a5c99', '#3f7d9d', '#8a6a2f', '#556b5d', '#9a4f61'];
             const color = getRandomItem(COLORS)//Math.floor(Math.random()*16777215).toString(16);
             
             const newTheme = {
@@ -229,29 +229,6 @@ const Preview = ({
                         <Card.Body>
                             <div className="d-flex justify-content-between align-items-center mb-2">
                                 <span className="sidebar-card__label mb-0">Created themes · {labels.length}</span>
-                                <div>
-                                    {/* <Button 
-                                        variant="outline-secondary" 
-                                        size="sm" 
-                                        onClick={handleGetSuggestedThemes}
-                                        disabled={loadingSuggestions || !sessionId || dataset?.length === 0}
-                                    >
-                                        {loadingSuggestions ? (
-                                            <>
-                                                <Spinner 
-                                                    as="span" 
-                                                    animation="border" 
-                                                    size="sm" 
-                                                    role="status" 
-                                                    aria-hidden="true" 
-                                                /> 
-                                                <span className="visually-hidden">Loading...</span>
-                                            </>
-                                        ) : (
-                                            "↻"
-                                        )}
-                                    </Button> */}
-                                </div>
                             </div>
                             <div className="theme-list mt-3">
                             {labels.length > 0 ? (
@@ -299,56 +276,6 @@ const Preview = ({
                                             <span>Cleaned</span>
                                             <p>{selectedEntry.cleaned}</p>
                                         </div>
-                                    {/*<Form.Group controlId="formThemes">
-                                        <strong>Assigned Themes</strong>
-                                        {selectedEntry.themes?.length === 0 || selectedEntry.themes === undefined ? (
-                                            <p className="text-muted mt-2">No themes assigned yet.</p>
-                                        ) : (
-                                            <div className="mb-2 mt-2">
-                                                {selectedEntry.themes?.map((theme, index) => (
-                                                    <OverlayTrigger
-                                                        key={index}
-                                                        placement="top"
-                                                        overlay={
-                                                            <Tooltip id={`tooltip-${index}`}>
-                                                                {theme.description || "No description available"}
-                                                            </Tooltip>
-                                                        }
-                                                    >
-                                                        <Badge
-                                                            bg={null}
-                                                            style={{
-                                                                backgroundColor: theme.color,
-                                                                marginRight: '5px',
-                                                                marginBottom: '5px',
-                                                                cursor: 'pointer',
-                                                            }}
-                                                            onClick={() => removeTheme(theme.name)}
-                                                        >
-                                                            {theme.name} ×
-                                                        </Badge>
-                                                    </OverlayTrigger>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <Form.Control
-                                            type="text"
-                                            placeholder="Select a theme..."
-                                            list="theme-options"
-                                            onChange={handleThemeChange}
-                                            className="mt-2"
-                                        />
-                                        <datalist id="theme-options">
-                                            {labels.map((label, index) => (
-                                                <option key={index} value={label.name} />
-                                            ))}
-                                        </datalist>
-                                        <div className="d-flex mt-2">
-                                            <small className="text-muted flex-grow-1">
-                                                Select from existing themes or add new ones using the "Edit Themes" button.
-                                            </small>
-                                        </div>
-                                    </Form.Group>*/}
                                     </div>
                                 </>
                             ) : (
@@ -371,7 +298,7 @@ const Preview = ({
                                     onClick={() => setShowSuggestions(true)}
                                     disabled={loadingSuggestions}
                                 >
-                                    <FaMagic className="me-2" aria-hidden="true" />
+                                    <FaTags className="me-2" aria-hidden="true" />
                                     Suggest themes
                                 </Button>
                             </div>
@@ -396,7 +323,7 @@ const Preview = ({
                                                 role="status" 
                                                 aria-hidden="true" 
                                             /> 
-                                            &nbsp;&nbsp;Processing...
+                                            &nbsp;&nbsp;Preparing review…
                                         </>
                                     ) : (
                                         <>
@@ -420,8 +347,8 @@ const Preview = ({
                                                 >
                                                     #
                                                 </th>
-                                                <th className="text-center align-middle">Response</th>
-                                                <th className="text-center align-middle" style={{ width: '20%' }}>Themes</th>
+                                                <th className="align-middle">Response</th>
+                                                <th className="align-middle" style={{ width: '24%' }}>Themes</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -431,6 +358,7 @@ const Preview = ({
                                                     key={index} 
                                                     onClick={() => handleSelectEntry(entry, index)}                                                     
                                                     className={index === selectedIndex ? 'is-selected' : ''}
+                                                    aria-selected={index === selectedIndex}
                                                 >
                                                     <td 
                                                         className="text-center align-middle" 
@@ -448,45 +376,38 @@ const Preview = ({
                                                     </td>
                                                     <td className="align-middle preview-theme-cell">
                                                         <div className="d-flex flex-wrap gap-1">
-                                                            <Form.Control
-                                                                type="text"
-                                                                placeholder="Select a theme..."
-                                                                list="theme-options"
+                                                            <Form.Select
+                                                                value=""
+                                                                aria-label={`Assign a theme to response ${index + 1}`}
                                                                 onChange={(e) => handleThemeChange(e, entry, index)}
-                                                                className="mt-2"
-                                                            />
-                                                            <datalist id="theme-options">
-                                                                {labels.map((label, index) => (
-                                                                    <option key={index} value={label.name} />
+                                                                onClick={(event) => event.stopPropagation()}
+                                                            >
+                                                                <option value="">Assign theme…</option>
+                                                                {labels.map((label) => (
+                                                                    <option key={label.name} value={label.name}>{label.name}</option>
                                                                 ))}
-                                                            </datalist>
+                                                            </Form.Select>
                                                             {entry.themes && entry.themes.length > 0 ? 
                                                                 entry.themes.map((theme, tidx) => (
-                                                                    
-                                                                    <Badge
-                                                                        key={tidx}
+                                                                    <button
+                                                                        type="button"
+                                                                        key={`${theme.name}-${tidx}`}
                                                                         className="theme-pill"
-                                                                        bg={null}
                                                                         style={{
-                                                                            backgroundColor: theme.color,
+                                                                            '--theme-color': theme.color,
                                                                         }}
-                                                                        //temp
-                                                                        onClick={() => {removeTheme(theme,index,tidx)}} //remove theme
+                                                                        aria-label={`Remove ${theme.name} from response ${index + 1}`}
+                                                                        title={`Remove ${theme.name}`}
+                                                                        onClick={(event) => {
+                                                                            event.stopPropagation();
+                                                                            removeTheme(theme.name, index, tidx);
+                                                                        }}
                                                                     >
                                                                         {theme.name}
-                                                                        {/*<Badge
-                                                                            bg={null}
-                                                                            style={{
-                                                                                backgroundColor: theme.color,
-                                                                                marginRight: '5px',
-                                                                                marginBottom: '5px',
-                                                                                cursor: 'pointer',
-                                                                            }}
-                                                                            onClick={() => removeTheme(entry.themes.name)}
-                                                                        ></Badge>*/}
-                                                                    </Badge>
+                                                                        <span className="theme-pill__remove" aria-hidden="true">×</span>
+                                                                    </button>
                                                                 )) : 
-                                                                <span className="text-muted small">None</span>
+                                                                <span className="text-muted small">No theme assigned</span>
                                                             }
                                                         </div>
                                                     </td>
@@ -513,7 +434,7 @@ const Preview = ({
                 scrollable
             >
                 <Modal.Header closeButton>
-                    <Modal.Title>Theme Suggestions</Modal.Title>
+                    <Modal.Title>Theme suggestions</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
                     <div className="suggestions-toolbar">
@@ -537,10 +458,10 @@ const Preview = ({
                                         role="status" 
                                         aria-hidden="true" 
                                     /> 
-                                    &nbsp;&nbsp;Refreshing...
+                                    &nbsp;&nbsp;Generating…
                                 </>
                             ) : (
-                                'Refresh Suggestions'
+                                'Generate suggestions'
                             )}
                         </Button>
                     </div>
@@ -550,7 +471,7 @@ const Preview = ({
                             <Spinner animation="border" role="status">
                                 <span className="visually-hidden">Loading...</span>
                             </Spinner>
-                            <p className="mt-2">Analyzing your responses to generate theme suggestions...</p>
+                            <p className="mt-2">Analyzing your responses to generate theme suggestions…</p>
                         </div>
                     ) : suggestedThemes.length > 0 ? (
                         <ListGroup>
@@ -562,7 +483,7 @@ const Preview = ({
                                         className={`suggestion-item ${alreadyAdded ? 'bg-light' : ''}`}
                                     >
                                         <div>
-                                            <h5>{theme.name} {alreadyAdded}</h5>
+                                            <h5>{theme.name}</h5>
                                             <p className="text-muted mb-0">{theme.description}</p>
                                         </div>
                                         <Button 
@@ -571,14 +492,14 @@ const Preview = ({
                                             disabled={alreadyAdded}
                                             className="suggestion-item__action"
                                         >
-                                            {alreadyAdded ? 'Added' : 'Add Theme'}
+                                            {alreadyAdded ? 'Added' : 'Add theme'}
                                         </Button>
                                     </ListGroup.Item>
                                 );
                             })}
                         </ListGroup>
                     ) : (
-                        <p className="text-center text-muted">Click "Refresh Suggestions" to generate new themes.</p>
+                        <p className="text-center text-muted">Generate suggestions to create a first pass at your theme set.</p>
                     )}
                 </Modal.Body>
                 <Modal.Footer>

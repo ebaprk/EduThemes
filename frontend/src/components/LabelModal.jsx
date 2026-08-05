@@ -6,10 +6,13 @@ import ListGroup from 'react-bootstrap/ListGroup';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
+const DEFAULT_THEME_COLOR = '#315f9f';
+const THEME_COLORS = ['#315f9f', '#2f7d68', '#a65c37', '#7a5c99', '#3f7d9d', '#8a6a2f', '#556b5d', '#9a4f61'];
+
 const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
     const [newLabel, setNewLabel] = useState('');
     const [labelDescription, setLabelDescription] = useState('');
-    const [selectedColor, setSelectedColor] = useState('#007bff');
+    const [selectedColor, setSelectedColor] = useState(DEFAULT_THEME_COLOR);
     const [show, setShow] = useState(false);
     const [editIndex, setEditIndex] = useState(null);
     const [formMode, setFormMode] = useState('add');
@@ -35,7 +38,7 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
         
         setNewLabel('');
         setLabelDescription('');
-        setSelectedColor('#007bff');
+        setSelectedColor(DEFAULT_THEME_COLOR);
     };
 
     const startEditLabel = (index) => {
@@ -66,7 +69,7 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
         
         setNewLabel('');
         setLabelDescription('');
-        setSelectedColor('#007bff');
+        setSelectedColor(DEFAULT_THEME_COLOR);
         setEditIndex(null);
         setFormMode('add');
     };
@@ -74,7 +77,7 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
     const cancelEdit = () => {
         setNewLabel('');
         setLabelDescription('');
-        setSelectedColor('#007bff');
+        setSelectedColor(DEFAULT_THEME_COLOR);
         setEditIndex(null);
         setFormMode('add');
     };
@@ -112,7 +115,7 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
 
                     if (existingLabelIndex === -1 && newLabels.length < 10) {
                         // Name doesn't exist, add new label
-                        const color = '#'+(Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0');
+                        const color = THEME_COLORS[newLabels.length % THEME_COLORS.length];
                         newLabels.push({ 
                             name, 
                             description: description || "",
@@ -144,16 +147,16 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
 
     return (
         <>
-            <Button variant="primary" onClick={toggleShow}>Edit Themes</Button>
+            <Button variant="primary" onClick={toggleShow}>Edit themes</Button>
 
             <Modal show={show} onHide={toggleShow} centered size="lg" scrollable>
                 <Modal.Header closeButton>
-                    <Modal.Title>Manage Themes</Modal.Title>
+                    <Modal.Title>Manage themes</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
                     <Form onSubmit={handleSubmit}>
                         <Form.Group className="mb-3">
-                            <Form.Label>Theme Name</Form.Label>
+                            <Form.Label>Theme name</Form.Label>
                             <Form.Control
                                 type="text"
                                 placeholder="Enter theme name"
@@ -176,7 +179,7 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
                         </Form.Group>
                         
                         <div className="theme-editor-actions">
-                            <Form.Label>Theme Color - </Form.Label>
+                            <Form.Label>Theme color</Form.Label>
                             <Form.Control
                                 type="color"
                                 value={selectedColor}
@@ -191,7 +194,7 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
                                     disabled={!newLabel.trim() || labels.length >= 10}
                                     className="theme-editor-actions__submit"
                                 >
-                                    Add Theme
+                                    Add theme
                                 </Button>
                             ) : (
                                 <div className="theme-editor-actions__buttons">
@@ -214,7 +217,7 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
                     <hr />
                     
                     <div className="theme-manager-header">
-                        <h5 className="mb-0">Current Themes ({labels.length}/10)</h5>
+                        <h5 className="mb-0">Current themes ({labels.length}/10)</h5>
                         <Form.Group controlId="formFile" className="theme-manager-import">
                             <Form.Control 
                                 type="file" 

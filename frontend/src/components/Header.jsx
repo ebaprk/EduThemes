@@ -1,7 +1,7 @@
 import React from 'react';
 import Navbar from 'react-bootstrap/Navbar';
 import Container from 'react-bootstrap/Container';
-import { FaLayerGroup, FaMagic } from 'react-icons/fa';
+import { FaLayerGroup } from 'react-icons/fa';
 import './Header.css';
 
 const Header = () => {
@@ -20,9 +20,9 @@ const Header = () => {
                     </span>
                 </Navbar.Brand>
 
-                <div className="site-header__badge" aria-label="AI-assisted qualitative analysis">
-                    <FaMagic aria-hidden="true" />
-                    <span>AI-assisted analysis</span>
+                <div className="site-header__context" aria-label="Thematic analysis workspace">
+                    <span className="site-header__context-dot" aria-hidden="true" />
+                    <span>Thematic analysis workspace</span>
                 </div>
             </Container>
         </Navbar>
