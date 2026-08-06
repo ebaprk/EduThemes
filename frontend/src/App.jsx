@@ -1,4 +1,5 @@
-import React, { useLayoutEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import "./App.css";
 import Header from "./components/Header";
 import Upload from "./components/Upload";
@@ -15,16 +16,55 @@ const unclassifiedTheme = {
         color: "#cccccc"
     };
 
+const stagePaths = {
+  start: "/",
+  upload: "/upload",
+  preview: "/code",
+  review: "/review",
+  results: "/results",
+};
+
+const pathStages = Object.fromEntries(
+  Object.entries(stagePaths).map(([stage, path]) => [path, stage])
+);
+
+const loadSessionValue = (key, fallback) => {
+  try {
+    const storedValue = window.sessionStorage.getItem(key);
+    return storedValue === null ? fallback : JSON.parse(storedValue);
+  } catch {
+    return fallback;
+  }
+};
+
+const useSessionValue = (key, fallback) => {
+  const [value, setValue] = useState(() => loadSessionValue(key, fallback));
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.warn(`Unable to preserve ${key} in this browser session.`, error);
+    }
+  }, [key, value]);
+
+  return [value, setValue];
+};
+
 function App() {
-  const [sessionId, setSessionId] = useState(null);
-  const [dataset, setDataset] = useState(null);
-  const [visualization, setVisualization] = useState(null);
-  const [labels, setLabels] = useState([]);
-  const [currentStage, setCurrentStage] = useState('start');
-  const [claudeData, setClaudeData] = useState(null);
-  const [svmData, setSvmData] = useState(null);
-  const [results, setResults] = useState(null);
-  const [projectMetadata, setProjectMetadata] = useState({
+  const location = useLocation();
+  const navigate = useNavigate();
+  const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
+  const currentStage = pathStages[normalizedPath] || "start";
+
+  const [sessionId, setSessionId] = useSessionValue("eduthemes.sessionId", null);
+  const [dataset, setDataset] = useSessionValue("eduthemes.dataset", null);
+  const [visualization, setVisualization] = useSessionValue("eduthemes.visualization", null);
+  const [labels, setLabels] = useSessionValue("eduthemes.labels", []);
+  const [claudeData, setClaudeData] = useSessionValue("eduthemes.claudeData", null);
+  const [svmData, setSvmData] = useSessionValue("eduthemes.svmData", null);
+  const [results, setResults] = useSessionValue("eduthemes.results", null);
+  const [projectMetadata, setProjectMetadata] = useSessionValue("eduthemes.projectMetadata", {
     researchQuestion: "",
     projectDescription: "",
     additionalContext: "",
@@ -33,10 +73,22 @@ function App() {
 
   const handleSessionStart = (newSessionId) => {
     setSessionId(newSessionId);
+    setDataset(null);
+    setVisualization(null);
+    setLabels([]);
+    setClaudeData(null);
+    setSvmData(null);
+    setResults(null);
+    setProjectMetadata({
+      researchQuestion: "",
+      projectDescription: "",
+      additionalContext: "",
+      apiKey: ""
+    });
   };
 
   const handleAdvanceStage = (stage) => {
-    setCurrentStage(stage);
+    navigate(stagePaths[stage] || stagePaths.start);
   };
 
   const handleSetProjectMetadata = (metadata) => {
@@ -60,70 +112,78 @@ function App() {
     <div className="App">
       <Header />
       <div className="app-content">
-        {currentStage === "start" && (
-          <Start
-            onSessionStart={handleSessionStart}
-            onAdvanceStage={() => handleAdvanceStage('upload')}
-            setLabels={setLabels}
+        <Routes>
+          <Route
+            path="/"
+            element={(
+              <Start
+                onSessionStart={handleSessionStart}
+                onAdvanceStage={() => handleAdvanceStage("upload")}
+                setLabels={setLabels}
+              />
+            )}
           />
-        )}
-
-        {currentStage === "upload" && sessionId && (
-          <Upload
-            sessionId={sessionId}
-            setDataset={setDataset} 
-            setVisualization={setVisualization}
-            onAdvanceStage={() => handleAdvanceStage('preview')}
-            setProjectMetadata={handleSetProjectMetadata}
+          <Route
+            path="/upload"
+            element={sessionId ? (
+              <Upload
+                sessionId={sessionId}
+                setDataset={setDataset}
+                setVisualization={setVisualization}
+                onAdvanceStage={() => handleAdvanceStage("preview")}
+                setProjectMetadata={handleSetProjectMetadata}
+              />
+            ) : <Navigate to="/" replace />}
           />
-        )}
-
-        {currentStage === "preview" && sessionId && (
-          <div>
-            <Preview
-              sessionId={sessionId}
-              dataset={dataset}
-              labels={labels}
-              setLabels={setLabels}
-              claudeData={claudeData}
-              setClaudeData={setClaudeData}
-              svmData={svmData}
-              setSvmData={setSvmData}
-              setDataset={setDataset}
-              projectMetadata={projectMetadata}
-              onAdvanceStage={() => handleAdvanceStage("review")}
-            />
-          </div>
-        )}
-
-        {currentStage === "review" && sessionId && (
-          <div>
-            <Review
-              sessionId={sessionId}
-              visualization={visualization}
-              labels={[...labels, unclassifiedTheme]}
-              setLabels={setLabels}  
-              claudeData={claudeData}
-              setClaudeData={setClaudeData}
-              dataset={dataset}
-              setDataset={setDataset}
-              setResults={setResults}
-              projectMetadata={projectMetadata}
-              onAdvanceStage={() => handleAdvanceStage('results')} 
-            />
-          </div>
-        )}
-
-        {currentStage === "results" && sessionId && (
-          <div>
-            <Analyze
-              labels={labels}
-              results={results}
-              sessionId={sessionId}
-              onAdvanceStage={() => handleAdvanceStage('start')}
-            />
-          </div>
-        )}
+          <Route
+            path="/code"
+            element={sessionId && dataset ? (
+              <Preview
+                sessionId={sessionId}
+                dataset={dataset}
+                labels={labels}
+                setLabels={setLabels}
+                claudeData={claudeData}
+                setClaudeData={setClaudeData}
+                svmData={svmData}
+                setSvmData={setSvmData}
+                setDataset={setDataset}
+                projectMetadata={projectMetadata}
+                onAdvanceStage={() => handleAdvanceStage("review")}
+              />
+            ) : <Navigate to={sessionId ? "/upload" : "/"} replace />}
+          />
+          <Route
+            path="/review"
+            element={sessionId && dataset && claudeData ? (
+              <Review
+                sessionId={sessionId}
+                visualization={visualization}
+                labels={[...labels, unclassifiedTheme]}
+                setLabels={setLabels}
+                claudeData={claudeData}
+                setClaudeData={setClaudeData}
+                dataset={dataset}
+                setDataset={setDataset}
+                setResults={setResults}
+                projectMetadata={projectMetadata}
+                onAdvanceStage={() => handleAdvanceStage("results")}
+              />
+            ) : <Navigate to={sessionId && dataset ? "/code" : sessionId ? "/upload" : "/"} replace />}
+          />
+          <Route
+            path="/results"
+            element={sessionId && results ? (
+              <Analyze
+                labels={labels}
+                results={results}
+                sessionId={sessionId}
+                onAdvanceStage={() => handleAdvanceStage("start")}
+              />
+            ) : <Navigate to={sessionId && dataset && claudeData ? "/review" : sessionId && dataset ? "/code" : sessionId ? "/upload" : "/"} replace />}
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </div>
       <Chatbot 
         sessionId={sessionId} 

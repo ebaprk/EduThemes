@@ -14,16 +14,8 @@ const Header = () => {
                     <span className="site-brand__mark" aria-hidden="true">
                         <FaLayerGroup />
                     </span>
-                    <span className="site-brand__copy">
-                        <span className="site-brand__name">EduThemes</span>
-                        <span className="site-brand__tagline">See the meaning in every response</span>
-                    </span>
+                    <span className="site-brand__name">EduThemes</span>
                 </Navbar.Brand>
-
-                <div className="site-header__context" aria-label="Thematic analysis workspace">
-                    <span className="site-header__context-dot" aria-hidden="true" />
-                    <span>Thematic analysis workspace</span>
-                </div>
             </Container>
         </Navbar>
     );

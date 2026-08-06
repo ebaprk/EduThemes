@@ -1,5 +1,6 @@
 FROM nginx
 COPY ./dist /usr/share/nginx/html
+COPY ./nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 #WORKDIR /usr/local/app
 
@@ -12,4 +13,4 @@ EXPOSE 80
 
 
 # Setup an app user so the container doesn't run as the root user
-# gunicorn -w 4 -b :1500 'app:create_app()' -c gunicorn.conf.ini   
+# gunicorn -w 4 -b :1500 'app:create_app()' -c gunicorn.conf.ini

@@ -47,40 +47,11 @@
     font-size: 0.9rem;
 }
 
-.site-brand__copy {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.12;
-}
-
 .site-brand__name {
     color: #172b4d;
     font-size: 1rem;
     font-weight: 750;
     letter-spacing: -0.02em;
-}
-
-.site-brand__tagline {
-    margin-top: 3px;
-    color: #7a8699;
-    font-size: 0.68rem;
-    font-weight: 500;
-}
-
-.site-header__context {
-    display: inline-flex;
-    gap: 8px;
-    align-items: center;
-    color: #667085;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.site-header__context-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #2f7d68;
 }
 
 @media (max-width: 575px) {
@@ -92,11 +63,6 @@
     .site-brand__mark {
         width: 34px;
         height: 34px;
-    }
-
-    .site-brand__tagline,
-    .site-header__context span:last-child {
-        display: none;
     }
 }
 
