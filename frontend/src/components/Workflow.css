@@ -236,6 +236,35 @@
     resize: vertical;
 }
 
+.App input[type="file"].form-control,
+.modal-content input[type="file"].form-control {
+    height: 48px;
+    min-height: 48px;
+    overflow: hidden;
+    padding: 0;
+    line-height: 46px;
+}
+
+.App input[type="file"].form-control::file-selector-button,
+.modal-content input[type="file"].form-control::file-selector-button {
+    height: 46px;
+    margin: 0 16px 0 0;
+    padding: 0 16px;
+    border: 0;
+    border-right: 1px solid #d7dce6;
+    border-radius: 0;
+    background: #eef1f4;
+    color: var(--edu-ink);
+    font: inherit;
+    font-weight: 600;
+    line-height: 46px;
+}
+
+.App input[type="file"].form-control:hover::file-selector-button,
+.modal-content input[type="file"].form-control:hover::file-selector-button {
+    background: #e2e6eb;
+}
+
 .App .form-control:hover,
 .App .form-select:hover {
     border-color: #c4cad7;
