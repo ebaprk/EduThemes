@@ -36,15 +36,12 @@
 }
 
 .site-brand__mark {
-    display: grid;
+    display: block;
     flex: 0 0 auto;
     width: 36px;
     height: 36px;
-    place-items: center;
     border-radius: 7px;
-    background: #315f9f;
-    color: #ffffff;
-    font-size: 0.9rem;
+    object-fit: cover;
 }
 
 .site-brand__name {
