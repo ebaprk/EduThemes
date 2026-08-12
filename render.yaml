@@ -5,6 +5,7 @@ services:
     plan: free
     region: virginia
     branch: main
+    rootDir: backend
     dockerfilePath: ./backend/dockerfile
     dockerContext: ./backend
     healthCheckPath: /health

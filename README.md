@@ -28,10 +28,14 @@ The repository includes a `render.yaml` Blueprint for a free Docker web
 service. In Render, create a Blueprint from this repository and provide the
 `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` secret values when prompted.
 
-After Render assigns the backend URL, rebuild the frontend with:
+The production frontend configuration points to the Render backend. Build and
+deploy it to Firebase Hosting with:
 
 ```bash
-VITE_API_URL=https://YOUR-SERVICE.onrender.com npm run build
+cd frontend
+npm run build
+cd ..
+firebase deploy --only hosting
 ```
 
 The free Render filesystem is temporary, so SQLite sessions and uploaded files
