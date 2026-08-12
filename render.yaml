@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: eduthemes-api
+    runtime: docker
+    plan: free
+    region: virginia
+    branch: main
+    dockerfilePath: ./backend/dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: CORS_ORIGINS
+        value: https://eduthemes-abepark.web.app,https://eduthemes-abepark.firebaseapp.com
+      - key: PORT
+        value: 10000
+      - key: WEB_CONCURRENCY
+        value: 1
+      - key: GUNICORN_THREADS
+        value: 2
+      - key: GUNICORN_TIMEOUT
+        value: 600
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5.6-terra

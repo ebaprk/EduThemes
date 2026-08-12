@@ -21,3 +21,20 @@ In a separate terminal
 2. **Do not commit the `venv/` directory to the repository**
 3. **Always make sure you activate the virtual environment before working to avoid any issues**
 4. You can run `deactivate` to leave the virtual environment
+
+## Deploy the Backend to Render
+
+The repository includes a `render.yaml` Blueprint for a free Docker web
+service. In Render, create a Blueprint from this repository and provide the
+`OPENAI_API_KEY` and `ANTHROPIC_API_KEY` secret values when prompted.
+
+After Render assigns the backend URL, rebuild the frontend with:
+
+```bash
+VITE_API_URL=https://YOUR-SERVICE.onrender.com npm run build
+```
+
+The free Render filesystem is temporary, so SQLite sessions and uploaded files
+can be lost after the service sleeps or restarts. Use a paid persistent disk or
+external database and object storage before relying on the service for durable
+production data.

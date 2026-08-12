@@ -24,7 +24,7 @@ COPY routes.py routes.py
 COPY run_pipeline.py run_pipeline.py
 # COPY eduthemes-gunicorn.conf /etc/supervisor/conf.d/eduthemes-gunicorn.conf
 # RUN chmod 777 /var/log/supervisor/supervisord.log
-EXPOSE 1500
+EXPOSE 10000
 
 # Setup an app user so the container doesn't run as the root user
 RUN useradd app
@@ -35,4 +35,4 @@ USER app
 
 # gunicorn -w 4 -b 0.0.0.0:1500 'app:create_app()' -c gunicorn.conf.ini   
 
-CMD ["gunicorn", "-w", "4", "app:create_app()", "-c", "gunicorn.conf.py"]  
+CMD ["gunicorn", "app:create_app()", "-c", "gunicorn.conf.py"]
