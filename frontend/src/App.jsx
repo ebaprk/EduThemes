@@ -7,7 +7,6 @@ import Start from "./components/Start";
 import Preview from "./components/Preview";
 import Review from "./components/Review";
 import Analyze from "./components/Analyze";
-import Chatbot from "./components/Chatbot";
 import "./components/Workflow.css";
 
 const unclassifiedTheme = {
@@ -185,11 +184,6 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
-      <Chatbot 
-        sessionId={sessionId} 
-        currentStage={currentStage} 
-        projectMetadata={projectMetadata} 
-      />
     </div>
   );
 }
