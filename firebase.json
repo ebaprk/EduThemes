@@ -19,7 +19,19 @@
     ],
     "rewrites": [
       {
-        "source": "**",
+        "source": "/upload",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/code",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/review",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/results",
         "destination": "/index.html"
       }
     ]

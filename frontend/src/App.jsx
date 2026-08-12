@@ -7,6 +7,7 @@ import Start from "./components/Start";
 import Preview from "./components/Preview";
 import Review from "./components/Review";
 import Analyze from "./components/Analyze";
+import NotFound from "./components/NotFound";
 import "./components/Workflow.css";
 
 const unclassifiedTheme = {
@@ -181,7 +182,7 @@ function App() {
               />
             ) : <Navigate to={sessionId && dataset && claudeData ? "/review" : sessionId && dataset ? "/code" : sessionId ? "/upload" : "/"} replace />}
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
     </div>

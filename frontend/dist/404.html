@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#315f9f">
+    <meta http-equiv="refresh" content="5;url=/">
+    <link rel="icon" href="/favicon-eduthemes.ico" sizes="any">
+    <title>Page not found · EduThemes</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { display: grid; min-height: 100vh; margin: 0; padding: 48px 24px; place-items: center; background: #f6f7f5; color: #172b4d; font-family: Arial, sans-serif; }
+      main { width: min(100%, 560px); padding: clamp(36px, 7vw, 64px); border: 1px solid #dfe3e8; border-top: 4px solid #315f9f; border-radius: 12px; background: #fff; text-align: center; }
+      img { display: block; width: 72px; height: 72px; margin: 0 auto 22px; border-radius: 14px; }
+      .code { margin: 0 0 8px; color: #315f9f; font-size: .8rem; font-weight: 800; letter-spacing: .14em; }
+      h1 { margin: 0; font-size: clamp(2rem, 7vw, 3rem); letter-spacing: -.04em; }
+      .message { margin: 16px auto 28px; color: #667085; line-height: 1.65; }
+      a { display: inline-flex; min-height: 48px; padding: 11px 20px; align-items: center; border-radius: 7px; background: #315f9f; color: #fff; font-weight: 700; text-decoration: none; }
+      a:hover, a:focus { background: #244a7f; }
+      .redirect { margin: 22px 0 0; color: #7a8699; font-size: .84rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/favicon-eduthemes-192.png" alt="">
+      <p class="code">404</p>
+      <h1>Page not found</h1>
+      <p class="message">The address may be incorrect, or the page may have moved.</p>
+      <a href="/">Return home</a>
+      <p class="redirect" aria-live="polite">Returning home automatically in <span id="countdown">5</span> seconds.</p>
+    </main>
+    <script>
+      let seconds = 5;
+      const countdown = document.getElementById('countdown');
+      window.setInterval(() => {
+        seconds = Math.max(0, seconds - 1);
+        countdown.textContent = seconds;
+      }, 1000);
+    </script>
+  </body>
+</html>
