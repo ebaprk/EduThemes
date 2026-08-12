@@ -41,3 +41,6 @@ backend/src/models/svm/test.txt
 # Local Python environments
 **/.venv/
 **/.venv-broken/
+
+# Firebase CLI cache
+.firebase/
