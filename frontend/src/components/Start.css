@@ -96,44 +96,6 @@
     background: #8099bb;
 }
 
-.start-file-note {
-    display: inline-flex;
-    gap: 8px;
-    align-items: center;
-    color: #526172;
-    font-size: 0.84rem;
-    font-weight: 600;
-}
-
-.start-file-note svg {
-    color: #2f7d68;
-    font-size: 0.7rem;
-}
-
-.start-details {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px 0;
-    margin-top: 28px;
-    color: #7a8699;
-    font-size: 0.76rem;
-    font-weight: 600;
-}
-
-.start-details span {
-    display: inline-flex;
-    align-items: center;
-}
-
-.start-details span + span::before {
-    width: 3px;
-    height: 3px;
-    margin: 0 12px;
-    border-radius: 50%;
-    background: #aeb7c2;
-    content: '';
-}
-
 .start-alert {
     max-width: 620px;
     margin: 24px 0 0;
@@ -447,20 +409,9 @@
         align-items: stretch;
     }
 
-    .start-primary-button.btn,
-    .start-file-note {
+    .start-primary-button.btn {
         width: 100%;
         justify-content: center;
-    }
-
-    .start-details {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 7px;
-    }
-
-    .start-details span + span::before {
-        display: none;
     }
 
     .start-preview__card {

@@ -3,7 +3,6 @@ import { Alert, Button, Spinner } from 'react-bootstrap';
 import axios from 'axios';
 import {
     FaArrowRight,
-    FaCheck,
     FaFileAlt,
     FaLightbulb,
     FaListUl,
@@ -109,15 +108,6 @@ const Start = ({ onSessionStart, onAdvanceStage, setLabels }) => {
                                 </>
                             )}
                         </Button>
-                        <span className="start-file-note">
-                            <FaCheck aria-hidden="true" /> Review every result before export
-                        </span>
-                    </div>
-
-                    <div className="start-details" aria-label="Supported workflow details">
-                        <span>Excel and CSV files</span>
-                        <span>Editable themes</span>
-                        <span>Exportable results</span>
                     </div>
 
                     {error && (
