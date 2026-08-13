@@ -1,13 +1,13 @@
 {
-  "_Tab-CGBeEnkV.js": {
-    "file": "assets/Tab-CGBeEnkV.js",
+  "_Tab-BXZNuh8P.js": {
+    "file": "assets/Tab-BXZNuh8P.js",
     "name": "Tab",
     "imports": [
       "index.html"
     ]
   },
   "index.html": {
-    "file": "assets/index-DLsfhp_6.js",
+    "file": "assets/index-DfuLi6l1.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -16,30 +16,30 @@
       "src/components/Analyze.jsx"
     ],
     "css": [
-      "assets/index-OpCklVUd.css"
+      "assets/index-wsFc8_Y7.css"
     ]
   },
   "src/components/Analyze.jsx": {
-    "file": "assets/Analyze-B5nM_kHe.js",
+    "file": "assets/Analyze-3Oyw6EIr.js",
     "name": "Analyze",
     "src": "src/components/Analyze.jsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_Tab-CGBeEnkV.js"
+      "_Tab-BXZNuh8P.js"
     ],
     "css": [
       "assets/Analyze-D_gjjoiV.css"
     ]
   },
   "src/components/Review.jsx": {
-    "file": "assets/Review-BQYQfENO.js",
+    "file": "assets/Review-DjXpWG__.js",
     "name": "Review",
     "src": "src/components/Review.jsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_Tab-CGBeEnkV.js"
+      "_Tab-BXZNuh8P.js"
     ]
   }
 }

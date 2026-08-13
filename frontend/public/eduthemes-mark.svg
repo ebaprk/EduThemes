@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="EduThemes">
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="#315f9f"/>
+  <path d="M13 18.5c7-1.3 13.4.5 19 5.4v25.6c-5.1-4-11.4-5.7-19-4.4V18.5Z" fill="#fff"/>
+  <path d="M51 18.5c-7-1.3-13.4.5-19 5.4v25.6c5.1-4 11.4-5.7 19-4.4V18.5Z" fill="#eaf3fc"/>
+  <path d="M32 24v25.5" fill="none" stroke="#315f9f" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M18.5 27.5c3.4-.1 6.3.7 8.8 2.2M18.5 34c3.4-.1 6.3.7 8.8 2.2M45.5 27.5c-3.4-.1-6.3.7-8.8 2.2M45.5 34c-3.4-.1-6.3.7-8.8 2.2" fill="none" stroke="#7fa6d1" stroke-width="2.3" stroke-linecap="round"/>
+</svg>

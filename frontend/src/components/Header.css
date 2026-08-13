@@ -38,10 +38,8 @@
 .site-brand__mark {
     display: block;
     flex: 0 0 auto;
-    width: 36px;
-    height: 36px;
-    border-radius: 7px;
-    object-fit: cover;
+    width: 34px;
+    height: 34px;
 }
 
 .site-brand__name {
@@ -58,8 +56,8 @@
     }
 
     .site-brand__mark {
-        width: 34px;
-        height: 34px;
+        width: 32px;
+        height: 32px;
     }
 }
 
