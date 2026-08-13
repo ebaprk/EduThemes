@@ -9,7 +9,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 const DEFAULT_THEME_COLOR = '#315f9f';
 const THEME_COLORS = ['#315f9f', '#2f7d68', '#a65c37', '#7a5c99', '#3f7d9d', '#8a6a2f', '#556b5d', '#9a4f61'];
 
-const LabelCreationWindow = ({ labels = [], setLabels, deleteLabels, buttonBool=true }) => {
+const LabelCreationWindow = ({ labels = [], setLabels, deleteLabels, buttonBool=true, addOnly=false }) => {
     const [newLabel, setNewLabel] = useState('');
     const [labelDescription, setLabelDescription] = useState('');
     const [selectedColor, setSelectedColor] = useState(DEFAULT_THEME_COLOR);
@@ -236,7 +236,7 @@ const LabelCreationWindow = ({ labels = [], setLabels, deleteLabels, buttonBool=
                     
                     <div className="theme-manager-header">
                         <h5 className="mb-0">Current themes ({labels.length}/10)</h5>
-                        <Form.Group controlId="formFile" className="theme-manager-import">
+                        {!addOnly && <Form.Group controlId="formFile" className="theme-manager-import">
                             <Form.Control 
                                 type="file" 
                                 accept=".txt,.csv" 
@@ -252,12 +252,14 @@ const LabelCreationWindow = ({ labels = [], setLabels, deleteLabels, buttonBool=
                             delay={{ show: 250, hide: 400 }}
                             overlay={renderTooltip}
                             >
+                                <span className="theme-import-help" role="button" tabIndex="0" aria-label="Theme import format help">
                                 <svg style={{margin: '2px'}} xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-question-circle" viewBox="0 0 16 16">
                                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
                                     <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"/>
                                 </svg>
+                                </span>
                             </OverlayTrigger>
-                        </Form.Group>
+                        </Form.Group>}
                     </div>
                     
                     <ListGroup>
@@ -286,7 +288,7 @@ const LabelCreationWindow = ({ labels = [], setLabels, deleteLabels, buttonBool=
                                             )}
                                         </div>
                                     </div>
-                                    <div className="theme-manager-item__actions">
+                                    {!addOnly && <div className="theme-manager-item__actions">
                                         <Button 
                                             variant="outline-secondary" 
                                             size="sm" 
@@ -302,7 +304,7 @@ const LabelCreationWindow = ({ labels = [], setLabels, deleteLabels, buttonBool=
                                         >
                                             Delete
                                         </Button>
-                                    </div>
+                                    </div>}
                                 </ListGroup.Item>
                             ))
                         )}

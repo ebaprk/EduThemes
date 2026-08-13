@@ -8,6 +8,7 @@ import axios from 'axios';
 import { FaArrowRight, FaTags } from 'react-icons/fa';
 import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowHeader from './WorkflowHeader';
+import WorkflowAlert from './WorkflowAlert';
 
 const Preview = ({ 
   sessionId, 
@@ -20,7 +21,8 @@ const Preview = ({
   setClaudeData, 
   setSvmData, 
   onAdvanceStage, 
-  projectMetadata 
+    projectMetadata,
+    uploadSummary,
 }) => {
     const [selectedEntry, setSelectedEntry] = useState(null);
     const [selectedIndex, setSelectedIndex] = useState(null);
@@ -29,9 +31,9 @@ const Preview = ({
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
     const [error, setError] = useState(null);
+    const [suggestionError, setSuggestionError] = useState(null);
 
     useEffect(() => {
-        console.log("hai")
       if (dataset && dataset.length > 0 && selectedEntry === null) {
         setSelectedEntry(dataset[0]);
         setSelectedIndex(0);
@@ -70,12 +72,12 @@ const Preview = ({
 
         if (entry && index !== null) {
             // Handle table row theme change
-            const updatedDataset = [...dataset];
-            const currentEntry = updatedDataset[index];
-            
+            const currentEntry = dataset[index];
+
             if (!currentEntry.themes?.some(t => t.name === newTheme)) {
-                currentEntry.themes = [...(currentEntry.themes || []), theme];
-                setDataset(updatedDataset);
+                setDataset(dataset.map((item, itemIndex) => itemIndex === index
+                    ? { ...item, themes: [...(item.themes || []), theme] }
+                    : item));
             }
         } else if (selectedEntry) {
             // Handle selected entry theme change
@@ -102,19 +104,18 @@ const Preview = ({
 
     const removeTheme = (themeName, ind = null, themeIndex = null) => {
         if (ind != null) { 
-            let updatedDataset = [...dataset];
-            // Remove the theme at the specified themeIndex from the themes array
-            updatedDataset[ind].themes = updatedDataset[ind].themes?.filter((_, idx) => idx !== themeIndex) || [];
-            setDataset(updatedDataset);
+            setDataset(dataset.map((item, itemIndex) => itemIndex === ind
+                ? { ...item, themes: item.themes?.filter((_, idx) => idx !== themeIndex) || [] }
+                : item));
             //console.log('REMOVED', updatedDataset);
         }
         else{
-            console.log('huh')
-            setSelectedEntry((prev) => ({
-                ...prev,
-                themes: prev.themes?.filter((theme) => theme.name !== themeName) || [],
-            }));
-            saveThemes();
+            const updatedEntry = {
+                ...selectedEntry,
+                themes: selectedEntry.themes?.filter((theme) => theme.name !== themeName) || [],
+            };
+            setSelectedEntry(updatedEntry);
+            setDataset(dataset.map((item, index) => index === selectedIndex ? updatedEntry : item));
             //setTimeout(() => saveThemes(), 0);
         }
         
@@ -123,7 +124,7 @@ const Preview = ({
 
     const handleGetSuggestedThemes = async () => {
         setLoadingSuggestions(true);
-        setError(null);
+        setSuggestionError(null);
         
         try {
             if (showSuggestions) {
@@ -141,11 +142,11 @@ const Preview = ({
                     setShowSuggestions(true);
                 }
             } else {
-                setError("No themes could be generated. Please check data or try again.");
+                setSuggestionError("No themes were generated. Try again or add themes manually.");
             }
         } catch (error) {
             console.error("Error getting suggested themes:", error.response?.data || error.message);
-            setError(getApiErrorMessage(error, "We couldn't generate theme suggestions."));
+            setSuggestionError(getApiErrorMessage(error, "We couldn't generate theme suggestions."));
         } finally {
             setLoadingSuggestions(false);
         }
@@ -178,15 +179,12 @@ const Preview = ({
                 }))
                 .filter((entry) => entry.themes.length > 0);
 
-            console.log(`Submitting ${manualCodings.length} manually coded responses`);
-
             const response = await axios.post(`${API_URL}/session/${sessionId}/submit-manual-coding`, {
                 labels,
                 manual_codings: manualCodings,
                 apiKey: projectMetadata.apiKey
             });
 
-            console.log(response.data);
             setClaudeData(response.data.claude_data);
             setSvmData(response.data.svm_data);
             onAdvanceStage();
@@ -211,7 +209,16 @@ const Preview = ({
                 description="Create a useful theme set, code a representative sample, and give the AI a strong foundation for classification."
             />
 
-            {error && <Alert variant="danger" className="workflow-alert" dismissible onClose={() => setError(null)}>{error}</Alert>}
+            <WorkflowAlert message={error} onClose={() => setError(null)} />
+
+            {uploadSummary && (
+                <div className="dataset-summary" role="status" aria-label="Uploaded dataset summary">
+                    <strong>{uploadSummary.response_count} responses ready</strong>
+                    <span>Response column: {uploadSummary.response_column}</span>
+                    {uploadSummary.theme_column && <span>Theme column: {uploadSummary.theme_column}</span>}
+                    {uploadSummary.blank_rows_skipped > 0 && <span>{uploadSummary.blank_rows_skipped} blank rows skipped</span>}
+                </div>
+            )}
 
             <Row className="g-4 align-items-stretch">
                 <Col lg={4} xl={3} className="preview-sidebar">
@@ -292,7 +299,14 @@ const Preview = ({
                         <Card.Header>
                             <div className="workflow-toolbar">
                             <div className="workflow-toolbar__group">
-                                <LabelModal labels={labels || []} setLabels={setLabels} />
+                                <LabelModal
+                                    labels={labels || []}
+                                    setLabels={setLabels}
+                                    onDeleteLabel={(themeName) => setDataset(dataset.map((entry) => ({
+                                        ...entry,
+                                        themes: (entry.themes || []).filter((theme) => theme.name !== themeName),
+                                    })))}
+                                />
                                 <Button 
                                     variant="outline-primary" 
                                     onClick={() => setShowSuggestions(true)}
@@ -310,9 +324,11 @@ const Preview = ({
                                     onClick={handleReview} 
                                     disabled={
                                         labels.length === 0 || 
+                                        codedCount === 0 ||
                                         !sessionId || 
                                         isLoading
                                     }
+                                    title={codedCount === 0 ? 'Assign at least one theme to a response before continuing.' : undefined}
                                 >
                                     {isLoading ? (
                                         <>
@@ -359,6 +375,13 @@ const Preview = ({
                                                     onClick={() => handleSelectEntry(entry, index)}                                                     
                                                     className={index === selectedIndex ? 'is-selected' : ''}
                                                     aria-selected={index === selectedIndex}
+                                                    tabIndex="0"
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter' || event.key === ' ') {
+                                                            event.preventDefault();
+                                                            handleSelectEntry(entry, index);
+                                                        }
+                                                    }}
                                                 >
                                                     <td 
                                                         className="text-center align-middle" 
@@ -437,6 +460,11 @@ const Preview = ({
                     <Modal.Title>Theme suggestions</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
+                    {suggestionError && (
+                        <Alert variant="danger" role="alert" dismissible onClose={() => setSuggestionError(null)}>
+                            {suggestionError}
+                        </Alert>
+                    )}
                     <div className="suggestions-toolbar">
                         <span>
                             {suggestedThemes.length > 0 ? 

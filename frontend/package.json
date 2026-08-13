@@ -28,7 +28,7 @@
   "scripts": {
     "start": "vite --port 3000",
     "build": "vite build",
-    "test": "vite preview",
+    "test": "node --test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

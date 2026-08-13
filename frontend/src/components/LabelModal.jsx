@@ -9,36 +9,45 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 const DEFAULT_THEME_COLOR = '#315f9f';
 const THEME_COLORS = ['#315f9f', '#2f7d68', '#a65c37', '#7a5c99', '#3f7d9d', '#8a6a2f', '#556b5d', '#9a4f61'];
 
-const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
+const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) => {
     const [newLabel, setNewLabel] = useState('');
     const [labelDescription, setLabelDescription] = useState('');
     const [selectedColor, setSelectedColor] = useState(DEFAULT_THEME_COLOR);
     const [show, setShow] = useState(false);
     const [editIndex, setEditIndex] = useState(null);
     const [formMode, setFormMode] = useState('add');
+    const [formError, setFormError] = useState('');
 
     const toggleShow = () => setShow(!show);
 
     const renderTooltip = (props) => (
         <Tooltip id="button-tooltip" {...props}>
-        CSV files must have a row for every theme, consisting of a theme name and a description in two columns. TXT files can be seperated by commas and newlines to replicate this.
+        Use one theme per row: theme name, then description. TXT files may use the same comma-separated format.
         </Tooltip>
     );
  
     const addLabel = () => {
-        if (newLabel.trim() === '' || 
-            labels.some(label => label.name.toLowerCase() === newLabel.toLowerCase()) || 
-            labels.length >= 10) return;
+        const trimmedName = newLabel.trim();
+        if (!trimmedName) return;
+        if (labels.some(label => label.name.toLowerCase() === trimmedName.toLowerCase())) {
+            setFormError('Theme names must be unique.');
+            return;
+        }
+        if (labels.length >= 10) {
+            setFormError('You can create up to 10 themes.');
+            return;
+        }
 
         setLabels([...labels, { 
-            name: newLabel, 
-            description: labelDescription, 
+            name: trimmedName,
+            description: labelDescription.trim(),
             color: selectedColor 
         }]);
         
         setNewLabel('');
         setLabelDescription('');
         setSelectedColor(DEFAULT_THEME_COLOR);
+        setFormError('');
     };
 
     const startEditLabel = (index) => {
@@ -56,12 +65,15 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
         if (labels.some((label, idx) => 
             idx !== editIndex && 
             label.name.toLowerCase() === newLabel.toLowerCase()
-        )) return;
+        )) {
+            setFormError('Theme names must be unique.');
+            return;
+        }
 
         const updatedLabels = [...labels];
         updatedLabels[editIndex] = {
-            name: newLabel,
-            description: labelDescription,
+            name: newLabel.trim(),
+            description: labelDescription.trim(),
             color: selectedColor
         };
         
@@ -72,6 +84,7 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
         setSelectedColor(DEFAULT_THEME_COLOR);
         setEditIndex(null);
         setFormMode('add');
+        setFormError('');
     };
 
     const cancelEdit = () => {
@@ -83,7 +96,10 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
     };
 
     const deleteLabel = (index) => {
+        const label = labels[index];
+        if (!window.confirm(`Delete “${label.name}”? This also removes it from coded responses.`)) return;
         setLabels(labels.filter((_, idx) => idx !== index));
+        onDeleteLabel?.(label.name);
        
         if (editIndex === index) {
             cancelEdit();
@@ -95,6 +111,7 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
         if (!file) return;
 
         const reader = new FileReader();
+        reader.onerror = () => setFormError('The theme file could not be read.');
         reader.readAsText(file);
         reader.onload = (e) => {
             const text = e.target.result;
@@ -132,7 +149,12 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
                 }
             });
 
-            setLabels(newLabels);
+            if (newLabels.length === labels.length) {
+                setFormError('No new themes were found. Use “Theme name, description” on each line.');
+            } else {
+                setLabels(newLabels);
+                setFormError('');
+            }
         };
     };
 
@@ -155,13 +177,15 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
                 </Modal.Header>
                 <Modal.Body>
                     <Form onSubmit={handleSubmit}>
+                        {formError && <div className="theme-form-error" role="alert">{formError}</div>}
                         <Form.Group className="mb-3">
                             <Form.Label>Theme name</Form.Label>
                             <Form.Control
                                 type="text"
                                 placeholder="Enter theme name"
                                 value={newLabel}
-                                onChange={(e) => setNewLabel(e.target.value)}
+                                onChange={(e) => { setNewLabel(e.target.value); setFormError(''); }}
+                                aria-invalid={Boolean(formError)}
                                 maxLength={30}
                             />
                         </Form.Group>
@@ -234,10 +258,12 @@ const LabelModal = ({ labels = [], setLabels, buttonBool=true }) => {
                             delay={{ show: 250, hide: 400 }}
                             overlay={renderTooltip}
                             >
+                                <span className="theme-import-help" role="button" tabIndex="0" aria-label="Theme import format help">
                                 <svg style={{margin: '2px'}} xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-question-circle" viewBox="0 0 16 16">
                                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
                                     <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"/>
                                 </svg>
+                                </span>
                             </OverlayTrigger>
                         </Form.Group>
                     </div>

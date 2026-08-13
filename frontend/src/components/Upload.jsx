@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
-import { Button, Form, Alert, Container, Card, Spinner, Row, Col } from 'react-bootstrap';
+import React, { useEffect, useState } from 'react';
+import { Button, Form, Container, Card, Spinner, Row, Col } from 'react-bootstrap';
 import { FaArrowRight, FaCheck, FaFileExcel, FaLock, FaUpload } from 'react-icons/fa';
 import axios from 'axios';
 import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowHeader from './WorkflowHeader';
+import WorkflowAlert from './WorkflowAlert';
 
-const Upload = ({ sessionId, onAdvanceStage, setDataset, setVisualization, setProjectMetadata }) => {
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
+
+const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualization, setProjectMetadata, setUploadSummary }) => {
     const [file, setFile] = useState(null);
     const [error, setError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -13,6 +16,21 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setVisualization, setPr
     const [researchQuestion, setResearchQuestion] = useState('');
     const [additionalContext, setAdditionalContext] = useState('');
     const [apiKey, setApiKey] = useState('');
+    const [availableModels, setAvailableModels] = useState(null);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        fetch(`${API_URL}/models`, { signal: controller.signal })
+            .then((response) => response.ok ? response.json() : null)
+            .then((data) => {
+                if (!data?.models) return;
+                setAvailableModels(data.models);
+                const configured = Object.entries(data.models).filter(([, enabled]) => enabled);
+                if (configured.length === 1) setApiKey(configured[0][0]);
+            })
+            .catch(() => {});
+        return () => controller.abort();
+    }, []);
 
     const handleFileChange = (e) => {
         const selectedFile = e.target.files[0];
@@ -23,15 +41,20 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setVisualization, setPr
             'text/csv'
         ];
         
-        if (selectedFile && (
+        const extension = selectedFile?.name.split('.').pop()?.toLowerCase();
+
+        if (selectedFile?.size > MAX_FILE_SIZE) {
+            setFile(null);
+            setError('Choose a file smaller than 20 MB.');
+        } else if (selectedFile && (
             allowedTypes.includes(selectedFile.type) || 
-            selectedFile.name.endsWith('.csv')
+            ['xlsx', 'xls', 'csv'].includes(extension)
         )) {
             setFile(selectedFile);
             setError(null);
         } else {
             setFile(null);
-            setError('Please upload a valid Excel or CSV file (.xlsx, .xls, .csv)');
+            setError('Choose a valid Excel or CSV file (.xlsx, .xls, or .csv).');
         }
     };
 
@@ -41,13 +64,18 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setVisualization, setPr
             return;
         }
 
-        if (!researchQuestion) {
+        if (!researchQuestion.trim()) {
             setError('Please enter a research question');
             return;
         }
 
-        if (!projectDescription) {
+        if (!projectDescription.trim()) {
             setError('Please enter a project description');
+            return;
+        }
+
+        if (!apiKey) {
+            setError('Select Claude or ChatGPT as the analysis model.');
             return;
         }
 
@@ -66,8 +94,6 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setVisualization, setPr
                 }
             });
 
-            console.log('Dataset uploaded:', response.data);
-
             setProjectMetadata({
                 researchQuestion,
                 projectDescription,
@@ -76,8 +102,9 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setVisualization, setPr
             });
 
             setDataset(response.data.preprocessed_dataset);
-            console.log(response.data.preprocessed_dataset);
+            setLabels(response.data.predefined_themes || []);
             setVisualization(response.data.visualization_image);
+            setUploadSummary(response.data.dataset_summary || null);
             onAdvanceStage();
         } catch (err) {
             console.error('Failed to upload dataset:', err);
@@ -96,11 +123,7 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setVisualization, setPr
                 description="Tell EduThemes what you want to learn, then add the response file you want to explore."
             />
 
-            {error && (
-                <Alert variant="danger" role="alert" className="workflow-alert" dismissible onClose={() => setError(null)}>
-                    {error}
-                </Alert>
-            )}
+            <WorkflowAlert message={error} onClose={() => setError(null)} />
 
             <Row className="g-4 align-items-start">
                 <Col lg={4}>
@@ -188,10 +211,18 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setVisualization, setPr
                                                     onChange={(event) => setApiKey(event.target.value)}
                                                 >
                                                     <option value="">Select a model</option>
-                                                    <option value="claude">Claude</option>
-                                                    <option value="chatgpt">ChatGPT</option>
+                                                    <option value="claude" disabled={availableModels?.claude === false}>
+                                                        Claude{availableModels?.claude === false ? ' (unavailable)' : ''}
+                                                    </option>
+                                                    <option value="chatgpt" disabled={availableModels?.chatgpt === false}>
+                                                        ChatGPT{availableModels?.chatgpt === false ? ' (unavailable)' : ''}
+                                                    </option>
                                                 </Form.Select>
-                                                <Form.Text>Choose the model available for this analysis.</Form.Text>
+                                                <Form.Text>
+                                                    {availableModels && !Object.values(availableModels).some(Boolean)
+                                                        ? 'No analysis model is configured. Contact the site administrator.'
+                                                        : 'Required. Choose the model configured for this analysis.'}
+                                                </Form.Text>
                                             </Form.Group>
                                         </Col>
                                     </Row>
@@ -202,7 +233,7 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setVisualization, setPr
                                         <span className="workflow-form-section__number">03</span>
                                         <div>
                                             <h2>Upload the responses</h2>
-                                            <p>Supported formats: .xlsx, .xls, and .csv.</p>
+                                            <p>Supported formats: .xlsx, .xls, and .csv, up to 20 MB.</p>
                                         </div>
                                     </div>
 
@@ -217,19 +248,23 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setVisualization, setPr
                                             onChange={handleFileChange}
                                             required
                                         />
-                                        <Form.Text>The first column should contain the text responses to analyze.</Form.Text>
+                                        <Form.Text>
+                                            The first column should contain the text responses to analyze.{' '}
+                                            <a href="/assets/Example.xlsx" download>Download an example file</a>.
+                                        </Form.Text>
                                     </Form.Group>
                                 </section>
 
                                 <div className="upload-form-footer">
                                     <span className="upload-form-footer__note">
-                                        <FaLock aria-hidden="true" /> Your file is used only for this analysis session.
+                                        <FaLock aria-hidden="true" /> Session files expire after 24 hours and are removed when you start another analysis.
                                     </span>
                                     <Button
                                         variant="primary"
                                         type="submit"
                                         className="upload-submit"
-                                        disabled={!file || !sessionId || !projectDescription || !researchQuestion || isLoading}
+                                        disabled={!file || !sessionId || !projectDescription.trim() || !researchQuestion.trim() || !apiKey || isLoading}
+                                        aria-busy={isLoading}
                                     >
                                         {isLoading ? (
                                             <>

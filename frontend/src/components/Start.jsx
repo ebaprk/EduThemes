@@ -10,6 +10,7 @@ import {
 } from 'react-icons/fa';
 import { API_URL, getApiErrorMessage } from '../api';
 import './Start.css';
+import WorkflowAlert from './WorkflowAlert';
 
 const workflowSteps = [
     {
@@ -38,7 +39,7 @@ const workflowSteps = [
     },
 ];
 
-const Start = ({ onSessionStart, onAdvanceStage, setLabels }) => {
+const Start = ({ onSessionStart, onAdvanceStage, setLabels, notice, onDismissNotice }) => {
     const [isStarting, setIsStarting] = useState(false);
     const [error, setError] = useState(null);
 
@@ -68,6 +69,11 @@ const Start = ({ onSessionStart, onAdvanceStage, setLabels }) => {
 
     return (
         <main className="start-page">
+            {notice && (
+                <Alert variant="warning" role="status" dismissible onClose={onDismissNotice} className="start-alert start-session-notice">
+                    {notice}
+                </Alert>
+            )}
             <section className="start-hero" aria-labelledby="start-title">
                 <div className="start-hero__content">
                     <div className="start-eyebrow">
@@ -110,18 +116,12 @@ const Start = ({ onSessionStart, onAdvanceStage, setLabels }) => {
                         </Button>
                     </div>
 
-                    {error && (
-                        <Alert
-                            variant="danger"
-                            role="alert"
-                            dismissible
-                            onClose={() => setError(null)}
-                            className="start-alert"
-                        >
-                            <Alert.Heading as="h2">Unable to start analysis</Alert.Heading>
-                            <div>{error}</div>
-                        </Alert>
-                    )}
+                    <WorkflowAlert
+                        message={error}
+                        heading="Unable to start analysis"
+                        onClose={() => setError(null)}
+                        className="start-alert"
+                    />
                 </div>
 
                 <div className="start-preview" aria-label="Example analysis summary">

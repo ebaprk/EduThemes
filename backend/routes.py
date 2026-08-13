@@ -1,18 +1,14 @@
 import os
 from flask import Blueprint, request, jsonify
-from flask_cors import cross_origin
 from werkzeug.utils import secure_filename
-import uuid
 import sqlite3
 from datetime import datetime, timedelta
-import time
 import pandas as pd
 import json
-import base64
-import random
 #from src.llm.claude_analysis import suggest_themes, classify_responses_by_themes, generate_summary, process_chat_query
 
 from src.llm.serve_llm import serve_llm
+from dataset_utils import preprocess_dataframe
 
 routes_bp = Blueprint('routes', __name__)
 
@@ -21,11 +17,43 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DATABASE = 'sessions.db'
 COLORS = ['#f44336', '#e81e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722']
+SUPPORTED_EXTENSIONS = {'.xlsx', '.xls', '.csv'}
+
+
+def error_response(message, status=400, code='REQUEST_ERROR', retryable=False, details=None):
+    payload = {
+        'error': message,
+        'code': code,
+        'retryable': retryable,
+    }
+    if details:
+        payload['details'] = details
+    return jsonify(payload), status
+
+
+def require_session(session_id):
+    session = get_session(session_id)
+    if not session:
+        return None, error_response(
+            'This analysis session has expired or is no longer available.',
+            410,
+            'SESSION_EXPIRED',
+        )
+    return session, None
+
+
+def get_model(data):
+    model = (data or {}).get('apiKey', '')
+    return serve_llm(model)
+
+
+def get_project_context(session):
+    description = session['project_description'] or ''
+    additional = session['additional_context'] or ''
+    return f"{description}\n\nAdditional context: {additional}" if additional else description
 
 def cleanup_expired_sessions():
     now = datetime.now()
-
-    print(now)
 
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
@@ -39,15 +67,18 @@ def cleanup_expired_sessions():
     print(f"[Session Cleanup] Deleted {deleted} expired session(s)")
 
     for session_id in expired_sessions:
-        for root, _, files in os.walk(UPLOAD_FOLDER):
-            for file in files:
-                if file.startswith(session_id):
-                    file_path = os.path.join(root, file)
-                    try:
-                        os.remove(file_path)
-                        print(f"Deleted file: {file_path}")
-                    except Exception as e:
-                        print(f"Error deleting file {file_path}: {e}")
+        delete_session_files(session_id)
+
+
+def delete_session_files(session_id):
+    for root, _, files in os.walk(UPLOAD_FOLDER):
+        for filename in files:
+            if filename.startswith(session_id):
+                file_path = os.path.join(root, filename)
+                try:
+                    os.remove(file_path)
+                except OSError:
+                    continue
 
 def init_db():
     with sqlite3.connect(DATABASE) as conn:
@@ -132,29 +163,79 @@ def start_session():
         cleanup_expired_sessions()
         session_id = create_session()
         return jsonify({"session_id": session_id})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return error_response(
+            'The analysis service could not create a session. Please try again.',
+            500,
+            'SESSION_START_FAILED',
+            True,
+        )
+
+
+@routes_bp.route('/session/<session_id>', methods=['GET'])
+def session_status(session_id):
+    cleanup_expired_sessions()
+    session, error = require_session(session_id)
+    if error:
+        return error
+
+    return jsonify({
+        'session_id': session['id'],
+        'status': session['status'],
+        'expires_at': session['expires_at'],
+        'dataset_filename': session['dataset_filename'],
+    })
+
+
+@routes_bp.route('/session/<session_id>', methods=['DELETE'])
+def delete_session(session_id):
+    session, error = require_session(session_id)
+    if error:
+        return error
+
+    delete_session_files(session_id)
+    with sqlite3.connect(DATABASE) as conn:
+        conn.execute('DELETE FROM sessions WHERE id = ?', (session_id,))
+        conn.commit()
+    return '', 204
 
 
 @routes_bp.route('/session/<session_id>/upload-dataset', methods=['POST'])
 def upload_dataset(session_id):
+    filepath = None
     try:
         cleanup_expired_sessions()
-        session = get_session(session_id)
-        if not session:
-            return jsonify({"error": "Invalid session"}), 400
+        session, error = require_session(session_id)
+        if error:
+            return error
 
         if 'dataset' not in request.files:
-            return jsonify({"error": "No file uploaded"}), 400
+            return error_response('Choose an Excel or CSV file to continue.', code='FILE_REQUIRED')
 
         file = request.files['dataset']
-        
-        research_question = request.form.get('researchQuestion', '')
-        project_description = request.form.get('projectDescription', '')
+        research_question = request.form.get('researchQuestion', '').strip()
+        project_description = request.form.get('projectDescription', '').strip()
         additional_context = request.form.get('additionalContext', '')
-        api_key = request.form.get('apiKey', '')
+        model = request.form.get('apiKey', '')
+
+        if not research_question:
+            return error_response('Enter a research question to continue.', code='RESEARCH_QUESTION_REQUIRED')
+        if not project_description:
+            return error_response('Enter a project description to continue.', code='PROJECT_DESCRIPTION_REQUIRED')
+        try:
+            serve_llm(model)
+        except ValueError as exc:
+            return error_response(str(exc), code='MODEL_REQUIRED')
+
+        original_filename = secure_filename(file.filename or '')
+        file_ext = os.path.splitext(original_filename)[1].lower()
+        if file_ext not in SUPPORTED_EXTENSIONS:
+            return error_response(
+                'Use an Excel or CSV file (.xlsx, .xls, or .csv).',
+                code='UNSUPPORTED_FILE_TYPE',
+            )
+
         filename = secure_filename(f"{session_id}_{os.path.splitext(file.filename)[0]}")
-        file_ext = os.path.splitext(file.filename)[1]
         filepath = os.path.join(UPLOAD_FOLDER, f"{filename}{file_ext}")
         file.save(filepath)
         try:
@@ -165,71 +246,15 @@ def upload_dataset(session_id):
             else:
                 raise ValueError("Unsupported file format. Please use Excel or CSV files.")
             
-            responses_col = None
-            if 'Response' in df.columns:
-                responses_col = df['Response']
-            elif 'Responses' in df.columns:
-                responses_col = df['Responses']
-            else:
-                for col in df.columns:
-                    if 'response' in col.lower() or 'answer' in col.lower() or 'text' in col.lower():
-                        responses_col = df[col]
-                        break
-                
-                if responses_col is None and len(df.columns) > 0:
-                    responses_col = df.iloc[:, 0]
-            
-            themes_col = None
-            if 'Themes' in df.columns:
-                themes_col = df['Themes']
-            elif 'Theme' in df.columns:
-                themes_col = df['Theme']
-            else:
-                for col in df.columns:
-                    if 'theme' in col.lower() or 'category' in col.lower() or 'tag' in col.lower():
-                        themes_col = df[col]
-                        break
-            
-            if responses_col is None or len(responses_col) == 0:
-                raise ValueError("No responses found in the uploaded file.")
-            
-            responses = responses_col.dropna().astype(str).tolist()
-            
-            predefined_themes = []
-            if themes_col is not None:
-                unique_themes = themes_col.dropna().astype(str).unique()
-                
-                for theme in unique_themes:
-                    if theme and theme.lower() != 'none' and theme.strip():
-                        theme_color = '#' + ''.join(random.choice(COLORS))#[random.choice('0123456789ABCDE') for _ in range(6)])
-                        predefined_themes.append({
-                            'name': theme.strip(),
-                            'description': f"Theme: {theme.strip()}",
-                            'color': theme_color
-                        })
-            
-            preprocessed_data = []
-            for i, response in enumerate(responses):
-                row_themes = []
-                if themes_col is not None and i < len(themes_col):
-                    theme_value = themes_col.iloc[i] if i < len(themes_col) else None
-                    if pd.notna(theme_value) and str(theme_value).strip().lower() != 'none' and str(theme_value).strip():
-                        theme_obj = next((t for t in predefined_themes if t['name'] == theme_value.strip()), None)
-                        if theme_obj:
-                            row_themes.append(theme_obj)
-                
-                preprocessed_data.append({
-                    "original": response,
-                    "cleaned": response.strip(),
-                    "themes": row_themes
-                })
+            preprocessed_data, predefined_themes, dataset_summary = preprocess_dataframe(df, COLORS)
             
             if predefined_themes:
                 update_session(session_id, labels=json.dumps(predefined_themes))
-                print(f"Found {len(predefined_themes)} predefined themes: {[t['name'] for t in predefined_themes]}")
                 
-        except Exception as e:
-            return jsonify({"error": f"Error processing file: {str(e)}"}), 400
+        except (ValueError, pd.errors.ParserError, UnicodeDecodeError) as exc:
+            if filepath and os.path.exists(filepath):
+                os.remove(filepath)
+            return error_response(str(exc), 422, 'FILE_PROCESSING_FAILED')
 
         vis_placeholder = None
         update_session(session_id, 
@@ -245,11 +270,19 @@ def upload_dataset(session_id):
             "message": "Dataset uploaded successfully",
             "session_id": session_id,
             "preprocessed_dataset": preprocessed_data,
-            "visualization_image": vis_placeholder
+            "predefined_themes": predefined_themes,
+            "visualization_image": vis_placeholder,
+            "dataset_summary": {"filename": original_filename, **dataset_summary},
         })
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        if filepath and os.path.exists(filepath):
+            os.remove(filepath)
+        return error_response(
+            'The file could not be uploaded. Your session is still available; please try again.',
+            500,
+            'UPLOAD_FAILED',
+            True,
+        )
 
 
 @routes_bp.route('/session/<session_id>/suggest-themes', methods=['POST'])
@@ -257,11 +290,13 @@ def get_theme_suggestions(session_id):
     spec_bool_py = False
     try:
         cleanup_expired_sessions()
-        session = get_session(session_id)
-        if not session:
-            return jsonify({"error": "Invalid session"}), 400
+        session, error = require_session(session_id)
+        if error:
+            return error
             
-        data = request.get_json()
+        data = request.get_json(silent=True)
+        if not data:
+            return error_response('The suggestion request was empty.', code='INVALID_REQUEST')
         try:
             specBool = data.get('specBool', '')
             if specBool and specBool == 'true':
@@ -271,15 +306,11 @@ def get_theme_suggestions(session_id):
 
         if spec_bool_py:
             research_question = session['research_question']
-            project_description = session['project_description']
-            api_key = data.get('apiKey', '') 
+            project_description = get_project_context(session)
             responses = data.get('response', '')
-            print(responses)
-            print(responses)
-
-            # CURRENT STATE
-            llm_instance = serve_llm(api_key)
-            print(api_key, llm_instance)
+            if not responses:
+                return error_response('There are no responses to analyze for this theme.', code='NO_RESPONSES')
+            llm_instance = get_model(data)
             
             suggested_themes = llm_instance.suggest_themes(
                 responses=responses,
@@ -295,7 +326,6 @@ def get_theme_suggestions(session_id):
             })
 
         predefined_themes = data.get('labels', [])
-        api_key = data.get('apiKey', '') 
         
         dataset_path = session['dataset_path']
         if not dataset_path or not os.path.exists(dataset_path):
@@ -328,17 +358,11 @@ def get_theme_suggestions(session_id):
         else:
             return jsonify({"error": "No responses found in dataset"}), 400
         
-        print(f"First 3 responses from dataset:")
-        for r in responses[:3]:
-            print(f"  - {r}")
-        print(f"Total responses: {len(responses)}")
             
         research_question = session['research_question']
-        project_description = session['project_description']
+        project_description = get_project_context(session)
 
-        # CURRENT STATE
-        llm_instance = serve_llm(api_key)
-        print(api_key, llm_instance)
+        llm_instance = get_model(data)
         
         suggested_themes = llm_instance.suggest_themes(
             responses=responses,
@@ -352,26 +376,31 @@ def get_theme_suggestions(session_id):
             "message": "Theme suggestions generated successfully",
             "suggested_themes": suggested_themes
         })
-    except Exception as e:
-        print(f"Error suggesting themes: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    except ValueError as exc:
+        return error_response(str(exc), code='MODEL_REQUIRED')
+    except Exception:
+        return error_response(
+            'Theme suggestions could not be generated. Try again or choose another model.',
+            502,
+            'THEME_SUGGESTION_FAILED',
+            True,
+        )
 
 @routes_bp.route('/session/<session_id>/submit-final-dataset', methods=['POST'])
 def submit_final_dataset(session_id):
     try:
         cleanup_expired_sessions()
-        session = get_session(session_id)
-        if not session:
-            return jsonify({"error": "Invalid session"}), 400
+        session, error = require_session(session_id)
+        if error:
+            return error
 
         data = request.get_json()
-        if not data or "dataset" not in data:
+        if not data or "dataset" not in data or "labels" not in data:
             return jsonify({"error": "Invalid request body"}), 400
 
         dataset = data["dataset"]
-        api_key = data.get('apiKey', '')
+        model = data.get('apiKey', '')
 
-        print(f"Received final dataset with {len(dataset)} entries")
         for entry in dataset:
             if 'themes' not in entry:
                 entry['themes'] = []
@@ -418,8 +447,6 @@ def submit_final_dataset(session_id):
                 #labels_str = session['labels']
                 #labels = json.loads(labels_str) if labels_str else []
                 labels = data["labels"]
-                print("loaded labels ", labels)
-                print("loaded dataset ", dataset)
                 
                 classifications = {}
                 for theme in labels:
@@ -433,25 +460,25 @@ def submit_final_dataset(session_id):
                             classifications[theme_name].append(i)
                 
                 research_question = session['research_question']
-                project_description = session['project_description']
+                project_description = get_project_context(session)
                 
-                if api_key:
-                    llm_instance = serve_llm(api_key)
-                    summary = llm_instance.generate_summary(
-                        responses=responses,
-                        themes=labels,
-                        classifications=classifications,
-                        research_question=research_question,
-                        project_description=project_description,
-                        #api_key=api_key
-                    )
-                else:
-                    summary = ""
+                llm_instance = serve_llm(model)
+                summary = llm_instance.generate_summary(
+                    responses=responses,
+                    themes=labels,
+                    classifications=classifications,
+                    research_question=research_question,
+                    project_description=project_description,
+                )
             else:
                 summary = "No dataset found to generate summary."
-        except Exception as e:
-            print(f"Error generating summary: {str(e)}")
-            summary = f"Error generating summary: {str(e)}"
+        except Exception:
+            return error_response(
+                'The summary could not be generated. Your reviewed data remains available in this browser; please retry.',
+                502,
+                'SUMMARY_GENERATION_FAILED',
+                True,
+            )
 
         final_dataset_path = os.path.join(UPLOAD_FOLDER, f"{session_id}_final_dataset.json")
         with open(final_dataset_path, 'w') as f:
@@ -474,20 +501,28 @@ def submit_final_dataset(session_id):
             "themes": list(theme_counts.values()),
             "summary": summary
         })
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    except ValueError as exc:
+        return error_response(str(exc), code='MODEL_REQUIRED')
+    except Exception:
+        return error_response(
+            'The final dataset could not be submitted. Your review is still available; please try again.',
+            500,
+            'FINAL_SUBMISSION_FAILED',
+            True,
+        )
     
 @routes_bp.route('/session/<session_id>/submit-manual-coding', methods=['POST'])
 def submit_manual_coding(session_id):
     spec_bool_py = False
     try:
         cleanup_expired_sessions()
-        session = get_session(session_id)
-        if not session:
-            return jsonify({"error": "Invalid session"}), 400
+        session, error = require_session(session_id)
+        if error:
+            return error
 
-        data = request.get_json()
+        data = request.get_json(silent=True)
+        if not data:
+            return error_response('The coding request was empty.', code='INVALID_REQUEST')
         try:
             specBool = data.get('specBool', '')
             if specBool and specBool == 'true':
@@ -497,20 +532,12 @@ def submit_manual_coding(session_id):
 
         if spec_bool_py:
             research_question = session['research_question']
-            project_description = session['project_description']
-            api_key = data.get('apiKey', '') 
+            project_description = get_project_context(session)
             responses = data.get('response', '')
             labels = data["labels"]
-            print("begin here")
-            print(responses)
-
-            # CURRENT STATE
-            llm_instance = serve_llm(api_key)
-            print(api_key, llm_instance)
+            llm_instance = get_model(data)
 
             try:
-                # CURRENT STATE
-                llm_instance = serve_llm(api_key)
                 classifications = llm_instance.classify_responses_by_themes(
                     responses=responses,
                     themes=labels,
@@ -525,29 +552,20 @@ def submit_manual_coding(session_id):
                     "svm_data": {}
                 })
                     
-            except Exception as e:
-                print(f"Error classifying responses: {str(e)}")
-                classifications = {}
-                for label in labels:
-                    theme_name = label['name']
-                    sample_count = max(1, int(len(responses) * 0.2))
-                    sample_indices = random.sample(range(len(responses)), sample_count)
-                    classifications[theme_name] = sample_indices
-                
-                return jsonify({
-                    "message": "Manual coding submitted successfully (fallback data).",
-                    "claude_data": classifications,
-                    "svm_data": {}
-                })
+            except Exception:
+                return error_response(
+                    'These responses could not be reassigned. No classifications were changed.',
+                    502,
+                    'CLASSIFICATION_FAILED',
+                    True,
+                )
 
         if not data or "labels" not in data or "manual_codings" not in data:
             return jsonify({"error": "Invalid request body"}), 400
 
         labels = data["labels"]
         manual_codings = data["manual_codings"]
-        print("begin here")
-        print(manual_codings)
-        api_key = data.get('apiKey', '') 
+        llm_instance = get_model(data)
 
 
         manual_coding_folder = os.path.join(UPLOAD_FOLDER, "manual_codings")
@@ -594,12 +612,9 @@ def submit_manual_coding(session_id):
             return jsonify({"error": "No responses found in dataset"}), 400
             
         research_question = session['research_question']
-        project_description = session['project_description']
+        project_description = get_project_context(session)
         
         try:
-            # CURRENT STATE
-            print(responses)
-            llm_instance = serve_llm(api_key)
             classifications = llm_instance.classify_responses_by_themes(
                 responses=responses,
                 themes=labels,
@@ -613,23 +628,15 @@ def submit_manual_coding(session_id):
                 "claude_data": classifications,
                 "svm_data": {}
             })
-            print(classifications)
             return rez
                 
-        except Exception as e:
-            print(f"Error classifying responses: {str(e)}")
-            classifications = {}
-            for label in labels:
-                theme_name = label['name']
-                sample_count = max(1, int(len(responses) * 0.2))
-                sample_indices = random.sample(range(len(responses)), sample_count)
-                classifications[theme_name] = sample_indices
-            
-            return jsonify({
-                "message": "Manual coding submitted successfully (fallback data).",
-                "claude_data": classifications,
-                "svm_data": {}
-            })
+        except Exception:
+            return error_response(
+                'The model could not classify the responses. Your manual coding is saved; please retry or choose another model.',
+                502,
+                'CLASSIFICATION_FAILED',
+                True,
+            )
 
         final_dataset_path = os.path.join(UPLOAD_FOLDER, f"{session_id}_final_dataset.json")
         with open(final_dataset_path, 'w') as f:
@@ -652,18 +659,24 @@ def submit_manual_coding(session_id):
             "themes": list(theme_counts.values()),
             "summary": summary
         })
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    except ValueError as exc:
+        return error_response(str(exc), code='MODEL_REQUIRED')
+    except Exception:
+        return error_response(
+            'Manual coding could not be submitted. Your work is still available in this browser.',
+            500,
+            'MANUAL_CODING_FAILED',
+            True,
+        )
 
 
 @routes_bp.route('/session/<session_id>/download-final-dataset', methods=['GET'])
 def download_final_dataset(session_id):
     try:
         cleanup_expired_sessions()
-        session = get_session(session_id)
-        if not session:
-            return jsonify({"error": "Invalid session"}), 400
+        session, error = require_session(session_id)
+        if error:
+            return error
 
         final_dataset_path = os.path.join(UPLOAD_FOLDER, f"{session_id}_final_dataset.json")
         if not os.path.exists(final_dataset_path):
@@ -683,25 +696,28 @@ def download_final_dataset(session_id):
             "final_dataset": final_dataset,
             "summary": summary
         })
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return error_response(
+            'The final dataset could not be downloaded. Please try again.',
+            500,
+            'DOWNLOAD_FAILED',
+            True,
+        )
 
 
 @routes_bp.route('/session/<session_id>/analyze-text', methods=['POST'])
 def analyze_text(session_id):
     try:
         cleanup_expired_sessions()
-        session = get_session(session_id)
-        if not session:
-            return jsonify({"error": "Invalid session"}), 400
+        session, error = require_session(session_id)
+        if error:
+            return error
             
         data = request.get_json()
         if not data or "message" not in data:
             return jsonify({"error": "Invalid request body"}), 400
             
         user_message = data["message"]
-        api_key = data.get('apiKey', '') 
         
         dataset_path = session['dataset_path']
         if not dataset_path or not os.path.exists(dataset_path):
@@ -744,7 +760,7 @@ def analyze_text(session_id):
             analysis_results = None
             
         research_question = session['research_question']
-        project_description = session['project_description']
+        project_description = get_project_context(session)
         
         final_dataset_path = os.path.join(UPLOAD_FOLDER, f"{session_id}_final_dataset.json")
         if os.path.exists(final_dataset_path):
@@ -764,7 +780,7 @@ def analyze_text(session_id):
         else:
             classifications = {}
             
-        llm_instance = serve_llm(api_key)
+        llm_instance = get_model(data)
         response_text = llm_instance.process_chat_query(
             query=user_message,
             responses=responses,
@@ -778,8 +794,12 @@ def analyze_text(session_id):
         return jsonify({
             "response": response_text
         })
-    except Exception as e:
-        print(f"Error processing chat query: {str(e)}")
-        return jsonify({
-            "response": f"I encountered an error while analyzing the data. Please try again or check if your dataset is properly uploaded."
-        }), 200
+    except ValueError as exc:
+        return error_response(str(exc), code='MODEL_REQUIRED')
+    except Exception:
+        return error_response(
+            'The analysis question could not be answered. Please try again.',
+            502,
+            'ANALYSIS_QUERY_FAILED',
+            True,
+        )

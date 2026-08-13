@@ -1,8 +1,5 @@
 import os
 import json
-import pandas as pd
-from anthropic import Anthropic
-from typing import List, Dict, Any
 import random
 import openai
 
@@ -58,8 +55,6 @@ class openai_frame:
         ]
         """
         
-        last_error = None
-        
         try:
             '''
             response = client.messages.create(
@@ -98,44 +93,28 @@ class openai_frame:
                     
                     return cleaned_themes[:max_themes]
                 except json.JSONDecodeError as e:
-                    print(f"Error parsing JSON from API response with model: {e}")
-                    print(f"JSON string: {json_str}")
+                    raise RuntimeError("The model returned an unreadable theme list.") from e
             else:
-                print(f"No valid JSON found in API response with model")
+                raise RuntimeError("The model returned an unreadable theme list.")
                 
         except Exception as e:
-            last_error = str(e)
-            print(f"Error: {last_error}")
-        
-        print(f"Error: {last_error}")
-        return [
-            {"name": "Learning Support", "description": "Mentions of how the technology assists with learning or studying"},
-            {"name": "Time Efficiency", "description": "References to saving time or completing tasks more quickly"},
-            {"name": "Information Access", "description": "Comments about accessing information or resources"}
-        ][:max_themes]
+            raise RuntimeError("ChatGPT could not generate theme suggestions.") from e
 
     @staticmethod
-    def classify_responses_by_themes(responses, themes, research_question="", project_description="", api_key=deflt_key, batch_size=10):
+    def classify_responses_by_themes(responses, themes, research_question="", project_description="", api_key=deflt_key, batch_size=10, manual_codes=None):
         if api_key is None or api_key == '':
-            #api_key = os.environ.get("ANTHROPIC_API_KEY")
-            if not api_key:
-                # back-up, if api-key not stored right, randomize themes
-                classifications = {}
-                for theme in themes:
-                    theme_name = theme['name']
-                    selected_indices = random.sample(range(len(responses)), max(3, int(len(responses) * 0.3)))
-                    classifications[theme_name] = selected_indices
-                return classifications
+            api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("ChatGPT is not configured on the analysis service.")
         
         client = _create_client(api_key)
         
         theme_names = [theme['name'] for theme in themes]
         classifications = {theme_name: [] for theme_name in theme_names}
         mcodes = {}
-        for code in manual_codes:
-            mcodes[code['index']] = code['themes'][0]
-        print("mcode")
-        print(mcodes)
+        for code in manual_codes or []:
+            if code.get('themes'):
+                mcodes[code['index']] = code['themes'][0]
 
         
         for i in range(0, len(responses), batch_size):
@@ -241,23 +220,12 @@ class openai_frame:
                         print(f"Error parsing JSON for batch {i//batch_size + 1}")
                 else:
                     print(f"No valid JSON found for batch {i//batch_size + 1}")
-                    print(result_text)
             
             except Exception as e:
-                print(f"Error processing batch {i//batch_size + 1}: {str(e)}")
-            
+                raise RuntimeError(f"ChatGPT could not classify response batch {i // batch_size + 1}.") from e
+
             if not batch_processed:
-                print(f"Failed to process batch {i//batch_size + 1}. Using random assignments.")
-                for theme_name in theme_names:
-                    sample_size = max(1, len(batch) // 5)
-                    sampled_indices = random.sample(range(len(batch)), sample_size)
-                    for idx in sampled_indices:
-                        global_idx = batch_indices[idx]
-                        #if "Unclassified" not in classifications:
-                        #    classifications['Unclassified'] = []
-                        #classifications["Unclassified"].append(global_idx)
-                        classifications[theme_name].append(global_idx)
-                        print(f"appended {global_idx} to {theme_name}")
+                raise RuntimeError(f"ChatGPT returned an unreadable classification for batch {i // batch_size + 1}.")
         
         return classifications
 
@@ -353,7 +321,7 @@ class openai_frame:
             return summary_text
                 
         except Exception as e:
-            print(f"Error generating summary: {str(e)}")
+            raise RuntimeError("ChatGPT could not generate the analysis summary.") from e
 
     @staticmethod
     def process_chat_query(query, responses, themes, classifications, research_question="", project_description="", api_key=deflt_key):

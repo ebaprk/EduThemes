@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Alert, Button, Container, OverlayTrigger, Card, Row, Col, Tab, Tabs, Tooltip } from "react-bootstrap";
+import { Button, Container, OverlayTrigger, Card, Row, Col, Tab, Tabs, Tooltip } from "react-bootstrap";
 import { Chart as ChartJS, ArcElement, Legend, Tooltip as ChartTooltip , CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { Bar, Doughnut } from "react-chartjs-2";
 import axios from "axios";
@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import { FaDownload, FaRedo } from 'react-icons/fa';
 import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowHeader from './WorkflowHeader';
+import WorkflowAlert from './WorkflowAlert';
 
 ChartJS.register(
   ChartTooltip,
@@ -19,15 +20,18 @@ ChartJS.register(
   Title
 );
 
-const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
+const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0 }) => {
   const [summary, setSummary] = useState("");
   const [error, setError] = useState(null);
+  const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   useEffect(() => {
     if (results && results.summary) {
       setSummary(results.summary);
     } else {
       const fetchSummary = async () => {
+        setIsSummaryLoading(true);
         try {
           const response = await axios.get(`${API_URL}/session/${sessionId}/download-final-dataset`);
           if (response.data && response.data.summary) {
@@ -36,6 +40,8 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
         } catch (error) {
           console.error("Error fetching summary:", error);
           setError(getApiErrorMessage(error, "We couldn't load the analysis summary."));
+        } finally {
+          setIsSummaryLoading(false);
         }
       };
       
@@ -45,6 +51,7 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
 
   const handleDownloadJSON = async () => {
     setError(null);
+    setIsDownloading(true);
     try {
       const response = await axios.get(`${API_URL}/session/${sessionId}/download-final-dataset`);
       const data = response.data;
@@ -63,6 +70,8 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
     } catch (error) {
       console.error("Error fetching dataset:", error);
       setError(getApiErrorMessage(error, "We couldn't download the dataset."));
+    } finally {
+      setIsDownloading(false);
     }
   };
   
@@ -89,11 +98,12 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
     return map;
   }, [labels]);
 
-  const themeData = results || [];
+  const themeData = Array.isArray(results) ? results : results?.themes || [];
   const totalMentions = themeData.reduce((total, item) => total + Number(item.frequency || 0), 0);
   const leadingTheme = themeData.length > 0
     ? themeData.reduce((leading, item) => Number(item.frequency || 0) > Number(leading.frequency || 0) ? item : leading)
     : null;
+  const unclassifiedCount = Number(themeData.find((item) => item.name === 'Unclassified')?.frequency || 0);
   
   return (
     <Container fluid className="workflow-page analysis-page">
@@ -104,11 +114,7 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
         description="Explore the story in your responses, compare theme frequency, and download the outputs for your next step."
       />
 
-      {error && (
-        <Alert variant="danger" role="alert" className="workflow-alert" dismissible onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
+      <WorkflowAlert message={error} onClose={() => setError(null)} />
 
       <div className="analysis-metrics">
         <div className="analysis-metric">
@@ -116,8 +122,16 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
           <strong>{themeData.length}</strong>
         </div>
         <div className="analysis-metric">
-          <span>Total classifications</span>
+          <span>Responses analyzed</span>
+          <strong>{responseCount}</strong>
+        </div>
+        <div className="analysis-metric">
+          <span>Theme mentions</span>
           <strong>{totalMentions}</strong>
+        </div>
+        <div className="analysis-metric">
+          <span>Still unclassified</span>
+          <strong>{unclassifiedCount}</strong>
         </div>
         <div className="analysis-metric">
           <span>Leading theme</span>
@@ -133,6 +147,7 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
                 <Button 
                   variant="outline-primary" 
                   onClick={handleDownloadSummary}
+                  disabled={!summary || isSummaryLoading}
                 >
                   <FaDownload className="me-2" aria-hidden="true" />
                   Download summary
@@ -140,7 +155,7 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
               </div>
               <div className="summary-content">
                 <ReactMarkdown>
-                  {summary || "No summary available."}
+                  {isSummaryLoading ? 'Loading your analysis summary…' : summary || "No summary is available. Retry by returning to the review step and finishing again."}
                 </ReactMarkdown>
               </div>
             </Card.Body>
@@ -214,6 +229,13 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
                       
                     }}
                   />
+                  <table className="visually-hidden">
+                    <caption>Theme frequencies</caption>
+                    <thead><tr><th>Theme</th><th>Response count</th></tr></thead>
+                    <tbody>
+                      {themeData.map((item) => <tr key={item.name}><td>{item.name}</td><td>{item.frequency}</td></tr>)}
+                    </tbody>
+                  </table>
                   </div>
                 </Card.Body>
               </Card>
@@ -228,9 +250,11 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
                 <Button 
                   variant="outline-primary" 
                   onClick={handleDownloadJSON}
+                  disabled={isDownloading}
+                  aria-busy={isDownloading}
                 >
                   <FaDownload className="me-2" aria-hidden="true" />
-                  Download dataset
+                  {isDownloading ? 'Preparing download…' : 'Download dataset'}
                 </Button>
               </div>
               
@@ -262,6 +286,7 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId }) => {
                           <p>
                             <strong>{item.frequency}</strong> responses
                           </p>
+                          <p className="analysis-theme-card__description">{labelMap[item.name] || 'No description available.'}</p>
                         </div>
                       </OverlayTrigger>
                     ))}

@@ -1,11 +1,45 @@
 {
+  "_Tab-CGBeEnkV.js": {
+    "file": "assets/Tab-CGBeEnkV.js",
+    "name": "Tab",
+    "imports": [
+      "index.html"
+    ]
+  },
   "index.html": {
-    "file": "assets/index-Gc2ndfwE.js",
+    "file": "assets/index-DLsfhp_6.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
+    "dynamicImports": [
+      "src/components/Review.jsx",
+      "src/components/Analyze.jsx"
+    ],
     "css": [
-      "assets/index-DJJdL3Ye.css"
+      "assets/index-OpCklVUd.css"
+    ]
+  },
+  "src/components/Analyze.jsx": {
+    "file": "assets/Analyze-B5nM_kHe.js",
+    "name": "Analyze",
+    "src": "src/components/Analyze.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_Tab-CGBeEnkV.js"
+    ],
+    "css": [
+      "assets/Analyze-D_gjjoiV.css"
+    ]
+  },
+  "src/components/Review.jsx": {
+    "file": "assets/Review-BQYQfENO.js",
+    "name": "Review",
+    "src": "src/components/Review.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_Tab-CGBeEnkV.js"
     ]
   }
 }

@@ -1,0 +1,1 @@
+.pill{height:30px;font-size:12px;padding:.5em 1em;margin:.25em;border-radius:1em;border:none;outline:none;background:#ddd}.pill:not(.pill--selected):hover{background:#ccc}.pill--selected{background:#009578;color:#fff}.button-container{display:flex;flex-wrap:wrap;gap:1rem;justify-content:center;align-items:center}

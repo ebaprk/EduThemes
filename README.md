@@ -16,6 +16,21 @@ In a separate terminal
 9. Run `pip install -r requirements.txt`
 10. Run `flask run --port 1500`
 
+The analysis model selector only enables providers configured on the backend. Set
+`ANTHROPIC_API_KEY` for Claude and/or `OPENAI_API_KEY` for ChatGPT. Model failures
+are returned to the interface for retry; production analysis never substitutes
+random classifications.
+
+## Tests
+
+```bash
+cd frontend
+npm test
+
+cd ../backend
+python -m unittest test_dataset_utils.py
+```
+
 ### Notes:
 1. When adding new dependencies, run `pip freeze > requirements.txt`
 2. **Do not commit the `venv/` directory to the repository**

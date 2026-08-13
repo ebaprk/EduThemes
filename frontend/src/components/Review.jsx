@@ -5,9 +5,18 @@ import axios, { all } from 'axios';
 import LabelCreationWindow from './LabelCreationWindow';
 import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowHeader from './WorkflowHeader';
+import WorkflowAlert from './WorkflowAlert';
+import { addThemeAssignment, rejectThemeAssignments, removeThemeAssignment } from '../utils/themeAssignments';
 //import ReviewModal from './ReviewModal';
 
-const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset, claudeData, onAdvanceStage, projectMetadata }) => {
+const getReadableTextColor = (color = '#000000') => {
+    const hex = color.replace('#', '');
+    if (!/^[0-9a-f]{6}$/i.test(hex)) return '#ffffff';
+    const [red, green, blue] = [0, 2, 4].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
+    return ((red * 299 + green * 587 + blue * 114) / 1000) > 150 ? '#172b4d' : '#ffffff';
+};
+
+const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset, claudeData, setClaudeData, onAdvanceStage, projectMetadata }) => {
     const [currentThemeIndex, setCurrentThemeIndex] = useState(0);
     const [responseActions, setResponseActions] = useState({});
     const [isLoading, setIsLoading] = useState(false);
@@ -19,6 +28,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
     const [suggestedThemes, setSuggestedThemes] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+    const [suggestionError, setSuggestionError] = useState(null);
     const [tempUncCat, setTempUncCat] = useState({});
     const [aiLoading, setAiLoading] = useState(false);
     const [allThemes, setAllThemes] = useState([...labels])
@@ -41,13 +51,9 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
         //console.log(dataset)
         
         if (!hasUnclassifiedTheme && claudeData && !claudeData["Unclassified"]) {
-            const updatedClaudeData = {...claudeData};
-            updatedClaudeData["Unclassified"] = [];
-            if (typeof claudeData === 'object') {
-                Object.assign(claudeData, updatedClaudeData);
-            }
+            setClaudeData((previous) => ({ ...previous, Unclassified: [] }));
         }
-    }, [claudeData, hasUnclassifiedTheme]);
+    }, [claudeData, hasUnclassifiedTheme, setClaudeData]);
     
     useEffect(() => {
         if (currentTheme && !responseActions[currentTheme.name]) {
@@ -120,7 +126,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
 
     const handleGetSuggestedThemes = async () => {
         setLoadingSuggestions(true);
-        setError(null);
+        setSuggestionError(null);
         
         try {
             if (showSuggestions) {
@@ -139,163 +145,65 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                     setShowSuggestions(true);
                 }
             } else {
-                setError("No themes could be generated. Please check data or try again.");
+                setSuggestionError("No themes were generated. Try again or add one manually.");
             }
         } catch (error) {
             console.error("Error getting suggested themes:", error.response?.data || error.message);
-            setError(getApiErrorMessage(error, "We couldn't generate theme suggestions."));
+            setSuggestionError(getApiErrorMessage(error, "We couldn't generate theme suggestions."));
         } finally {
             setLoadingSuggestions(false);
         }
     };
 
     const handleFinishReassignment = () => {
-        rejectedEntries.forEach((rejectedIndex) => {
-            const currentThemeResponses = claudeData[currentTheme.name];
-            if (currentThemeResponses) {
-                claudeData[currentTheme.name] = currentThemeResponses.filter(
-                    (responseIndex) => responseIndex !== rejectedIndex
-                );
-            }
-
-            const isInOtherThemes = Object.keys(claudeData).some((themeName) => {
-                if (themeName !== currentTheme.name) {
-                    return claudeData[themeName]?.includes(rejectedIndex);
-                }
-                return false;
-            });
-
-            if (!isInOtherThemes) {
-                if (!claudeData["Unclassified"]) {
-                    claudeData["Unclassified"] = [];
-                }
-                if (!claudeData["Unclassified"].includes(rejectedIndex)) {
-                    claudeData["Unclassified"].push(rejectedIndex);
-                }
-            }
+        const { classifications: updatedClassifications, dataset: reassignedDataset } = rejectThemeAssignments({
+            classifications: claudeData,
+            dataset,
+            rejectedIndices: rejectedEntries,
+            themeName: currentTheme.name,
+            unclassifiedTheme,
         });
+        setClaudeData(updatedClassifications);
+        setDataset(reassignedDataset);
 
         setShowReassignModal(false);
 
         if (currentThemeIndex >= allThemes.length - 1) {
-            handleSubmitFinalDataset();
+            handleSubmitFinalDataset(updatedClassifications, reassignedDataset);
         } else {
             setCurrentThemeIndex(currentThemeIndex + 1);
         }
     };
 
     const addThemeToCode = (theme, responseIndex) => {
-        const selectedTheme = theme;
-        //console.log("selectedThemeObj:", selectedTheme);
-        if (selectedTheme && selectedTheme!=="Unclassified" && !claudeData[selectedTheme].includes(responseIndex)) {
-            const selectedThemeObj = allThemes.find(tema => tema.name === theme);
-            console.log("selectedThemeObj:", selectedThemeObj);
-
-            if (selectedThemeObj) {
-                // Add the response to the selected theme
-                //const responseIndex = themeResponses[idx];
-                // Initialize claudeData for new theme if needed
-                if (!claudeData[selectedTheme]) {
-                    claudeData[selectedTheme] = [];
-                }
-                // Add response to selected theme if not already there
-                if (!claudeData[selectedTheme].includes(responseIndex)) {
-                    claudeData[selectedTheme].push(responseIndex);
-                }
-                if (!dataset[responseIndex].themes.includes(responseIndex)) {
-                    dataset[responseIndex].themes.push({
-                        name: selectedThemeObj.name,
-                        color: selectedThemeObj.color,
-                        description: selectedThemeObj.description || ""
-                    });
-                }
-                
-                console.log('test');
-                console.log(dataset[responseIndex].themes);
-                // Remove from unclassified
-                //claudeData["Unclassified"] = claudeData["Unclassified"].filter(
-                //    index => index !== responseIndex
-                //);
-                
-                //console.log(labels);
-                
-                // Initialize and update response actions
-                setResponseActions(prev => {
-                    const updated = { ...prev };
-                    if (!updated[selectedTheme]) {
-                        updated[selectedTheme] = Array(claudeData[selectedTheme].length).fill(null);
-                    }
-                    // Mark as approved in the selected theme
-                    const newIndex = claudeData[selectedTheme].length - 1;
-                    updated[selectedTheme][newIndex] = 'approve';
-                    return updated;
-                });
-            }
-        }
+        const selectedThemeObj = allThemes.find((candidate) => candidate.name === theme);
+        if (!selectedThemeObj || theme === 'Unclassified' || !dataset[responseIndex]) return;
+        const updated = addThemeAssignment({
+            classifications: claudeData,
+            dataset,
+            theme: selectedThemeObj,
+            responseIndex,
+        });
+        setClaudeData(updated.classifications);
+        setDataset(updated.dataset);
     }
 
     const removeThemeFromCode = (theme, responseIndex) => {
-        console.log('juanpabloraba', theme)
-        const selectedTheme = theme;
-        //console.log("selectedThemeObj:", selectedTheme);
-        if (selectedTheme && selectedTheme!=="Unclassified") { //&& claudeData[selectedTheme].includes(responseIndex)) {
-            console.log('broken')
-            const selectedThemeObj = allThemes.find(tema => tema.name === theme);
-            console.log("selectedThemeObj:", selectedThemeObj);
-
-            if (selectedThemeObj) {
-                // Add the response to the selected theme
-                //const responseIndex = themeResponses[idx];
-                // Initialize claudeData for new theme if needed
-                //if (claudeData[selectedTheme]) {
-                //    claudeData[selectedTheme] = [];
-                //}
-                // Add response to selected theme if not already there
-                if (claudeData[selectedTheme].includes(responseIndex)) {
-                    let ind = claudeData[selectedTheme].indexOf(responseIndex);
-                    //claudeData[selectedTheme].push(responseIndex);
-                    claudeData[selectedTheme].splice(ind, 1);
-                }
-                //if (dataset[responseIndex].themes.includes(responseIndex)) {
-                    {/*dataset[responseIndex].themes.push({
-                        name: selectedThemeObj.name,
-                        color: selectedThemeObj.color,
-                        description: selectedThemeObj.description || ""
-                    });*/}
-                    let ind = dataset[responseIndex].themes.find((tema) => tema.name !== selectedThemeObj.name);
-                    console.log('ind', ind)
-                    dataset[responseIndex].themes.splice(ind, 1);
-                //}
-                
-                console.log('test');
-                console.log(dataset[responseIndex].themes);
-                // Remove from unclassified
-                //claudeData["Unclassified"] = claudeData["Unclassified"].filter(
-                //    index => index !== responseIndex
-                //);
-                
-                //console.log(labels);
-                
-                // Initialize and update response actions
-                setResponseActions(prev => {
-                    const updated = { ...prev };
-                    if (!updated[selectedTheme]) {
-                        updated[selectedTheme] = Array(claudeData[selectedTheme].length).fill(null);
-                    }
-                    // Mark as approved in the selected theme
-                    const newIndex = claudeData[selectedTheme].length - 1;
-                    updated[selectedTheme][newIndex] = 'approve';
-                    return updated;
-                });
-            }
-        }
+        if (!theme || theme === 'Unclassified') return;
+        const updated = removeThemeAssignment({
+            classifications: claudeData,
+            dataset,
+            themeName: theme,
+            responseIndex,
+        });
+        setClaudeData(updated.classifications);
+        setDataset(updated.dataset);
     }
 
     const queryAI = async () => {
         let sent = themeResponses.map((responseIndex, idx) => {
             return dataset[responseIndex]?.original;
         })
-        console.log('send', sent)
         setAiLoading(true);
         setError(null);
 
@@ -308,14 +216,22 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
             });
 
             const dataReturned = response.data.claude_data;
-            console.log(dataReturned);
 
+            let updated = { classifications: claudeData, dataset };
             Object.keys(dataReturned).forEach(key => {
                 for (var x=0; x<dataReturned[key].length; x++){
-                    console.log(key, dataset[themeResponses[dataReturned[key][x]]].original)
-                    addThemeToCode(key, themeResponses[dataReturned[key][x]])
+                    const selectedTheme = allThemes.find((theme) => theme.name === key);
+                    if (selectedTheme) {
+                        updated = addThemeAssignment({
+                            ...updated,
+                            theme: selectedTheme,
+                            responseIndex: themeResponses[dataReturned[key][x]],
+                        });
+                    }
                 }
             });
+            setClaudeData(updated.classifications);
+            setDataset(updated.dataset);
         } catch (error) {
             console.error("Error querying AI:", error.response?.data || error.message);
             setError(getApiErrorMessage(error, "We couldn't classify these responses."));
@@ -325,19 +241,20 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
     }
     
     const addTheme = (theme) => {
-        // Add to labels state
-        
-        setAllThemes([...allThemes, theme]);
-
-        // Initialize empty array for new theme in claudeData
-        if (!claudeData[theme.name]) {
-            claudeData[theme.name] = [];
+        if (!theme?.name || allThemes.some((item) => item.name.toLowerCase() === theme.name.toLowerCase())) return;
+        if (allThemes.filter((item) => item.name !== 'Unclassified').length >= 10) {
+            setSuggestionError('You can create up to 10 themes.');
+            return;
         }
+
+        setAllThemes((previous) => [...previous, theme]);
+        setLabels((previous) => [...previous.filter((item) => item.name !== 'Unclassified'), theme]);
+        setClaudeData((previous) => ({ ...previous, [theme.name]: previous[theme.name] || [] }));
 
         // Initialize response actions for new theme
         setResponseActions(prev => ({
             ...prev,
-            [theme.name]: []  // Empty array since no responses are classified yet
+            [theme.name]: []
         }));
 
         // Update dataset entries to include the new theme structure if needed
@@ -349,16 +266,19 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
         );
     };
 
-    const handleSubmitFinalDataset = async () => {
+    const handleSubmitFinalDataset = async (classificationsOverride = claudeData, datasetOverride = dataset) => {
         setIsLoading(true);
         setError(null);
 
         try {
-            const updatedDataset = [...dataset];
+            const updatedDataset = datasetOverride.map((entry) => ({
+                ...entry,
+                themes: [...(entry.themes || [])],
+            }));
 
             Object.keys(responseActions).forEach(themeName => {
                 const themeActions = responseActions[themeName];
-                const themeResponseIndices = claudeData[themeName] || [];
+                const themeResponseIndices = classificationsOverride[themeName] || [];
 
                 themeActions.forEach((action, idx) => {
                     if (action === 'approve' || themeName === "Unclassified") {
@@ -375,20 +295,12 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                     t => t.name === theme.name
                                 );
 
-                                if (!themeExists) {
-                                    if (updatedDataset[responseIndex].themes.length > 1 && themeName !== "Unclassified"){
-                                        updatedDataset[responseIndex].themes.push({
-                                            name: theme.name,
-                                            color: theme.color,
-                                            description: theme.description || ""
-                                        });
-                                    } else if (updatedDataset[responseIndex].themes.length === 0) {
-                                        updatedDataset[responseIndex].themes.push({
-                                            name: theme.name,
-                                            color: theme.color,
-                                            description: theme.description || ""
-                                        });
-                                    }
+                                if (!themeExists && (themeName !== 'Unclassified' || updatedDataset[responseIndex].themes.length === 0)) {
+                                    updatedDataset[responseIndex].themes.push({
+                                        name: theme.name,
+                                        color: theme.color,
+                                        description: theme.description || ""
+                                    });
                                 }
                             }
                         }
@@ -408,7 +320,10 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
             );
 
             if (response.status === 200) {
-                setResults(response.data.themes);
+                setResults({
+                    themes: response.data.themes || [],
+                    summary: response.data.summary || '',
+                });
                 onAdvanceStage();
             } else {
                 setError('Error submitting final dataset: ' + (response.data.error || 'Unknown error'));
@@ -430,11 +345,11 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
     }).length;
     
     const progressPercentage =  isLoading ? 100 : ( currentTheme.name === "Unclassified" 
-        ? (allThemes.filter(theme => theme.name !== "Unclassified").length / allThemes.length) * 100
+        ? 100
         : totalThemes > 0 
             ? (completedThemes / totalThemes) * 100 
             : 0);
-    const formattedThemeName = `${currentTheme.name} (${themeResponses.length} responses)`;
+    const formattedThemeName = `${currentTheme.name} (${themeResponses.length} ${themeResponses.length === 1 ? 'response' : 'responses'})`;
     const pendingCount = currentTheme.name === "Unclassified"
         ? 0
         : currentActions.filter(action => action === null).length;
@@ -448,7 +363,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                 description="Approve the AI’s theme assignments, correct anything that does not fit, and keep the final dataset grounded in your judgment."
             />
 
-            {error && <Alert variant="danger" className="workflow-alert" dismissible onClose={() => setError(null)}>{error}</Alert>}
+            <WorkflowAlert message={error} onClose={() => setError(null)} />
 
             <Row className="g-4 align-items-stretch">
                 <Col lg={4} xl={3} className="review-sidebar">
@@ -515,6 +430,8 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                 {currentTheme.name === "Unclassified" && (<Button 
                                 variant="primary" 
                                 onClick={() => queryAI()}
+                                disabled={aiLoading || themeResponses.length === 0}
+                                aria-busy={aiLoading}
                                 >
                                     
                                     {aiLoading ? (
@@ -569,7 +486,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                             <div className="review-progress-track">
                                 <span>
                                     {currentTheme.name === "Unclassified"
-                                        ? 'Assign any responses that still need a theme'
+                                        ? (themeResponses.length === 0 ? 'All responses have a theme' : 'Assign any responses that still need a theme')
                                         : `${pendingCount} ${pendingCount === 1 ? 'response' : 'responses'} left to review`}
                                 </span>
                                 <ProgressBar
@@ -663,78 +580,19 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                                             controlId={`formThemes-${idx}`}
                                                             className="review-theme-picker"
                                                         >
-                                                            <Form.Control
-                                                                type="text"
-                                                                id={`formThemes-${idx}`}
-                                                                placeholder="Select a theme..."
-                                                                list={`theme-options-${idx}`}
+                                                            <Form.Select
+                                                                value=""
                                                                 className="mt-2"
-                                                                onChange={(e) => {
-                                                                    const selectedTheme = e.target.value;
-                                                                    addThemeToCode(selectedTheme, responseIndex);
-                                                                    /*if (selectedTheme && selectedTheme !== "Unclassified" && !claudeData[selectedTheme].includes(responseIndex)) {
-                                                                        const selectedThemeObj = allThemes.find(theme => theme.name === selectedTheme);
-
-                                                                        if (selectedThemeObj) {
-                                                                            console.log(themeResponses);
-                                                                            // Add the response to the selected theme
-                                                                            const responseIndex = themeResponses[idx];
-                                                                            // Initialize claudeData for new theme if needed
-                                                                            if (!claudeData[selectedTheme]) {
-                                                                                claudeData[selectedTheme] = [];
-                                                                            }
-                                                                            // Add response to selected theme if not already there
-                                                                            if (!claudeData[selectedTheme].includes(responseIndex)) {
-                                                                                claudeData[selectedTheme].push(responseIndex);
-                                                                            }
-                                                                            if (!dataset[responseIndex].themes.includes(responseIndex)) {
-                                                                                dataset[responseIndex].themes.push({
-                                                                                    name: selectedThemeObj.name,
-                                                                                    color: selectedThemeObj.color,
-                                                                                    description: selectedThemeObj.description || ""
-                                                                                });
-                                                                            }
-                                                                            
-                                                                            
-
-                                                                            // Remove from unclassified
-                                                                            //claudeData["Unclassified"] = claudeData["Unclassified"].filter(
-                                                                            //    index => index !== responseIndex
-                                                                            //);
-                                                                            console.log(dataset[responseIndex].themes);
-                                                                            
-                                                                            //console.log(labels);
-                                                                            
-                                                                            // Initialize and update response actions
-                                                                            setResponseActions(prev => {
-                                                                                const updated = { ...prev };
-                                                                                if (!updated[selectedTheme]) {
-                                                                                    updated[selectedTheme] = Array(claudeData[selectedTheme].length).fill(null);
-                                                                                }
-                                                                                // Mark as approved in the selected theme
-                                                                                const newIndex = claudeData[selectedTheme].length - 1;
-                                                                                updated[selectedTheme][newIndex] = 'approve';
-                                                                                return updated;
-                                                                            });
-
-                                                                            
-                                                                            // Clear the input
-                                                                            e.target.value = "";
-                                                                        }
-                                                                    }*/
-                                                                    e.target.value = "";
-                                                                }}
-                                                            />
-                                                            <datalist id={`theme-options-${idx}`}>
-                                                                {allThemes.filter(theme => theme.name !== "Unclassified").map((theme, index) => (
-                                                                    <option key={index} value={theme.name}>
-                                                                        {theme.name}
-                                                                    </option>
+                                                                aria-label={`Assign theme to unclassified response ${idx + 1}`}
+                                                                onChange={(event) => addThemeToCode(event.target.value, responseIndex)}
+                                                            >
+                                                                <option value="">Assign a theme…</option>
+                                                                {allThemes.filter(theme => theme.name !== "Unclassified").map((theme) => (
+                                                                    <option key={theme.name} value={theme.name}>{theme.name}</option>
                                                                 ))}
-                                                            </datalist>
-                                                            {dataset[responseIndex].themes.map((theme, i) => {
-                                                                console.log(theme.color);
-                                                                var calor = theme.color === undefined ? '000000': theme.color
+                                                            </Form.Select>
+                                                            {(dataset[responseIndex].themes || []).filter((theme) => theme.name !== 'Unclassified').map((theme, i) => {
+                                                                const themeColor = theme.color || '#000000';
 
                                                                     return (
                                                                         <div key={i} >
@@ -750,13 +608,23 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                                                                 onClick={() => removeThemeFromCode(theme.name, responseIndex)}
                                                                             >
                                                                                 <p style={{
-                                                                                    backgroundColor: calor,
+                                                                                    backgroundColor: themeColor,
                                                                                     padding: '4px',
                                                                                     margin: '0px',
                                                                                     
-                                                                                    color: '#FFFFFF',
+                                                                                    color: getReadableTextColor(themeColor),
                                                                                     borderRadius: '5px'
-                                                                                }}>{theme.name}</p>
+                                                                                }}
+                                                                                role="button"
+                                                                                tabIndex="0"
+                                                                                aria-label={`Remove ${theme.name} from this response`}
+                                                                                onKeyDown={(event) => {
+                                                                                    if (event.key === 'Enter' || event.key === ' ') {
+                                                                                        event.preventDefault();
+                                                                                        removeThemeFromCode(theme.name, responseIndex);
+                                                                                    }
+                                                                                }}
+                                                                            >{theme.name}</p>
                                                                             </Badge>
                                                                         </div>
                                                                     );
@@ -791,7 +659,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                 </Modal.Header>
                 <Modal.Body>
                     <p>
-                        You've rejected {rejectedEntries.length} classifications for the theme "{currentTheme.name}".
+                        You've rejected {rejectedEntries.length} {rejectedEntries.length === 1 ? 'classification' : 'classifications'} for the theme "{currentTheme.name}".
                         Rejected items will move to the "Unclassified" category if they have no other assignments.
                     </p>
                     <p>
@@ -820,6 +688,11 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                 </Modal.Header>
 
                 <Modal.Body>
+                    {suggestionError && (
+                        <Alert variant="danger" role="alert" dismissible onClose={() => setSuggestionError(null)}>
+                            {suggestionError}
+                        </Alert>
+                    )}
                     <Row>
                     <Tab.Container id="left-tabs-example" defaultActiveKey="first">
                     
@@ -856,7 +729,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                             <span style={{ 
                                                     borderRadius: '10px',
                                                     padding: '5px', 
-                                                    color: '#fff',
+                                                    color: getReadableTextColor(label.color),
                                                     backgroundColor: label.color,
                                                     
                                                 }}>
@@ -872,7 +745,11 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
 
                             </Tab.Pane>
                             <Tab.Pane eventKey="second">
-                                <LabelCreationWindow labels={allThemes || []} setLabels={addTheme} deleteLabels={setLabels} />
+                                <LabelCreationWindow
+                                    labels={allThemes.filter((theme) => theme.name !== 'Unclassified')}
+                                    setLabels={addTheme}
+                                    addOnly
+                                />
                             </Tab.Pane>
                             <Tab.Pane eventKey="third">
                                 
