@@ -1,12 +1,7 @@
-#import llama_analysis_llm
-#import openai_analysis
-from src.llm.claude_analysis import claude_llm
-from src.llm.openai_analysis import openai_frame
+from src.llm.openai_analysis import navigator_llm
 
 def serve_llm(choice):
-    if choice == "chatgpt":
-        return openai_frame
-    if choice == "claude":
-        return claude_llm
+    if choice == "navigator":
+        return navigator_llm
 
-    raise ValueError("Select either Claude or ChatGPT before starting the analysis.")
+    raise ValueError("Select NaviGator AI before starting the analysis.")

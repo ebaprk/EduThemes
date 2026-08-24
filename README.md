@@ -16,10 +16,11 @@ In a separate terminal
 9. Run `pip install -r requirements.txt`
 10. Run `flask run --port 1500`
 
-The analysis model selector only enables providers configured on the backend. Set
-`ANTHROPIC_API_KEY` for Claude and/or `OPENAI_API_KEY` for ChatGPT. Model failures
-are returned to the interface for retry; production analysis never substitutes
-random classifications.
+The analysis model selector uses UF's NaviGator AI Toolkit. Set
+`NAVIGATOR_API_KEY` on the backend. `NAVIGATOR_MODEL` defaults to
+`nemotron-3-super-120b-a12b`, and `NAVIGATOR_BASE_URL` defaults to
+`https://api.ai.it.ufl.edu/v1`. Model failures are returned to the interface for
+retry; production analysis never substitutes random classifications.
 
 ## Tests
 
@@ -28,7 +29,7 @@ cd frontend
 npm test
 
 cd ../backend
-python -m unittest test_dataset_utils.py
+python -m unittest
 ```
 
 ### Notes:
@@ -41,7 +42,7 @@ python -m unittest test_dataset_utils.py
 
 The repository includes a `render.yaml` Blueprint for a free Docker web
 service. In Render, create a Blueprint from this repository and provide the
-`OPENAI_API_KEY` and `ANTHROPIC_API_KEY` secret values when prompted.
+`NAVIGATOR_API_KEY` secret value when prompted.
 
 The production frontend configuration points to the Render backend. Build and
 deploy it to Firebase Hosting with:

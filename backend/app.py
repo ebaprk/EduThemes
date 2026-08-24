@@ -27,8 +27,7 @@ def create_app():
     def models():
         return {
             'models': {
-                'claude': bool(os.getenv('ANTHROPIC_API_KEY')),
-                'chatgpt': bool(os.getenv('OPENAI_API_KEY')),
+                'navigator': bool(os.getenv('NAVIGATOR_API_KEY')),
             }
         }
 

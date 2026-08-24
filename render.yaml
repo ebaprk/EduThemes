@@ -21,9 +21,9 @@ services:
         value: 2
       - key: GUNICORN_TIMEOUT
         value: 600
-      - key: OPENAI_API_KEY
+      - key: NAVIGATOR_API_KEY
         sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: OPENAI_MODEL
-        value: gpt-5.6-terra
+      - key: NAVIGATOR_MODEL
+        value: nemotron-3-super-120b-a12b
+      - key: NAVIGATOR_BASE_URL
+        value: https://api.ai.it.ufl.edu/v1

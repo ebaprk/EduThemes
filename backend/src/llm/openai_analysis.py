@@ -3,21 +3,27 @@ import json
 import random
 import openai
 
-deflt_key = os.getenv('OPENAI_API_KEY')
-deflt_model = os.getenv('OPENAI_MODEL', 'gpt-5.6-terra')
+NAVIGATOR_BASE_URL = os.getenv('NAVIGATOR_BASE_URL', 'https://api.ai.it.ufl.edu/v1')
+NAVIGATOR_MODEL = os.getenv('NAVIGATOR_MODEL', 'nemotron-3-super-120b-a12b')
 
 
-def _create_client(api_key):
-    client_options = {"api_key": api_key}
-    base_url = os.getenv('OPENAI_BASE_URL')
-    if base_url:
-        client_options["base_url"] = base_url
-    return openai.OpenAI(**client_options)
+def _resolve_api_key(api_key=None):
+    resolved_key = api_key or os.getenv('NAVIGATOR_API_KEY')
+    if not resolved_key:
+        raise RuntimeError("NaviGator AI is not configured on the analysis service.")
+    return resolved_key
 
 
-class openai_frame:
+def _create_client(api_key=None):
+    return openai.OpenAI(
+        api_key=_resolve_api_key(api_key),
+        base_url=NAVIGATOR_BASE_URL,
+    )
+
+
+class navigator_llm:
     @staticmethod
-    def suggest_themes(responses, research_question="", project_description="", predefined_themes=None, api_key=deflt_key, max_themes=8):
+    def suggest_themes(responses, research_question="", project_description="", predefined_themes=None, api_key=None, max_themes=8):
         client = _create_client(api_key)
         
         predefined_text = ""
@@ -56,15 +62,8 @@ class openai_frame:
         """
         
         try:
-            '''
-            response = client.messages.create(
-                model="claude-3-7-sonnet-20250219",
-                max_tokens=1000,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            '''
             response = client.chat.completions.create(
-                model=deflt_model,
+                model=NAVIGATOR_MODEL,
                 max_tokens=1000,
                 messages = [
                     {
@@ -73,7 +72,6 @@ class openai_frame:
                     }
                 ]
             )
-            #result_text = response #.content[0].text
             result_text = response.choices[0].message.content
             json_start = result_text.find('[')
             json_end = result_text.rfind(']') + 1
@@ -98,15 +96,10 @@ class openai_frame:
                 raise RuntimeError("The model returned an unreadable theme list.")
                 
         except Exception as e:
-            raise RuntimeError("ChatGPT could not generate theme suggestions.") from e
+            raise RuntimeError("NaviGator AI could not generate theme suggestions.") from e
 
     @staticmethod
-    def classify_responses_by_themes(responses, themes, research_question="", project_description="", api_key=deflt_key, batch_size=10, manual_codes=None):
-        if api_key is None or api_key == '':
-            api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError("ChatGPT is not configured on the analysis service.")
-        
+    def classify_responses_by_themes(responses, themes, research_question="", project_description="", api_key=None, batch_size=10, manual_codes=None):
         client = _create_client(api_key)
         
         theme_names = [theme['name'] for theme in themes]
@@ -173,15 +166,8 @@ class openai_frame:
                 
             try:
                 print(f"Processing batch {i//batch_size + 1}")
-                '''
-                api_response = client.messages.create(
-                    model="claude-3-7-sonnet-20250219",
-                    max_tokens=1000,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                '''
                 response = client.chat.completions.create(
-                    model=deflt_model,
+                    model=NAVIGATOR_MODEL,
                     max_tokens=1000,
                     messages = [
                         {
@@ -190,7 +176,6 @@ class openai_frame:
                         }
                     ]
                 )
-                #result_text = api_response.content[0].text
                 result_text = response.choices[0].message.content
                 json_start = result_text.find('[')
                 json_end = result_text.rfind(']') + 1
@@ -222,20 +207,15 @@ class openai_frame:
                     print(f"No valid JSON found for batch {i//batch_size + 1}")
             
             except Exception as e:
-                raise RuntimeError(f"ChatGPT could not classify response batch {i // batch_size + 1}.") from e
+                raise RuntimeError(f"NaviGator AI could not classify response batch {i // batch_size + 1}.") from e
 
             if not batch_processed:
-                raise RuntimeError(f"ChatGPT returned an unreadable classification for batch {i // batch_size + 1}.")
+                raise RuntimeError(f"NaviGator AI returned an unreadable classification for batch {i // batch_size + 1}.")
         
         return classifications
 
     @staticmethod
-    def generate_summary(responses, themes, classifications, research_question="", project_description="", api_key=deflt_key):
-        if api_key is None or api_key == '':
-            api_key = os.environ.get("OPENAI_API_KEY")
-            if not api_key:
-                print("No API key provided.")
-        
+    def generate_summary(responses, themes, classifications, research_question="", project_description="", api_key=None):
         client = _create_client(api_key)
         
         theme_stats = {}
@@ -306,7 +286,7 @@ class openai_frame:
         try:
             print(f"Generating summary")
             response = client.chat.completions.create(
-                    model=deflt_model,
+                    model=NAVIGATOR_MODEL,
                     messages = [
                         {
                             "role": "user",
@@ -314,23 +294,14 @@ class openai_frame:
                         }
                     ]
                 )
-            #result_text = api_response.content[0].text
             summary_text = response.choices[0].message.content
-            
-            #summary_text = response.content[0].text
             return summary_text
                 
         except Exception as e:
-            raise RuntimeError("ChatGPT could not generate the analysis summary.") from e
+            raise RuntimeError("NaviGator AI could not generate the analysis summary.") from e
 
     @staticmethod
-    def process_chat_query(query, responses, themes, classifications, research_question="", project_description="", api_key=deflt_key):
-        if api_key is None or api_key == '':
-            api_key = os.environ.get("OPENAI_API_KEY")
-            if not api_key:
-                print("No API key provided.")
-                return "I can help analyze your dataset and explain the themes I've identified. What would you like to know more about?"
-        
+    def process_chat_query(query, responses, themes, classifications, research_question="", project_description="", api_key=None):
         client = _create_client(api_key)
         
         theme_stats = []
@@ -369,16 +340,8 @@ class openai_frame:
         
         
         try:
-            '''
-            response = client.messages.create(
-                model="claude-3-7-sonnet-20250219",
-                max_tokens=1000,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return response.content[0].text
-            '''
             response = client.chat.completions.create(
-                    model=deflt_model,
+                    model=NAVIGATOR_MODEL,
                     max_tokens=1000,
                     messages = [
                         {
@@ -387,7 +350,6 @@ class openai_frame:
                         }
                     ]
                 )
-            #result_text = api_response.content[0].text
             return response.choices[0].message.content
                 
         except Exception as e:

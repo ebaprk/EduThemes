@@ -380,7 +380,7 @@ def get_theme_suggestions(session_id):
         return error_response(str(exc), code='MODEL_REQUIRED')
     except Exception:
         return error_response(
-            'Theme suggestions could not be generated. Try again or choose another model.',
+            'Theme suggestions could not be generated. Try again in a moment.',
             502,
             'THEME_SUGGESTION_FAILED',
             True,
@@ -632,7 +632,7 @@ def submit_manual_coding(session_id):
                 
         except Exception:
             return error_response(
-                'The model could not classify the responses. Your manual coding is saved; please retry or choose another model.',
+                'The model could not classify the responses. Your manual coding is saved; please retry.',
                 502,
                 'CLASSIFICATION_FAILED',
                 True,
