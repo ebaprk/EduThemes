@@ -155,7 +155,7 @@ const Preview = ({
     const handleAddSuggestedTheme = (theme) => {
         const themeExists = labels.some(label => label.name === theme.name);
         if (!themeExists) {
-            const COLORS = ['#315f9f', '#2f7d68', '#a65c37', '#7a5c99', '#3f7d9d', '#8a6a2f', '#556b5d', '#9a4f61'];
+            const COLORS = ['#176b52', '#ff7856', '#d0a72d', '#7a5c99', '#3f7d9d', '#8a6a2f', '#556b5d', '#9a4f61'];
             const color = getRandomItem(COLORS)//Math.floor(Math.random()*16777215).toString(16);
             
             const newTheme = {
@@ -358,8 +358,7 @@ const Preview = ({
                                         <thead>
                                             <tr>
                                                 <th 
-                                                    className="text-center align-middle" 
-                                                    style={{ width: '1%' }}
+                                                    className="text-center align-middle preview-index-cell"
                                                 >
                                                     #
                                                 </th>
@@ -384,18 +383,14 @@ const Preview = ({
                                                     }}
                                                 >
                                                     <td 
-                                                        className="text-center align-middle" 
-                                                        style={{ fontWeight: 'bold', width: '1%' }}
+                                                        className="text-center align-middle preview-index-cell"
                                                     >
                                                         {index + 1}
                                                     </td>
                                                     <td 
-                                                        className="align-middle"
+                                                        className="align-middle preview-response-cell"
                                                     >
-                                                        {entry.original.length > 100 ? 
-                                                            `${entry.original.substring(0, 100)}...` : 
-                                                            entry.original
-                                                        }
+                                                        {entry.original}
                                                     </td>
                                                     <td className="align-middle preview-theme-cell">
                                                         <div className="d-flex flex-wrap gap-1">

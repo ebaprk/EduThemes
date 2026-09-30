@@ -5,9 +5,11 @@ import sqlite3
 from datetime import datetime, timedelta
 import pandas as pd
 import json
+import tempfile
 #from src.llm.claude_analysis import suggest_themes, classify_responses_by_themes, generate_summary, process_chat_query
 
 from src.llm.serve_llm import serve_llm
+from src.llm.openai_analysis import NavigatorError
 from dataset_utils import preprocess_dataframe
 
 routes_bp = Blueprint('routes', __name__)
@@ -29,6 +31,10 @@ def error_response(message, status=400, code='REQUEST_ERROR', retryable=False, d
     if details:
         payload['details'] = details
     return jsonify(payload), status
+
+
+def navigator_error_response(exc):
+    return error_response(str(exc), exc.status, exc.code, exc.retryable)
 
 
 def require_session(session_id):
@@ -236,7 +242,11 @@ def upload_dataset(session_id):
             )
 
         filename = secure_filename(f"{session_id}_{os.path.splitext(file.filename)[0]}")
-        filepath = os.path.join(UPLOAD_FOLDER, f"{filename}{file_ext}")
+        # Keep the current dataset intact until the replacement has been validated.
+        with tempfile.NamedTemporaryFile(
+            prefix=f"{session_id}_", suffix=file_ext, dir=UPLOAD_FOLDER, delete=False
+        ) as upload:
+            filepath = upload.name
         file.save(filepath)
         try:
             if file_ext.lower() in ['.xlsx', '.xls']:
@@ -248,9 +258,6 @@ def upload_dataset(session_id):
             
             preprocessed_data, predefined_themes, dataset_summary = preprocess_dataframe(df, COLORS)
             
-            if predefined_themes:
-                update_session(session_id, labels=json.dumps(predefined_themes))
-                
         except (ValueError, pd.errors.ParserError, UnicodeDecodeError) as exc:
             if filepath and os.path.exists(filepath):
                 os.remove(filepath)
@@ -263,8 +270,25 @@ def upload_dataset(session_id):
             research_question=research_question,
             project_description=project_description,
             additional_context=additional_context,
+            labels=json.dumps(predefined_themes),
+            manual_coding=None,
+            analysis_results=None,
             status='DATASET_UPLOADED'
         )
+
+        # A new dataset invalidates files produced from the previous one.
+        stale_paths = (
+            session['dataset_path'],
+            session['manual_coding'],
+            os.path.join(UPLOAD_FOLDER, f"{session_id}_final_dataset.json"),
+            os.path.join(UPLOAD_FOLDER, f"{session_id}_summary.txt"),
+        )
+        for stale_path in stale_paths:
+            if stale_path and stale_path != filepath:
+                try:
+                    os.remove(stale_path)
+                except OSError:
+                    pass
 
         return jsonify({
             "message": "Dataset uploaded successfully",
@@ -378,6 +402,8 @@ def get_theme_suggestions(session_id):
         })
     except ValueError as exc:
         return error_response(str(exc), code='MODEL_REQUIRED')
+    except NavigatorError as exc:
+        return navigator_error_response(exc)
     except Exception:
         return error_response(
             'Theme suggestions could not be generated. Try again in a moment.',
@@ -472,6 +498,8 @@ def submit_final_dataset(session_id):
                 )
             else:
                 summary = "No dataset found to generate summary."
+        except NavigatorError as exc:
+            return navigator_error_response(exc)
         except Exception:
             return error_response(
                 'The summary could not be generated. Your reviewed data remains available in this browser; please retry.',
@@ -503,6 +531,8 @@ def submit_final_dataset(session_id):
         })
     except ValueError as exc:
         return error_response(str(exc), code='MODEL_REQUIRED')
+    except NavigatorError as exc:
+        return navigator_error_response(exc)
     except Exception:
         return error_response(
             'The final dataset could not be submitted. Your review is still available; please try again.',
@@ -552,6 +582,8 @@ def submit_manual_coding(session_id):
                     "svm_data": {}
                 })
                     
+            except NavigatorError as exc:
+                return navigator_error_response(exc)
             except Exception:
                 return error_response(
                     'These responses could not be reassigned. No classifications were changed.',
@@ -630,6 +662,8 @@ def submit_manual_coding(session_id):
             })
             return rez
                 
+        except NavigatorError as exc:
+            return navigator_error_response(exc)
         except Exception:
             return error_response(
                 'The model could not classify the responses. Your manual coding is saved; please retry.',
@@ -661,6 +695,8 @@ def submit_manual_coding(session_id):
         })
     except ValueError as exc:
         return error_response(str(exc), code='MODEL_REQUIRED')
+    except NavigatorError as exc:
+        return navigator_error_response(exc)
     except Exception:
         return error_response(
             'Manual coding could not be submitted. Your work is still available in this browser.',
@@ -677,6 +713,9 @@ def download_final_dataset(session_id):
         session, error = require_session(session_id)
         if error:
             return error
+
+        if session['status'] != 'FINAL_DATASET_SUBMITTED':
+            return jsonify({"error": "Final dataset not found"}), 404
 
         final_dataset_path = os.path.join(UPLOAD_FOLDER, f"{session_id}_final_dataset.json")
         if not os.path.exists(final_dataset_path):
@@ -796,6 +835,8 @@ def analyze_text(session_id):
         })
     except ValueError as exc:
         return error_response(str(exc), code='MODEL_REQUIRED')
+    except NavigatorError as exc:
+        return navigator_error_response(exc)
     except Exception:
         return error_response(
             'The analysis question could not be answered. Please try again.',

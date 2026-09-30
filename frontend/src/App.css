@@ -1,9 +1,14 @@
 .App {
   min-height: 100vh;
-  background: #f6f7f5;
-  color: #1d2939;
+  background: #f7f6f0;
+  color: #13211c;
   font-family: var(--font-sans);
   text-align: left;
+}
+
+.App strong,
+.App b {
+  font-weight: 600;
 }
 
 .pill {
@@ -13,7 +18,7 @@
   border-radius: 6px;
   background: #ffffff;
   color: #475467;
-  font-size: 0.75rem;
+  font-size: var(--font-size-min);
   font-weight: 600;
   cursor: pointer;
 }

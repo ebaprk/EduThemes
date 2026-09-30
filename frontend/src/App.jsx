@@ -77,6 +77,13 @@ function App() {
     additionalContext: "",
     apiKey: ""
   });
+  const resumeStage = results && dataset
+    ? "results"
+    : claudeData && dataset
+      ? "review"
+      : dataset
+        ? "preview"
+        : "upload";
 
   const handleSessionStart = (newSessionId) => {
     if (sessionId && sessionId !== newSessionId) {
@@ -190,6 +197,11 @@ function App() {
             path="/"
             element={(
               <Start
+                hasActiveAnalysis={Boolean(sessionId)}
+                researchQuestion={projectMetadata.researchQuestion}
+                responseCount={dataset?.length || 0}
+                resumeStage={resumeStage}
+                onResume={() => handleAdvanceStage(resumeStage)}
                 onSessionStart={handleSessionStart}
                 onAdvanceStage={() => handleAdvanceStage("upload")}
                 setLabels={setLabels}
@@ -206,6 +218,9 @@ function App() {
                 setDataset={setDataset}
                 setLabels={setLabels}
                 setVisualization={setVisualization}
+                setClaudeData={setClaudeData}
+                setSvmData={setSvmData}
+                setResults={setResults}
                 onAdvanceStage={() => handleAdvanceStage("preview")}
                 setProjectMetadata={handleSetProjectMetadata}
                 setUploadSummary={setUploadSummary}

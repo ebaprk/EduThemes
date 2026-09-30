@@ -6,8 +6,8 @@ import ListGroup from 'react-bootstrap/ListGroup';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-const DEFAULT_THEME_COLOR = '#315f9f';
-const THEME_COLORS = ['#315f9f', '#2f7d68', '#a65c37', '#7a5c99', '#3f7d9d', '#8a6a2f', '#556b5d', '#9a4f61'];
+const DEFAULT_THEME_COLOR = '#176b52';
+const THEME_COLORS = ['#176b52', '#ff7856', '#d0a72d', '#7a5c99', '#3f7d9d', '#8a6a2f', '#556b5d', '#9a4f61'];
 
 const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) => {
     const [newLabel, setNewLabel] = useState('');

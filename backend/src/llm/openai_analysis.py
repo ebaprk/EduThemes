@@ -7,10 +7,21 @@ NAVIGATOR_BASE_URL = os.getenv('NAVIGATOR_BASE_URL', 'https://api.ai.it.ufl.edu/
 NAVIGATOR_MODEL = os.getenv('NAVIGATOR_MODEL', 'nemotron-3-super-120b-a12b')
 
 
+class NavigatorError(RuntimeError):
+    def __init__(self, message, code='NAVIGATOR_FAILED', status=502, retryable=True):
+        super().__init__(message)
+        self.code = code
+        self.status = status
+        self.retryable = retryable
+
+
 def _resolve_api_key(api_key=None):
     resolved_key = api_key or os.getenv('NAVIGATOR_API_KEY')
     if not resolved_key:
-        raise RuntimeError("NaviGator AI is not configured on the analysis service.")
+        raise NavigatorError(
+            'NaviGator AI is not configured on the analysis service.',
+            'NAVIGATOR_NOT_CONFIGURED', 503, False,
+        )
     return resolved_key
 
 
@@ -19,6 +30,45 @@ def _create_client(api_key=None):
         api_key=_resolve_api_key(api_key),
         base_url=NAVIGATOR_BASE_URL,
     )
+
+
+def _chat_completion(client, prompt, max_tokens=None, response_format=None):
+    request = {
+        'model': NAVIGATOR_MODEL,
+        'messages': [{'role': 'user', 'content': prompt}],
+    }
+    if max_tokens is not None:
+        request['max_tokens'] = max_tokens
+    if response_format is not None:
+        request['response_format'] = response_format
+    # Nemotron spends the output allowance on hidden reasoning by default.
+    if NAVIGATOR_MODEL.startswith('nemotron-3-'):
+        request['extra_body'] = {'chat_template_kwargs': {'enable_thinking': False}}
+
+    try:
+        response = client.chat.completions.create(**request)
+    except openai.AuthenticationError as exc:
+        raise NavigatorError('NaviGator rejected the configured API key. Check NAVIGATOR_API_KEY.', 'NAVIGATOR_AUTH_FAILED', 502, False) from exc
+    except openai.PermissionDeniedError as exc:
+        raise NavigatorError('This NaviGator key cannot access the selected model.', 'NAVIGATOR_ACCESS_DENIED', 502, False) from exc
+    except openai.RateLimitError as exc:
+        raise NavigatorError('NaviGator is rate limiting requests. Wait a moment and retry.', 'NAVIGATOR_RATE_LIMITED', 503) from exc
+    except openai.APITimeoutError as exc:
+        raise NavigatorError('NaviGator took too long to respond. Please retry.', 'NAVIGATOR_TIMEOUT', 504) from exc
+    except openai.APIConnectionError as exc:
+        raise NavigatorError('The analysis service could not connect to NaviGator. Please retry.', 'NAVIGATOR_UNREACHABLE', 502) from exc
+    except openai.APIStatusError as exc:
+        raise NavigatorError('NaviGator could not process this request. Please retry.', 'NAVIGATOR_API_ERROR', 502) from exc
+
+    if not response.choices:
+        raise NavigatorError('NaviGator returned no response. Please retry.', 'NAVIGATOR_EMPTY_RESPONSE')
+    choice = response.choices[0]
+    if choice.finish_reason == 'length':
+        raise NavigatorError('NaviGator ran out of output space. Please retry.', 'NAVIGATOR_OUTPUT_TRUNCATED')
+    content = choice.message.content
+    if not isinstance(content, str) or not content.strip():
+        raise NavigatorError('NaviGator returned no readable text. Please retry.', 'NAVIGATOR_EMPTY_RESPONSE')
+    return content
 
 
 class navigator_llm:
@@ -54,25 +104,11 @@ class navigator_llm:
 
         If predefined themes are provided, suggest themes that do not duplicate or have the same meaning.
         
-        Return your response as a JSON array of objects, each with "name" and "description" keys. For example:
-        [
-            {{"name": "Theme Name", "description": "Theme description"}},
-            ...
-        ]
+        Return only a valid JSON array of objects, each with "name" and "description" keys.
         """
         
         try:
-            response = client.chat.completions.create(
-                model=NAVIGATOR_MODEL,
-                max_tokens=1000,
-                messages = [
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
-            )
-            result_text = response.choices[0].message.content
+            result_text = _chat_completion(client, prompt, max_tokens=2048)
             json_start = result_text.find('[')
             json_end = result_text.rfind(']') + 1
             
@@ -81,6 +117,8 @@ class navigator_llm:
                 try:
                     suggested_themes = json.loads(json_str)
                     
+                    if not isinstance(suggested_themes, list):
+                        raise NavigatorError('NaviGator returned an unreadable theme list. Please retry.', 'NAVIGATOR_INVALID_OUTPUT')
                     cleaned_themes = []
                     for theme in suggested_themes:
                         if isinstance(theme, dict) and 'name' in theme and 'description' in theme:
@@ -89,19 +127,22 @@ class navigator_llm:
                                 'description': theme['description']
                             })
                     
+                    if not cleaned_themes:
+                        raise NavigatorError('NaviGator returned no usable themes. Please retry.', 'NAVIGATOR_INVALID_OUTPUT')
                     return cleaned_themes[:max_themes]
                 except json.JSONDecodeError as e:
-                    raise RuntimeError("The model returned an unreadable theme list.") from e
+                    raise NavigatorError('NaviGator returned an unreadable theme list. Please retry.', 'NAVIGATOR_INVALID_OUTPUT') from e
             else:
-                raise RuntimeError("The model returned an unreadable theme list.")
-                
+                raise NavigatorError('NaviGator returned an unreadable theme list. Please retry.', 'NAVIGATOR_INVALID_OUTPUT')
+        except NavigatorError:
+            raise
         except Exception as e:
-            raise RuntimeError("NaviGator AI could not generate theme suggestions.") from e
+            raise NavigatorError('NaviGator could not generate theme suggestions. Please retry.') from e
 
     @staticmethod
     def classify_responses_by_themes(responses, themes, research_question="", project_description="", api_key=None, batch_size=10, manual_codes=None):
         client = _create_client(api_key)
-        
+
         theme_names = [theme['name'] for theme in themes]
         classifications = {theme_name: [] for theme_name in theme_names}
         mcodes = {}
@@ -109,109 +150,80 @@ class navigator_llm:
             if code.get('themes'):
                 mcodes[code['index']] = code['themes'][0]
 
-        
         for i in range(0, len(responses), batch_size):
             batch = responses[i:i+batch_size]
-            batch_indices = list(range(i, min(i+batch_size, len(responses))))
-            
-            theme_text = ""
-            for theme in themes:
-                theme_text += f"- {theme['name']}: {theme.get('description', '')}\n"
-            
-            response_text = ""
+            theme_text = "\n".join(
+                f"- {theme['name']}: {theme.get('description', '')}" for theme in themes
+            )
+            response_lines = []
             for j, resp in enumerate(batch):
-                if mcodes.get(i+j) == None:
+                line = f"Response {j+1}: {json.dumps(str(resp))}"
+                if i + j in mcodes:
+                    line += f"; manually coded theme: {mcodes[i+j]['name']}"
+                response_lines.append(line)
+            response_text = "\n".join(response_lines)
 
-                    response_text += f"Response {j+1}: \"{resp}\"\n"
-                else:
-                    response_text += f"Response {j+1}: \"{resp}\" Themes related to this response: {mcodes[j+i]['name']}"
-            
-            
             prompt = f"""
             You are analyzing responses for a qualitative research project.
-            
+
             Research Question: {research_question}
             Project Description: {project_description}
-            
+
             Analyze each response and determine which themes apply. Be critical and selective.
-            
+
             Themes:
             {theme_text}
-            
+
             Responses:
             {response_text}
-            
-            For each response, return a JSON object with the response number and the themes that apply.
+
+            Return one classification for every response number from 1 through {len(batch)}.
             A response may match multiple themes or none at all.
-            
-            Format your answer as a JSON array:
-            [
-                {{"response_num": 1, "themes": ["Theme1", "Theme2"]}},
-                {{"response_num": 2, "themes": []}},  # This response doesn't match any themes
-                {{"response_num": 3, "themes": ["Theme3"]}}
-            ]
-            
-            IMPORTANT INSTRUCTIONS:
-            1. Only include theme names that exactly match the provided list.
-            2. Be strict in your assessment, don't force a response into a theme if it's not a clear match.
-            3. It's acceptable that some responses won't fit any themes.
-            4. Only classify a response under a theme if there is strong evidence in the text.
+            Return only a JSON object with a "classifications" array. Each array item
+            must have an integer "response_num" and a "themes" array of theme names.
+            Use only exact theme names from the list above. Use [] when no theme clearly fits.
             """
 
-            batch_processed = False
-            
-
-            if batch_processed:
-                break
-                
-            try:
-                print(f"Processing batch {i//batch_size + 1}")
-                response = client.chat.completions.create(
-                    model=NAVIGATOR_MODEL,
-                    max_tokens=1000,
-                    messages = [
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ]
+            batch_results = None
+            for _ in range(2):
+                result_text = _chat_completion(
+                    client, prompt, max_tokens=2048,
+                    response_format={'type': 'json_object'},
                 )
-                result_text = response.choices[0].message.content
-                json_start = result_text.find('[')
-                json_end = result_text.rfind(']') + 1
-                
-                if json_start >= 0 and json_end > 0:
-                    json_str = result_text[json_start:json_end]
-                    try:
-                        results = json.loads(json_str)
-                        
-                        for item in results:
-                            resp_idx = item.get('response_num', 0) - 1
-                            if 0 <= resp_idx < len(batch):
-                                global_idx = batch_indices[resp_idx]
-                                assigned_themes = item.get('themes', [])
+                try:
+                    payload = json.loads(result_text)
+                    results = payload['classifications']
+                    if not isinstance(results, list) or len(results) != len(batch):
+                        continue
+                    by_number = {}
+                    for item in results:
+                        number = item['response_num']
+                        assigned = item['themes']
+                        if (type(number) is not int or number < 1 or number > len(batch)
+                                or number in by_number or not isinstance(assigned, list)
+                                or any(not isinstance(name, str) or name not in theme_names for name in assigned)):
+                            break
+                        by_number[number] = assigned
+                    if len(by_number) == len(batch):
+                        batch_results = by_number
+                        break
+                except (json.JSONDecodeError, KeyError, TypeError):
+                    continue
 
-                                if assigned_themes == []:
-                                    if "Unclassified" not in classifications:
-                                        classifications["Unclassified"] = []
-                                    classifications["Unclassified"].append(global_idx)
-                                
-                                for theme_name in assigned_themes:
-                                    if theme_name in theme_names:
-                                        classifications[theme_name].append(global_idx)
-                                        
-                        batch_processed = True
-                    except json.JSONDecodeError:
-                        print(f"Error parsing JSON for batch {i//batch_size + 1}")
-                else:
-                    print(f"No valid JSON found for batch {i//batch_size + 1}")
-            
-            except Exception as e:
-                raise RuntimeError(f"NaviGator AI could not classify response batch {i // batch_size + 1}.") from e
+            if batch_results is None:
+                raise NavigatorError(
+                    f"NaviGator returned incomplete classifications for batch {i // batch_size + 1}. Please retry.",
+                    'NAVIGATOR_INVALID_OUTPUT',
+                )
 
-            if not batch_processed:
-                raise RuntimeError(f"NaviGator AI returned an unreadable classification for batch {i // batch_size + 1}.")
-        
+            for number in range(1, len(batch) + 1):
+                assigned_themes = batch_results[number]
+                response_index = i + number - 1
+                if not assigned_themes:
+                    classifications.setdefault('Unclassified', []).append(response_index)
+                for theme_name in set(assigned_themes):
+                    classifications[theme_name].append(response_index)
+
         return classifications
 
     @staticmethod
@@ -283,22 +295,7 @@ class navigator_llm:
         Format your summary in a clear, easy to print out summary in an academic context, dont use lists or numbers, just a paragraph.
         """
         
-        try:
-            print(f"Generating summary")
-            response = client.chat.completions.create(
-                    model=NAVIGATOR_MODEL,
-                    messages = [
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ]
-                )
-            summary_text = response.choices[0].message.content
-            return summary_text
-                
-        except Exception as e:
-            raise RuntimeError("NaviGator AI could not generate the analysis summary.") from e
+        return _chat_completion(client, prompt, max_tokens=3072)
 
     @staticmethod
     def process_chat_query(query, responses, themes, classifications, research_question="", project_description="", api_key=None):
@@ -339,18 +336,4 @@ class navigator_llm:
         """
         
         
-        try:
-            response = client.chat.completions.create(
-                    model=NAVIGATOR_MODEL,
-                    max_tokens=1000,
-                    messages = [
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ]
-                )
-            return response.choices[0].message.content
-                
-        except Exception as e:
-            print(f"Error processing chat query: {str(e)}")
+        return _chat_completion(client, prompt, max_tokens=2048)

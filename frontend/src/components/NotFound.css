@@ -1,15 +1,21 @@
 .not-found-page {
     display: grid;
-    min-height: calc(100vh - 64px);
+    min-height: calc(100vh - 92px);
     padding: 48px 24px;
     place-items: center;
+}
+
+@media (max-width: 575px) {
+    .not-found-page {
+        min-height: calc(100vh - 72px);
+    }
 }
 
 .not-found-card {
     width: min(100%, 560px);
     padding: clamp(36px, 7vw, 64px);
     border: 1px solid #dfe3e8;
-    border-top: 4px solid #315f9f;
+    border-top: 4px solid #176b52;
     border-radius: 12px;
     background: #ffffff;
     text-align: center;
@@ -23,15 +29,15 @@
 
 .not-found-code {
     margin: 0 0 8px;
-    color: #315f9f;
-    font-size: 0.8rem;
-    font-weight: 800;
+    color: #176b52;
+    font-size: var(--font-size-min);
+    font-weight: 600;
     letter-spacing: 0.14em;
 }
 
 .not-found-card h1 {
     margin: 0;
-    color: #172b4d;
+    color: #13211c;
     font-size: clamp(2rem, 7vw, 3rem);
     letter-spacing: -0.04em;
 }
@@ -49,20 +55,20 @@
     align-items: center;
     justify-content: center;
     border-radius: 7px;
-    background: #315f9f;
+    background: #176b52;
     color: #ffffff;
-    font-weight: 700;
+    font-weight: 600;
     text-decoration: none;
 }
 
 .not-found-home:hover,
 .not-found-home:focus-visible {
-    background: #244a7f;
+    background: #0f4d3b;
     color: #ffffff;
 }
 
 .not-found-home:focus-visible {
-    outline: 3px solid rgba(49, 95, 159, 0.22);
+    outline: 3px solid rgba(23, 107, 82, 0.22);
     outline-offset: 3px;
 }
 

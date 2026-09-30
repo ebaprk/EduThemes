@@ -1,5 +1,8 @@
 :root {
-  --font-sans: "Source Sans 3", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: "Avenir Next", Avenir, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: "Avenir Next", Avenir, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-size-min: 0.8125rem;
   color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -13,17 +16,23 @@
 
 html {
   min-width: 320px;
-  background: #f6f7f5;
+  background: #f7f6f0;
+  scroll-behavior: smooth;
 }
 
 body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  background: #f6f7f5;
+  background: #f7f6f0;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+strong,
+b {
+  font-weight: 600;
 }
 
 button,
@@ -39,10 +48,10 @@ a {
 }
 
 ::selection {
-  background: #dce9f6;
-  color: #172b4d;
+  background: #b5dfcd;
+  color: #13211c;
 }
 
 code {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
 }

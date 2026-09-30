@@ -1,14 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Form, Container, Card, Spinner, Row, Col } from 'react-bootstrap';
-import { FaArrowRight, FaCheck, FaFileExcel, FaLock, FaUpload } from 'react-icons/fa';
+import React, { useEffect, useRef, useState } from 'react';
+import { Button, Form, Spinner } from 'react-bootstrap';
+import {
+    FaArrowLeft,
+    FaArrowRight,
+    FaCheck,
+    FaFileExcel,
+    FaUpload,
+} from 'react-icons/fa';
 import axios from 'axios';
 import { API_URL, getApiErrorMessage } from '../api';
-import WorkflowHeader from './WorkflowHeader';
 import WorkflowAlert from './WorkflowAlert';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
-const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualization, setProjectMetadata, setUploadSummary }) => {
+const questions = [
+    { eyebrow: 'Your inquiry', title: 'Research question', note: 'What do you want to learn from these responses?' },
+    { eyebrow: 'The study', title: 'Project description', note: 'Briefly describe the setting, participants, and goal.' },
+    { eyebrow: 'Optional details', title: 'Additional context', note: 'Add terminology or context that could affect the analysis.' },
+    { eyebrow: 'Analysis engine', title: 'Analysis model', note: 'Choose the model that will suggest the first set of themes.' },
+    { eyebrow: 'Your responses', title: 'Response file', note: 'Upload an Excel or CSV file up to 20 MB.' },
+];
+
+const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualization, setClaudeData, setSvmData, setResults, setProjectMetadata, setUploadSummary }) => {
     const [file, setFile] = useState(null);
     const [error, setError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -17,6 +30,8 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
     const [additionalContext, setAdditionalContext] = useState('');
     const [apiKey, setApiKey] = useState('');
     const [availableModels, setAvailableModels] = useState(null);
+    const [currentQuestion, setCurrentQuestion] = useState(0);
+    const questionRef = useRef(null);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -32,24 +47,26 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
         return () => controller.abort();
     }, []);
 
-    const handleFileChange = (e) => {
-        const selectedFile = e.target.files[0];
-        
-        const allowedTypes = [
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 
-            'application/vnd.ms-excel',
-            'text/csv'
-        ];
-        
-        const extension = selectedFile?.name.split('.').pop()?.toLowerCase();
+    useEffect(() => {
+        setError(null);
+        const frame = window.requestAnimationFrame(() => questionRef.current?.focus());
+        return () => window.cancelAnimationFrame(frame);
+    }, [currentQuestion]);
 
-        if (selectedFile?.size > MAX_FILE_SIZE) {
+    const handleFileChange = (event) => {
+        const selectedFile = event.target.files?.[0];
+        const extension = selectedFile?.name.split('.').pop()?.toLowerCase();
+        const allowedTypes = [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel',
+            'text/csv',
+        ];
+
+        if (!selectedFile) return;
+        if (selectedFile.size > MAX_FILE_SIZE) {
             setFile(null);
             setError('Choose a file smaller than 20 MB.');
-        } else if (selectedFile && (
-            allowedTypes.includes(selectedFile.type) || 
-            ['xlsx', 'xls', 'csv'].includes(extension)
-        )) {
+        } else if (allowedTypes.includes(selectedFile.type) || ['xlsx', 'xls', 'csv'].includes(extension)) {
             setFile(selectedFile);
             setError(null);
         } else {
@@ -58,26 +75,21 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
         }
     };
 
+    const validateQuestion = () => {
+        const messages = [
+            !researchQuestion.trim() && 'Add a research question to continue.',
+            !projectDescription.trim() && 'Add a short project description to continue.',
+            false,
+            !apiKey && 'Choose an analysis model to continue.',
+            !file && 'Choose an Excel or CSV file to continue.',
+        ];
+        const message = messages[currentQuestion];
+        if (message) setError(message);
+        return !message;
+    };
+
     const uploadDataset = async () => {
-        if (!file || !sessionId) {
-            setError('Please select a file and start a session first');
-            return;
-        }
-
-        if (!researchQuestion.trim()) {
-            setError('Please enter a research question');
-            return;
-        }
-
-        if (!projectDescription.trim()) {
-            setError('Please enter a project description');
-            return;
-        }
-
-        if (!apiKey) {
-            setError('Select Claude or ChatGPT as the analysis model.');
-            return;
-        }
+        if (!validateQuestion() || !sessionId) return;
 
         const formData = new FormData();
         formData.append('dataset', file);
@@ -86,24 +98,19 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
         formData.append('additionalContext', additionalContext);
         formData.append('apiKey', apiKey);
 
+        setError(null);
         setIsLoading(true);
         try {
             const response = await axios.post(`${API_URL}/session/${sessionId}/upload-dataset`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
+                headers: { 'Content-Type': 'multipart/form-data' },
             });
-
-            setProjectMetadata({
-                researchQuestion,
-                projectDescription,
-                additionalContext,
-                apiKey
-            });
-
+            setProjectMetadata({ researchQuestion, projectDescription, additionalContext, apiKey });
             setDataset(response.data.preprocessed_dataset);
             setLabels(response.data.predefined_themes || []);
             setVisualization(response.data.visualization_image);
+            setClaudeData(null);
+            setSvmData(null);
+            setResults(null);
             setUploadSummary(response.data.dataset_summary || null);
             onAdvanceStage();
         } catch (err) {
@@ -114,177 +121,146 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
         }
     };
 
+    const goForward = () => {
+        if (!validateQuestion()) return;
+        setError(null);
+        if (currentQuestion === questions.length - 1) uploadDataset();
+        else setCurrentQuestion((value) => value + 1);
+    };
+
+    const goBack = () => {
+        if (currentQuestion === 0) return;
+        setCurrentQuestion((value) => value - 1);
+    };
+
+    const handleKeyDown = (event) => {
+        const isTextarea = event.target.tagName === 'TEXTAREA';
+        if (event.key === 'Enter' && (!isTextarea || event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            goForward();
+        }
+    };
+
+    const question = questions[currentQuestion];
+    const progress = ((currentQuestion + 1) / questions.length) * 100;
+
     return (
-        <Container fluid className="workflow-page upload-page">
-            <WorkflowHeader
-                currentStep={1}
-                eyebrow="Step 1 · Set up"
-                title="Give your analysis the right context"
-                description="Tell EduThemes what you want to learn, then add the response file you want to explore."
-            />
+        <main className="setup-flow" onKeyDown={handleKeyDown}>
+            <div className="setup-progress" aria-label={`Setup question ${currentQuestion + 1} of ${questions.length}`}>
+                <div className="setup-progress__track"><span style={{ width: `${progress}%` }} /></div>
+                <span>{String(currentQuestion + 1).padStart(2, '0')} / {String(questions.length).padStart(2, '0')}</span>
+            </div>
 
-            <WorkflowAlert message={error} onClose={() => setError(null)} />
+            <form className="setup-stage" onSubmit={(event) => { event.preventDefault(); goForward(); }}>
+                <div className="setup-stage__copy" key={currentQuestion}>
+                    <span className="setup-stage__eyebrow">{question.eyebrow}</span>
+                    <h1 ref={questionRef} tabIndex="-1">{question.title}</h1>
+                    <p>{question.note}</p>
 
-            <Row className="g-4 align-items-start">
-                <Col lg={4}>
-                    <aside className="upload-page__aside">
-                        <span className="upload-page__aside-icon" aria-hidden="true">
-                            <FaFileExcel />
-                        </span>
-                        <h2>Prepare your response file</h2>
-                        <p>A little structure up front helps the analysis produce clearer, more useful themes.</p>
-                        <ul className="upload-tips">
-                            <li><FaCheck aria-hidden="true" /><span>Use an Excel or CSV file with one response per row.</span></li>
-                            <li><FaCheck aria-hidden="true" /><span>Place the text responses you want to analyze in the first column.</span></li>
-                            <li><FaCheck aria-hidden="true" /><span>Write a focused research question to guide the theme discovery.</span></li>
-                        </ul>
-                    </aside>
-                </Col>
+                    <div className="setup-control">
+                        {currentQuestion === 0 && (
+                            <Form.Control
+                                className="setup-text-input"
+                                type="text"
+                                aria-label="Research question"
+                                placeholder="e.g. How do students use AI to learn?"
+                                value={researchQuestion}
+                                onChange={(event) => setResearchQuestion(event.target.value)}
+                                autoFocus
+                            />
+                        )}
 
-                <Col lg={8}>
-                    <Card className="workflow-panel upload-form-card">
-                        <Card.Body>
-                            <Form onSubmit={(event) => { event.preventDefault(); uploadDataset(); }}>
-                                <section className="workflow-form-section">
-                                    <div className="workflow-form-section__heading">
-                                        <span className="workflow-form-section__number">01</span>
-                                        <div>
-                                            <h2>Frame the research</h2>
-                                            <p>Help the model understand the purpose behind your responses.</p>
-                                        </div>
-                                    </div>
+                        {currentQuestion === 1 && (
+                            <Form.Control
+                                className="setup-textarea"
+                                as="textarea"
+                                rows={4}
+                                aria-label="Project description"
+                                placeholder="This study explores…"
+                                value={projectDescription}
+                                onChange={(event) => setProjectDescription(event.target.value)}
+                                autoFocus
+                            />
+                        )}
 
-                                    <Form.Group controlId="formResearchQuestion" className="mb-4">
-                                        <Form.Label>Research question <span className="text-danger">*</span></Form.Label>
-                                        <Form.Control
-                                            type="text"
-                                            placeholder="What do you want to learn from this data?"
-                                            value={researchQuestion}
-                                            onChange={(event) => setResearchQuestion(event.target.value)}
-                                            required
-                                        />
-                                        <Form.Text>Example: “How do students perceive AI tools in education?”</Form.Text>
-                                    </Form.Group>
+                        {currentQuestion === 2 && (
+                            <Form.Control
+                                className="setup-textarea"
+                                as="textarea"
+                                rows={4}
+                                aria-label="Additional context"
+                                placeholder="Optional context…"
+                                value={additionalContext}
+                                onChange={(event) => setAdditionalContext(event.target.value)}
+                                autoFocus
+                            />
+                        )}
 
-                                    <Form.Group controlId="formProjectDescription">
-                                        <Form.Label>Project description <span className="text-danger">*</span></Form.Label>
-                                        <Form.Control
-                                            as="textarea"
-                                            rows={4}
-                                            placeholder="Describe your project, participants, and goals"
-                                            value={projectDescription}
-                                            onChange={(event) => setProjectDescription(event.target.value)}
-                                            required
-                                        />
-                                        <Form.Text>Include enough context to make the generated themes specific to your study.</Form.Text>
-                                    </Form.Group>
-                                </section>
+                        {currentQuestion === 3 && (
+                            <div className="setup-models" role="radiogroup" aria-label="Analysis model">
+                                {[
+                                    { id: 'navigator', name: 'NaviGator AI', detail: 'University of Florida' },
+                                ].map((model, index) => {
+                                    const unavailable = availableModels?.[model.id] === false;
+                                    const selected = apiKey === model.id;
+                                    return (
+                                        <button
+                                            className={`setup-model${selected ? ' is-selected' : ''}`}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={selected}
+                                            disabled={unavailable}
+                                            onClick={() => setApiKey(model.id)}
+                                            autoFocus={index === 0}
+                                            key={model.id}
+                                        >
+                                            <span className="setup-model__key">{String.fromCharCode(65 + index)}</span>
+                                            <span><strong>{model.name}</strong><small>{unavailable ? 'Unavailable' : model.detail}</small></span>
+                                            {selected && <FaCheck aria-hidden="true" />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
 
-                                <section className="workflow-form-section">
-                                    <div className="workflow-form-section__heading">
-                                        <span className="workflow-form-section__number">02</span>
-                                        <div>
-                                            <h2>Add analysis details</h2>
-                                            <p>Optional context can improve interpretation of specialized language.</p>
-                                        </div>
-                                    </div>
-
-                                    <Row className="g-3">
-                                        <Col md={7}>
-                                            <Form.Group controlId="formAdditionalContext">
-                                                <Form.Label>Additional context <span className="text-muted fw-normal">(optional)</span></Form.Label>
-                                                <Form.Control
-                                                    as="textarea"
-                                                    rows={3}
-                                                    placeholder="Add details about the participants, setting, or terminology"
-                                                    value={additionalContext}
-                                                    onChange={(event) => setAdditionalContext(event.target.value)}
-                                                />
-                                            </Form.Group>
-                                        </Col>
-                                        <Col md={5}>
-                                            <Form.Group controlId="formApiKey">
-                                                <Form.Label>Analysis model</Form.Label>
-                                                <Form.Select
-                                                    aria-label="Analysis model"
-                                                    value={apiKey}
-                                                    onChange={(event) => setApiKey(event.target.value)}
-                                                >
-                                                    <option value="">Select a model</option>
-                                                    <option value="claude" disabled={availableModels?.claude === false}>
-                                                        Claude{availableModels?.claude === false ? ' (unavailable)' : ''}
-                                                    </option>
-                                                    <option value="chatgpt" disabled={availableModels?.chatgpt === false}>
-                                                        ChatGPT{availableModels?.chatgpt === false ? ' (unavailable)' : ''}
-                                                    </option>
-                                                </Form.Select>
-                                                <Form.Text>
-                                                    {availableModels && !Object.values(availableModels).some(Boolean)
-                                                        ? 'No analysis model is configured. Contact the site administrator.'
-                                                        : 'Required. Choose the model configured for this analysis.'}
-                                                </Form.Text>
-                                            </Form.Group>
-                                        </Col>
-                                    </Row>
-                                </section>
-
-                                <section className="workflow-form-section">
-                                    <div className="workflow-form-section__heading">
-                                        <span className="workflow-form-section__number">03</span>
-                                        <div>
-                                            <h2>Upload the responses</h2>
-                                            <p>Supported formats: .xlsx, .xls, and .csv, up to 20 MB.</p>
-                                        </div>
-                                    </div>
-
-                                    <Form.Group controlId="formFile" className="upload-dropzone">
-                                        <div className="upload-dropzone__label">
-                                            <FaUpload aria-hidden="true" />
-                                            <span>{file ? file.name : 'Choose a response file'}</span>
-                                        </div>
-                                        <Form.Control
-                                            type="file"
-                                            accept=".xlsx,.xls,.csv"
-                                            onChange={handleFileChange}
-                                            required
-                                        />
-                                        <Form.Text>
-                                            The first column should contain the text responses to analyze.{' '}
-                                            <a href="/assets/Example.xlsx" download>Download an example file</a>.
-                                        </Form.Text>
-                                    </Form.Group>
-                                </section>
-
-                                <div className="upload-form-footer">
-                                    <span className="upload-form-footer__note">
-                                        <FaLock aria-hidden="true" /> Session files expire after 24 hours and are removed when you start another analysis.
-                                    </span>
-                                    <Button
-                                        variant="primary"
-                                        type="submit"
-                                        className="upload-submit"
-                                        disabled={!file || !sessionId || !projectDescription.trim() || !researchQuestion.trim() || !apiKey || isLoading}
-                                        aria-busy={isLoading}
-                                    >
-                                        {isLoading ? (
-                                            <>
-                                                <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-                                                Preparing your data…
-                                            </>
-                                        ) : (
-                                            <>
-                                                Upload and continue
-                                                <FaArrowRight aria-hidden="true" />
-                                            </>
-                                        )}
-                                    </Button>
+                        {currentQuestion === 4 && (
+                            <div className={`setup-file${file ? ' has-file' : ''}`}>
+                                <FaFileExcel aria-hidden="true" />
+                                <div>
+                                    <strong>{file ? file.name : 'Choose your response file'}</strong>
+                                    <span>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · Ready to analyze` : '.xlsx, .xls, or .csv · 20 MB maximum'}</span>
                                 </div>
-                            </Form>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
-        </Container>
+                                <label className="setup-file__button">
+                                    <FaUpload aria-hidden="true" />
+                                    {file ? 'Replace' : 'Browse'}
+                                    <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} autoFocus />
+                                </label>
+                            </div>
+                        )}
+                    </div>
+
+                    <WorkflowAlert message={error} onClose={() => setError(null)} />
+
+                    <div className="setup-actions">
+                        {currentQuestion > 0 && (
+                            <Button type="button" className="setup-back" onClick={goBack} disabled={isLoading}>
+                                <FaArrowLeft aria-hidden="true" /> Back
+                            </Button>
+                        )}
+                        <Button type="submit" className="setup-next" disabled={isLoading} aria-busy={isLoading}>
+                            {isLoading ? <><Spinner as="span" animation="border" size="sm" /> Reading your data…</> : <>{currentQuestion === questions.length - 1 ? 'Analyze responses' : 'Continue'} <FaArrowRight aria-hidden="true" /></>}
+                        </Button>
+                        {!isLoading && <span className="setup-enter">press <strong>{currentQuestion === 1 || currentQuestion === 2 ? '⌘ + Enter' : 'Enter ↵'}</strong></span>}
+                    </div>
+                </div>
+            </form>
+
+            {currentQuestion === 4 && (
+                <footer className="setup-footer">
+                    <a href="/assets/sample-responses.csv" download="sample-responses.csv">Download sample CSV</a>
+                </footer>
+            )}
+        </main>
     );
 };
 
