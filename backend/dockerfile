@@ -21,6 +21,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY src ./src
 COPY app.py app.py
 COPY routes.py routes.py
+COPY dataset_utils.py dataset_utils.py
 COPY run_pipeline.py run_pipeline.py
 # COPY eduthemes-gunicorn.conf /etc/supervisor/conf.d/eduthemes-gunicorn.conf
 # RUN chmod 777 /var/log/supervisor/supervisord.log
