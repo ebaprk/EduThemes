@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase, supabaseConfigured } from '../supabase';
 import './Studies.css';
 
 export default function Participant() {
   const { code } = useParams();
+  const navigate = useNavigate();
   const [entryCode, setEntryCode] = useState('');
   const [study, setStudy] = useState(null);
   const [answers, setAnswers] = useState({});
@@ -50,7 +51,7 @@ export default function Participant() {
       <p>Enter the code your researcher shared with you.</p>
       <form className="study-panel join-form" onSubmit={(event) => {
         event.preventDefault();
-        window.location.assign(`/join/${entryCode.trim().toUpperCase()}`);
+        navigate(`/join/${entryCode.trim().toUpperCase()}`);
       }}>
         <label htmlFor="study-code">Study code</label>
         <input id="study-code" value={entryCode} onChange={(event) => setEntryCode(event.target.value)} required maxLength={12} autoComplete="off" placeholder="12-character code" />
@@ -68,7 +69,7 @@ export default function Participant() {
             <section className="study-panel" role="status">
               <h1>Thank you for participating</h1>
               <p>Your responses were submitted successfully.</p>
-              <Link to="/join">Join another study</Link>
+              <Link to="/">Join another study</Link>
             </section>
           ) : study ? (
             <>
@@ -95,7 +96,7 @@ export default function Participant() {
                 </button>
               </form>
             </>
-          ) : <section className="study-panel"><h1>Study unavailable</h1><p role="alert">{error}</p><Link to="/join">Enter another code</Link></section>}
+          ) : <section className="study-panel"><h1>Study unavailable</h1><p role="alert">{error}</p><Link to="/">Enter another code</Link></section>}
     </main>
   );
 }

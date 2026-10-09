@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "eduthemes-abepark"
-  }
+  },
+  "targets": {
+    "eduthemes-abepark": {
+      "hosting": {
+        "researcher": [
+          "eduthemes-abepark"
+        ],
+        "participant": [
+          "eduthemes-participant-abepark"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

@@ -1,24 +1,40 @@
 {
-  "hosting": {
-    "public": "frontend/dist",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "headers": [
-      {
-        "source": "**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache, no-store"
-          }
-        ]
-      }
-    ],
-    "rewrites": [
-      { "source": "**", "destination": "/index.html" }
-    ]
-  }
+  "hosting": [
+    {
+      "target": "researcher",
+      "public": "frontend/dist-researcher",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "headers": [
+        {
+          "source": "**",
+          "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store" }]
+        }
+      ],
+      "redirects": [
+        {
+          "source": "/join/:code",
+          "destination": "https://eduthemes-participant-abepark.web.app/join/:code",
+          "type": 301
+        },
+        {
+          "source": "/join",
+          "destination": "https://eduthemes-participant-abepark.web.app/",
+          "type": 301
+        }
+      ],
+      "rewrites": [{ "source": "**", "destination": "/index.html" }]
+    },
+    {
+      "target": "participant",
+      "public": "frontend/dist-participant",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "headers": [
+        {
+          "source": "**",
+          "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store" }]
+        }
+      ],
+      "rewrites": [{ "source": "**", "destination": "/index.html" }]
+    }
+  ]
 }

@@ -4,9 +4,13 @@
 
 ## Research studies and participant responses
 
-EduThemes has a researcher workspace and an account-free participant form.
+EduThemes has two separate web apps: the
+[researcher workspace](https://eduthemes-abepark.web.app/) and the
+[participant app](https://eduthemes-participant-abepark.web.app/).
 Researchers create draft studies with open-response questions, publish a study,
-and share its link or code. Participants submit responses through that link.
+and share a link to the participant app or a code. Participants submit responses
+there without an account. Existing researcher-domain `/join` links redirect to
+the participant domain.
 Only the researcher who owns the study can read its submissions. A researcher
 can code each question's responses with the existing Code → Review → Results
 workflow; progress and completed findings are saved to Supabase per question.
@@ -23,10 +27,10 @@ The same values are in the ignored `frontend/.env.local` for local development.
 If you use a different Supabase project, copy `frontend/.env.example` and replace
 those values. **Never put a Supabase secret or service-role key in the frontend.**
 
-The production frontend is hosted at
-[`https://eduthemes-abepark.web.app`](https://eduthemes-abepark.web.app).
-Its existing `VITE_API_URL` points to the Render analysis backend; keep the
-frontend origin in the backend's `CORS_ORIGINS`.
+`npm run build` creates separate researcher and participant bundles. The
+researcher app uses the Render analysis backend through `VITE_API_URL`; keep
+the researcher origin in the backend's `CORS_ORIGINS`. The participant bundle
+only connects to Supabase.
 
 The study, question, submission, and coding tables have row-level security.
 The public link uses two narrowly scoped database functions: one reads the
@@ -36,17 +40,13 @@ queries.
 
 ### Run locally
 
-1. Starting in the `EduThemes` directory, run `cd frontend`.
-2. Run `npm install` and `npm start`.
+From `frontend`, run `npm install` and `npm start` for the researcher app on
+port 3000. In a second terminal, run `npm run start:participant` for the
+participant app on port 3001. Set `VITE_FRONT_URL` and
+`VITE_PARTICIPANT_URL` in `.env.local` to those respective local origins.
 
-In a separate terminal
-
-5. Run `cd ../backend`.
-6. Run `python3 -m venv venv` (or whatever running python equivalent like `py -m venv venv`)
-7. Run `source venv/bin/activate` on Mac/Linux or `venv/Scripts/activate` on Windows
-8. **Verify that you see `(venv)` at the beginning of your command prompt before doing any work**
-9. Run `pip install -r requirements.txt`
-10. Run `flask run --port 1500`
+For the analysis backend, create and activate a virtual environment in
+`backend`, install `requirements.txt`, then run `flask run --port 1500`.
 
 The analysis model selector uses UF's NaviGator AI Toolkit. Set
 `NAVIGATOR_API_KEY` on the backend. `NAVIGATOR_MODEL` defaults to
@@ -76,14 +76,14 @@ The repository includes a `render.yaml` Blueprint for a free Docker web
 service. In Render, create a Blueprint from this repository and provide the
 `NAVIGATOR_API_KEY` secret value when prompted.
 
-The production frontend configuration points to the Render backend. Build and
-deploy it to Firebase Hosting with:
+The Firebase project has two Hosting targets. Build and deploy them with:
 
 ```bash
 cd frontend
 npm run build
 cd ..
-firebase deploy --only hosting
+firebase deploy --only hosting:participant
+firebase deploy --only hosting:researcher
 ```
 
 The analysis backend still uses temporary SQLite sessions and uploaded files.

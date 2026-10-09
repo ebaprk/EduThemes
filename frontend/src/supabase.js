@@ -9,5 +9,3 @@ export const supabase = supabaseConfigured
       auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true },
     })
   : null;
-
-export const studyLink = (code) => `${window.location.origin}/join/${code}`;

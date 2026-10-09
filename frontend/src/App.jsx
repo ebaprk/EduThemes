@@ -9,7 +9,6 @@ import Preview from "./components/Preview";
 import NotFound from "./components/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Researcher from "./components/Researcher";
-import Participant from "./components/Participant";
 import { API_URL } from "./api";
 import { supabase } from './supabase';
 import { responsesForQuestion, responsesToCsv } from './utils/studyResponses';
@@ -276,7 +275,7 @@ function App() {
 
   return (
     <div className="App">
-      <Header hasActiveAnalysis={Boolean(sessionId && currentStage !== 'start')} participant={normalizedPath.startsWith('/join')} />
+      <Header hasActiveAnalysis={Boolean(sessionId && currentStage !== 'start')} />
       <div className="app-content">
         {analysisSource && ['preview', 'review', 'results'].includes(currentStage) && (
           <div className="study-analysis-banner"><span><strong>{analysisSource.title}</strong> · {analysisSource.prompt}</span><span role="status">{analysisSaveState}</span><Link to={`/studies/${analysisSource.studyId}`} onClick={async (event) => { event.preventDefault(); await saveQueue.current; navigate(`/studies/${analysisSource.studyId}`); }}>Study overview</Link></div>
@@ -292,8 +291,6 @@ function App() {
           <Routes>
           <Route path="/" element={<Researcher onAnalyze={handleStudyAnalysis} hasActiveAnalysis={Boolean(sessionId)} onResumeAnalysis={() => handleAdvanceStage(resumeStage)} />} />
           <Route path="/studies/:studyId" element={<Researcher onAnalyze={handleStudyAnalysis} hasActiveAnalysis={Boolean(sessionId)} onResumeAnalysis={() => handleAdvanceStage(resumeStage)} />} />
-          <Route path="/join" element={<Participant />} />
-          <Route path="/join/:code" element={<Participant />} />
           <Route
             path="/analysis"
             element={(

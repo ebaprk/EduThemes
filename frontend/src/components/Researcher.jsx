@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { studyLink, supabase, supabaseConfigured } from '../supabase';
+import { studyLink } from '../appUrls';
+import { supabase, supabaseConfigured } from '../supabase';
 import './Studies.css';
 
 const emptyForm = { title: '', description: '', research_question: '', additional_context: '', questions: [''] };
