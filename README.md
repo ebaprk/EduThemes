@@ -42,8 +42,8 @@ queries.
 
 From `frontend`, run `npm install` and `npm start` for the researcher app on
 port 3000. In a second terminal, run `npm run start:participant` for the
-participant app on port 3001. Set `VITE_FRONT_URL` and
-`VITE_PARTICIPANT_URL` in `.env.local` to those respective local origins.
+participant app on port 3001. Set `VITE_PARTICIPANT_URL` in `.env.local` to
+`http://localhost:3001` so researcher study links point to the participant app.
 
 For the analysis backend, create and activate a virtual environment in
 `backend`, install `requirements.txt`, then run `flask run --port 1500`.

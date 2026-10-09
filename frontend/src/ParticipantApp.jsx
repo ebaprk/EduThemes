@@ -8,7 +8,7 @@ export default function ParticipantApp() {
   return (
     <BrowserRouter>
       <div className="App">
-        <Header participant />
+        <Header />
         <div className="app-content">
           <Routes>
             <Route path="/" element={<Participant />} />

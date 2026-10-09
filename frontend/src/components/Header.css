@@ -12,7 +12,6 @@
 .site-header__inner {
     display: flex;
     align-items: center;
-    justify-content: space-between;
 }
 
 .site-brand.navbar-brand {
@@ -53,10 +52,6 @@
     letter-spacing: -0.045em;
 }
 
-.site-nav { display: flex; align-items: center; gap: 18px; }
-.site-nav a { color: #426050; text-decoration: none; font-size: .9rem; font-weight: 700; }
-.site-nav a:hover, .site-nav a[aria-current="page"] { color: #176b52; text-decoration: underline; text-underline-offset: 5px; }
-
 @media (max-width: 575px) {
     .site-header.navbar {
         min-height: 60px;
@@ -72,10 +67,6 @@
     .site-brand__name {
         font-size: 1.04rem;
     }
-
-    .site-nav { gap: 10px; }
-    .site-nav a { font-size: .78rem; }
-
 }
 
 @media (max-width: 359px) {
