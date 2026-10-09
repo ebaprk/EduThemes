@@ -517,6 +517,7 @@ def submit_final_dataset(session_id):
             f.write(summary)
 
         update_session(session_id, 
+            labels=json.dumps(data["labels"]),
             analysis_results=json.dumps({
                 "themes": list(theme_counts.values()),
                 "summary": summary
