@@ -4,9 +4,10 @@
 
 ## Research studies and participant responses
 
-EduThemes has two separate web apps: the
-[researcher workspace](https://eduthemes-abepark.web.app/) and the
-[participant app](https://eduthemes-participant-abepark.web.app/).
+This repository contains the
+[researcher workspace](https://eduthemes-abepark.web.app/). The
+[participant app](https://eduthemes-participant-abepark.web.app/) lives in the
+separate [EduThemes-Participant repository](https://github.com/ebaprk/EduThemes-Participant).
 Researchers create draft studies with open-response questions, publish a study,
 and share a link to the participant app or a code. Participants submit responses
 there without an account. Existing researcher-domain `/join` links redirect to
@@ -27,10 +28,10 @@ The same values are in the ignored `frontend/.env.local` for local development.
 If you use a different Supabase project, copy `frontend/.env.example` and replace
 those values. **Never put a Supabase secret or service-role key in the frontend.**
 
-`npm run build` creates separate researcher and participant bundles. The
-researcher app uses the Render analysis backend through `VITE_API_URL`; keep
-the researcher origin in the backend's `CORS_ORIGINS`. The participant bundle
-only connects to Supabase.
+`npm run build` creates the researcher bundle. The researcher app uses the
+Render analysis backend through `VITE_API_URL`; keep the researcher origin in
+the backend's `CORS_ORIGINS`. The participant app connects directly to
+Supabase from its own project.
 
 The study, question, submission, and coding tables have row-level security.
 The public link uses two narrowly scoped database functions: one reads the
@@ -41,9 +42,10 @@ queries.
 ### Run locally
 
 From `frontend`, run `npm install` and `npm start` for the researcher app on
-port 3000. In a second terminal, run `npm run start:participant` for the
-participant app on port 3001. Set `VITE_PARTICIPANT_URL` in `.env.local` to
-`http://localhost:3001` so researcher study links point to the participant app.
+port 3000. To run the participant app locally, open its separate VS Code
+project and run `npm ci` and `npm run dev` there on port 3001. Set
+`VITE_PARTICIPANT_URL` in this project's `.env.local` to
+`http://localhost:3001` so researcher study links point to that app.
 
 For the analysis backend, create and activate a virtual environment in
 `backend`, install `requirements.txt`, then run `flask run --port 1500`.
@@ -76,15 +78,17 @@ The repository includes a `render.yaml` Blueprint for a free Docker web
 service. In Render, create a Blueprint from this repository and provide the
 `NAVIGATOR_API_KEY` secret value when prompted.
 
-The Firebase project has two Hosting targets. Build and deploy them with:
+This repository owns the researcher Hosting target. Build and deploy it with:
 
 ```bash
 cd frontend
 npm run build
 cd ..
-firebase deploy --only hosting:participant
 firebase deploy --only hosting:researcher
 ```
+
+The participant repository owns the participant Hosting target and deploys it
+separately.
 
 The analysis backend still uses temporary SQLite sessions and uploaded files.
 Supabase durably stores studies, collected responses, and coding snapshots.

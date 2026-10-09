@@ -22,8 +22,8 @@ frontend/.pnp
 
 # production
 /build
+frontend/dist/
 frontend/dist-researcher/
-frontend/dist-participant/
 
 # misc
 **/.idea

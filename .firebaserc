@@ -7,9 +7,6 @@
       "hosting": {
         "researcher": [
           "eduthemes-abepark"
-        ],
-        "participant": [
-          "eduthemes-participant-abepark"
         ]
       }
     }

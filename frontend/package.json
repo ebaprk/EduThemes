@@ -28,10 +28,7 @@
   },
   "scripts": {
     "start": "vite --port 3000",
-    "build": "npm run build:researcher && npm run build:participant",
-    "build:researcher": "vite build --outDir dist-researcher --emptyOutDir",
-    "build:participant": "vite build --config vite.participant.config.js",
-    "start:participant": "vite --config vite.participant.config.js --port 3001",
+    "build": "vite build --outDir dist-researcher --emptyOutDir",
     "test": "node --test",
     "eject": "react-scripts eject"
   },
