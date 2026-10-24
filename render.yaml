@@ -12,7 +12,7 @@ services:
     autoDeployTrigger: commit
     envVars:
       - key: CORS_ORIGINS
-        value: https://eduthemes-abepark.web.app,https://eduthemes-abepark.firebaseapp.com
+        value: https://eduthemes-abepark.web.app,https://eduthemes-abepark.firebaseapp.com,https://eduthemes-participant-abepark.web.app,https://eduthemes-participant-abepark.firebaseapp.com
       - key: PORT
         value: 10000
       - key: WEB_CONCURRENCY
@@ -27,3 +27,15 @@ services:
         value: nemotron-3-super-120b-a12b
       - key: NAVIGATOR_BASE_URL
         value: https://api.ai.it.ufl.edu/v1
+      - key: LTI_PUBLIC_URL
+        value: https://eduthemes-api.onrender.com
+      - key: LTI_PARTICIPANT_URL
+        value: https://eduthemes-participant-abepark.web.app
+      - key: SUPABASE_URL
+        value: https://ihocmfxrhbiyilnzdptu.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: LTI_REGISTRATIONS_JSON
+        sync: false
+      - key: LTI_TOOL_PUBLIC_JWK
+        sync: false

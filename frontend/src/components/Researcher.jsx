@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { studyLink } from '../appUrls';
 import { supabase, supabaseConfigured } from '../supabase';
+import { participantDetails, submissionsToCsv } from '../utils/participantData';
 import './Studies.css';
 
 const emptyForm = { title: '', description: '', research_question: '', additional_context: '', questions: [''] };
@@ -123,7 +124,7 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
       const [studyResult, questionResult, submissionResult, analysisResult] = await Promise.all([
         supabase.from('studies').select('*').eq('id', studyId).single(),
         supabase.from('study_questions').select('*').eq('study_id', studyId).order('position'),
-        supabase.from('study_submissions').select('id,answers,created_at').eq('study_id', studyId).order('created_at'),
+        supabase.from('study_submissions').select('id,answers,participant_data,created_at').eq('study_id', studyId).order('created_at'),
         supabase.from('study_analyses').select('*').eq('study_id', studyId),
       ]);
       const queryError = studyResult.error || questionResult.error || submissionResult.error || analysisResult.error;
@@ -218,6 +219,15 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
     finally { setSaving(false); }
   };
 
+  const exportSubmissions = () => {
+    const url = URL.createObjectURL(new Blob([submissionsToCsv(submissions, questions)], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `eduthemes-${study.share_code}-participants.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   const signOut = async () => {
     const { error: signOutError } = await supabase.auth.signOut();
     if (signOutError) setError(signOutError.message);
@@ -253,7 +263,7 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
                 editing ? <StudyForm key={study.id} initial={{ ...study, questions: questions.map((question) => question.prompt) }} onSave={saveDraft} onCancel={() => setEditing(false)} saving={saving} />
                   : <section className="study-panel study-inline"><div><h2>Draft questions</h2><ol>{questions.map((question) => <li key={question.id}>{question.prompt}</li>)}</ol></div><button className="study-secondary" onClick={() => setEditing(true)}>Edit draft</button></section>
               ) : <section className="study-panel share-panel"><div><h2>Participant link</h2><p>Share this link or code with students and participants.</p><code>{studyLink(study.share_code)}</code><p className="study-code">Code: {study.share_code}</p></div><button className="study-secondary" onClick={copyLink}>Copy link</button></section>}
-              <section className="study-responses"><div className="study-section-heading"><div><h2>Questions and responses</h2><p>{submissions.length} {submissions.length === 1 ? 'submission' : 'submissions'} received</p></div><button type="button" className="study-text-button" onClick={load}>Refresh</button></div>
+              <section className="study-responses"><div className="study-section-heading"><div><h2>Questions and responses</h2><p>{submissions.length} {submissions.length === 1 ? 'submission' : 'submissions'} received · {submissions.filter((item) => item.participant_data?.source === 'canvas').length} with Canvas details</p></div><div className="study-actions"><button type="button" className="study-secondary" disabled={!submissions.length} onClick={exportSubmissions}>Download responses and participant data</button><button type="button" className="study-text-button" onClick={load}>Refresh</button></div></div>
                 {questions.map((question) => {
                   const answerCount = submissions.filter((submission) => Boolean(submission.answers?.[question.id]?.trim())).length;
                   const analysis = analyses.find((entry) => entry.question_id === question.id);
@@ -265,7 +275,7 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
                       {analysis?.stage !== 'results' && analysis && <button className="study-primary" disabled={saving} onClick={() => launchAnalysis(question, analysis)}>Resume coding</button>}
                       {answerCount > 0 && <button className={analysis ? 'study-secondary' : 'study-primary'} disabled={saving} onClick={() => launchAnalysis(question)}>{analysis ? 'Analyze current responses' : 'Start coding'}</button>}
                     </div>
-                    {answerCount > 0 && <details className="study-answer-list"><summary>View collected responses</summary><ol>{submissions.filter((submission) => submission.answers?.[question.id]?.trim()).map((submission) => <li key={submission.id}>{submission.answers[question.id]}</li>)}</ol></details>}
+                    {answerCount > 0 && <details className="study-answer-list"><summary>View collected responses</summary><ol>{submissions.filter((submission) => submission.answers?.[question.id]?.trim()).map((submission) => <li key={submission.id}><p>{submission.answers[question.id]}</p>{submission.participant_data?.source === 'canvas' ? <details><summary>Canvas participant details{submission.participant_data.name ? ` · ${submission.participant_data.name}` : ''}</summary><dl>{participantDetails(submission.participant_data).map(([label, value]) => <React.Fragment key={label}><dt>{label}</dt><dd>{value}</dd></React.Fragment>)}</dl></details> : <small>Anonymous participant</small>}</li>)}</ol></details>}
                     {analysis?.stage === 'results' && <div className="study-findings"><h4>Saved findings</h4><p>{analysis.results?.summary || 'No summary saved.'}</p><ul>{(analysis.results?.themes || []).map((theme) => <li key={theme.name}>{theme.name}: {theme.frequency}</li>)}</ul><button type="button" className="study-text-button" onClick={() => exportAnalysis(analysis, question)}>Download coded results</button></div>}
                   </article>;
                 })}

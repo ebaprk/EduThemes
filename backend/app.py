@@ -2,6 +2,7 @@ import os
 from flask import Flask
 from flask_cors import CORS
 from routes import routes_bp, init_db
+from lti import lti_bp
 
 
 def create_app():
@@ -9,7 +10,7 @@ def create_app():
     app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
     allowed_origins = os.getenv(
         'CORS_ORIGINS',
-        'http://localhost:3000,http://127.0.0.1:3000'
+        'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001'
     ).split(',')
     CORS(app, origins=[origin.strip() for origin in allowed_origins if origin.strip()])
 
@@ -18,6 +19,7 @@ def create_app():
 
     init_db()
     app.register_blueprint(routes_bp)
+    app.register_blueprint(lti_bp)
 
     @app.get('/health')
     def health():

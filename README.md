@@ -56,6 +56,20 @@ The analysis model selector uses UF's NaviGator AI Toolkit. Set
 `https://api.ai.it.ufl.edu/v1`. Model failures are returned to the interface for
 retry; production analysis never substitutes random classifications.
 
+## Canvas participant details
+
+Canvas LTI 1.3 support is implemented across the backend, researcher workspace,
+shared Supabase schema, and the separate participant project. Participants launch
+EduThemes from Canvas, review and confirm sharing their supplied details, and
+those details are saved with their study answers. Researchers can view and export
+the participant data. Academic year is included only if the institution supplies
+it; it is not inferred from course or student identifiers.
+
+See [the UF Canvas setup guide](docs/canvas-lti.md) for registration URLs,
+backend settings, migration/deployment order, and verification. **UF approval,
+real client/deployment IDs, and server configuration are required before this
+integration is live.** The migration must precede the updated researcher app.
+
 ## Tests
 
 ```bash
