@@ -59,14 +59,48 @@ were added to source control.
   including disposable PostgreSQL authorization/migration tests and synthetic
   browser walkthroughs.
 
-## Browser verification limit
+## Authenticated production browser verification
 
-The researcher app is signed out in the deployment browser. An interactive
-authenticated create/invite/code/revise walkthrough awaits researcher sign-in;
-the corresponding production database functions and authorization policies were
-verified directly as described above. No password was requested in chat, reset,
-or changed. Browser flows were verified before release with synthetic services;
-production build bytes and the signed-out page were verified after release.
+The signed-in walkthrough completed against the deployed apps, production
+database, and live analysis service. A clearly labeled synthetic study was used:
+`TEST ONLY — Phase 1 browser verification — 2026-10-28`
+(`0f0e936d-705a-4e28-8b97-45617f49bff6`).
+
+- Created a draft, published version 1 with explicit consent, and opened its
+  anonymous participant link.
+- Created, copied, and removed a pending reviewer invitation addressed to
+  `phase1-reviewer@example.invalid`. No invitation email was sent and no real
+  collaborator received access. Invitation acceptance and role restrictions
+  were covered by the rollback-only database verification above.
+- Refreshed an unfinished participant response: the answer was recovered while
+  consent required confirmation again. Submitted one fabricated answer, then
+  refreshed the thank-you screen without creating a duplicate submission.
+- Downloaded the server-timestamped version 1 receipt and confirmed it contains
+  consent information without answers or participant identity.
+- Started an authenticated analysis session, created a theme, assigned the
+  response, and completed classification with the live model service. Accepted
+  the classification and confirmed that the saved decision survived reload.
+- Resumed the saved review into a fresh analysis session, generated the final
+  summary, and confirmed the study displayed saved findings for version 1.
+- Downloaded the final dataset, summary, version-specific coded results, and
+  responses/consent CSV. The exports retained the original submission and
+  version IDs, accepted decision, and consent text/time. The receipt and coded
+  export contained matching version 1 consent text; the CSV contained exactly
+  one anonymous response and empty identity fields.
+- Opened the saved theme evidence and followed its link to the original response
+  and recorded consent time.
+- Published version 2 with revised question and consent text. Its participant
+  page displayed the new consent, while version 1 retained its original
+  response, coding, review decision, and final findings. No version 2 response
+  was submitted.
+- Closed the test study and reloaded its participant link, which displayed
+  **Study unavailable**.
+
+Unlike the rollback-only database smoke test, this browser walkthrough leaves
+one closed, clearly labeled test study with two published versions, one
+fabricated response, and saved version 1 findings for inspection. No original
+study or response was edited or deleted. No password was requested in chat,
+reset, or changed.
 
 Real Canvas launches still require UF approval and registration as documented in
 `canvas-activation-status.md`.
