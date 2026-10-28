@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 const { PGlite } = await import(process.env.PGLITE_MODULE
-  ? pathToFileURL(process.env.PGLITE_MODULE).href : '@electric-sql/pglite');
+  ? pathToFileURL(process.env.PGLITE_MODULE).href : '../../frontend/node_modules/@electric-sql/pglite/dist/index.js');
 const db = new PGlite();
 const owner = randomUUID();
 const stranger = randomUUID();

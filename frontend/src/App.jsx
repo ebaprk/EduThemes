@@ -11,7 +11,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import Researcher from "./components/Researcher";
 import { API_URL } from "./api";
 import { supabase } from './supabase';
-import { responsesForQuestion, responsesToCsv } from './utils/studyResponses';
+import { attachResponseSources, responseRecordsForQuestion, responsesForQuestion, responsesToCsv } from './utils/studyResponses';
 import "./components/Workflow.css";
 
 const Review = lazy(() => import('./components/Review'));
@@ -92,6 +92,7 @@ function App() {
   const [analysisSaveState, setAnalysisSaveState] = useState('');
   const saveQueue = useRef(Promise.resolve());
   const saveVersion = useRef(0);
+  const analysisRuns = useRef(new Map());
   const [sessionNotice, setSessionNotice] = useState(null);
   const [storageWarning, setStorageWarning] = useState(false);
   const [projectMetadata, setProjectMetadata] = useSessionValue("eduthemes.projectMetadata", {
@@ -110,7 +111,7 @@ function App() {
 
   const handleSessionStart = (newSessionId) => {
     if (sessionId && sessionId !== newSessionId) {
-      fetch(`${API_URL}/session/${sessionId}`, { method: 'DELETE' }).catch(() => {});
+      axios.delete(`${API_URL}/session/${sessionId}`).catch(() => {});
     }
     setSessionId(newSessionId);
     setDataset(null);
@@ -150,14 +151,16 @@ function App() {
     setProjectMetadata(metadata);
   };
 
-  const handleStudyAnalysis = async (study, question, submissions, savedAnalysis = null) => {
+  const handleStudyAnalysis = async (study, question, submissions, savedAnalysis = null, savedRevision = 0) => {
+    const { data: auth } = await supabase.auth.getSession();
+    if (!auth.session) throw new Error('Sign in before coding study responses.');
     const responses = responsesForQuestion(question.id, submissions, savedAnalysis);
     if (!responses.length) throw new Error('There are no responses to code for this question yet.');
     const modelStatus = await axios.get(`${API_URL}/models`);
     if (!modelStatus.data?.models?.navigator) throw new Error('Set NAVIGATOR_API_KEY on the analysis backend before coding study responses.');
     const csv = responsesToCsv(responses);
     if (new Blob([csv]).size > 20 * 1024 * 1024) throw new Error('This question has more than 20 MB of responses. Download and split the data before analysis.');
-    const newSession = await axios.post(`${API_URL}/session/start`);
+    const newSession = await axios.post(`${API_URL}/session/start`, { study_id: study.id });
     const newSessionId = newSession.data.session_id;
     if (!newSessionId) throw new Error('The analysis service did not create a session.');
     const metadata = {
@@ -174,14 +177,17 @@ function App() {
     form.append('apiKey', metadata.apiKey);
     try {
       const uploaded = await axios.post(`${API_URL}/session/${newSessionId}/upload-dataset`, form);
+      const imported = savedAnalysis?.coded_responses || attachResponseSources(uploaded.data.preprocessed_dataset, responseRecordsForQuestion(question.id, submissions));
       handleSessionStart(newSessionId);
-      setDataset(savedAnalysis?.coded_responses || uploaded.data.preprocessed_dataset);
+      setDataset(imported);
       setLabels(savedAnalysis?.labels || uploaded.data.predefined_themes || []);
       setVisualization(uploaded.data.visualization_image);
       setClaudeData(savedAnalysis?.classifications || null);
       setProjectMetadata(metadata);
       setUploadSummary(uploaded.data.dataset_summary || null);
-      setAnalysisSource({ studyId: study.id, questionId: question.id, ownerId: study.owner_id, title: study.title, prompt: question.prompt });
+      setAnalysisSource({ studyId: study.id, versionId: study.current_version_id, questionId: question.id,
+        ownerId: study.owner_id, actorId: auth.session.user.id, runId: newSessionId,
+        revision: savedAnalysis?.revision || savedRevision, title: study.title, prompt: question.prompt });
       navigate(savedAnalysis?.stage === 'review' && savedAnalysis.classifications ? '/review' : '/code');
     } catch (error) {
       await axios.delete(`${API_URL}/session/${newSessionId}`).catch(() => {});
@@ -190,11 +196,16 @@ function App() {
   };
 
   useEffect(() => {
-    if (!supabase || !analysisSource || !dataset || !['preview', 'review', 'results'].includes(currentStage)) return undefined;
+    if (!supabase || !analysisSource?.versionId || !dataset || !['preview', 'review', 'results'].includes(currentStage)) return undefined;
+    const source = analysisSource;
+    if (!analysisRuns.current.has(source.runId)) analysisRuns.current.set(source.runId, { revision: source.revision || 0, blocked: false });
+    const run = analysisRuns.current.get(source.runId);
+    if (run.blocked) return undefined;
     const version = ++saveVersion.current;
     setAnalysisSaveState('Saving study analysis…');
     const snapshot = {
       study_id: analysisSource.studyId,
+      study_version_id: analysisSource.versionId,
       question_id: analysisSource.questionId,
       owner_id: analysisSource.ownerId,
       labels,
@@ -206,11 +217,34 @@ function App() {
       updated_at: new Date().toISOString(),
     };
     saveQueue.current = saveQueue.current.catch(() => {}).then(async () => {
-      const { error } = await supabase.from('study_analyses').upsert(snapshot, { onConflict: 'study_id,question_id' });
-      if (version === saveVersion.current) setAnalysisSaveState(error ? `Could not save study progress: ${error.message}` : 'Study progress saved');
+      if (run.blocked) return;
+      try {
+        const { data: auth } = await supabase.auth.getSession();
+        if (auth.session?.user.id !== source.actorId) return;
+        const { data: revision, error } = await supabase.rpc('save_study_analysis', { p_snapshot: snapshot, p_expected_revision: run.revision });
+        if (error) throw error;
+        run.revision = revision;
+        setAnalysisSource((current) => current?.runId === source.runId ? { ...current, revision } : current);
+        if (version === saveVersion.current) setAnalysisSaveState('Study progress saved');
+      } catch (error) {
+        run.blocked = true;
+        setAnalysisSaveState(`Could not save study progress: ${error.message} Your changes remain in this tab. Download a copy before reopening the study.`);
+      }
     });
     return undefined;
-  }, [analysisSource, currentStage, dataset, labels, claudeData, results]);
+  }, [analysisSource?.runId, currentStage, dataset, labels, claudeData, results]);
+
+  useEffect(() => {
+    if (!supabase) return undefined;
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session || (analysisSource && analysisSource.actorId !== session.user.id)) {
+        saveVersion.current += 1;
+        for (const run of analysisRuns.current.values()) run.blocked = true;
+        clearAnalysis();
+      }
+    });
+    return () => listener.subscription.unsubscribe();
+  }, [analysisSource?.actorId]);
 
   useLayoutEffect(() => {
     let secondFrame;
@@ -258,27 +292,34 @@ function App() {
     if (!sessionId) return undefined;
     const controller = new AbortController();
 
-    fetch(`${API_URL}/session/${sessionId}`, { signal: controller.signal })
-      .then(async (response) => {
-        if (response.status === 410) {
+    axios.get(`${API_URL}/session/${sessionId}`, { signal: controller.signal })
+      .catch((error) => {
+        if ([401, 403, 410].includes(error.response?.status)) {
           clearAnalysis();
-          setSessionNotice('Your previous analysis session expired. Start a new analysis to continue.');
+          setSessionNotice(error.response.status === 410
+            ? 'Your previous analysis session expired. Reopen the study to restore saved coding.'
+            : 'Your access to this analysis has changed. Open the study again to check your access.');
           navigate('/', { replace: true });
         }
-      })
-      .catch(() => {});
+      });
 
     return () => controller.abort();
   // Validate only the restored session ID; state setters are stable.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
+  const downloadCurrentCoding = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ source: analysisSource, labels,
+      coded_responses: dataset, classifications: claudeData, results, stage: currentStage }, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a'); link.href = url; link.download = 'eduthemes-current-coding.json'; link.click(); URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="App">
       <Header hasActiveAnalysis={Boolean(sessionId && currentStage !== 'start')} />
       <div className="app-content">
         {analysisSource && ['preview', 'review', 'results'].includes(currentStage) && (
-          <div className="study-analysis-banner"><span><strong>{analysisSource.title}</strong> · {analysisSource.prompt}</span><span role="status">{analysisSaveState}</span><Link to={`/studies/${analysisSource.studyId}`} onClick={async (event) => { event.preventDefault(); await saveQueue.current; navigate(`/studies/${analysisSource.studyId}`); }}>Study overview</Link></div>
+          <div className="study-analysis-banner"><span><strong>{analysisSource.title}</strong> · {analysisSource.prompt}</span><span role="status">{analysisSaveState}</span>{analysisSaveState.startsWith('Could not') && <button type="button" className="study-text-button" onClick={downloadCurrentCoding}>Download current coding</button>}<Link to={`/studies/${analysisSource.studyId}`} onClick={async (event) => { event.preventDefault(); await saveQueue.current; navigate(`/studies/${analysisSource.studyId}`); }}>Study overview</Link></div>
         )}
         {storageWarning && (
           <div className="app-storage-warning" role="status">

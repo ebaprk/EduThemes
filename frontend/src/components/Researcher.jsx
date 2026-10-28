@@ -1,47 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { studyLink } from '../appUrls';
 import { supabase, supabaseConfigured } from '../supabase';
 import { participantDetails, submissionsToCsv } from '../utils/participantData';
+import StudyForm from './StudyForm';
+import StudyTeam from './StudyTeam';
+import StudyEvidence from './StudyEvidence';
 import './Studies.css';
-
-const emptyForm = { title: '', description: '', research_question: '', additional_context: '', questions: [''] };
-
-function StudyForm({ initial = emptyForm, onSave, onCancel, saving }) {
-  const [form, setForm] = useState(() => ({ ...emptyForm, ...initial, questions: initial.questions?.length ? initial.questions : [''] }));
-  const setField = (field, value) => setForm((previous) => ({ ...previous, [field]: value }));
-  const updateQuestion = (index, value) => setField('questions', form.questions.map((question, position) => position === index ? value : question));
-  const submit = (event) => {
-    event.preventDefault();
-    onSave({
-      ...form,
-      title: form.title.trim(),
-      description: form.description.trim(),
-      research_question: form.research_question.trim(),
-      additional_context: form.additional_context.trim(),
-      questions: form.questions.map((question) => question.trim()),
-    });
-  };
-
-  return (
-    <form className="study-panel study-editor" onSubmit={submit}>
-      <div className="study-field"><label htmlFor="study-title">Study title</label><input id="study-title" value={form.title} onChange={(event) => setField('title', event.target.value)} maxLength={160} required placeholder="e.g. How students learn with AI" /></div>
-      <div className="study-field"><label htmlFor="study-description">Participant introduction</label><textarea id="study-description" value={form.description} onChange={(event) => setField('description', event.target.value)} rows={3} placeholder="Explain the study and what participants will do." /></div>
-      <div className="study-field"><label htmlFor="research-question">Research question</label><input id="research-question" value={form.research_question} onChange={(event) => setField('research_question', event.target.value)} maxLength={500} required placeholder="What are you trying to understand?" /></div>
-      <div className="study-field"><label htmlFor="additional-context">Analysis context <span>(optional)</span></label><textarea id="additional-context" value={form.additional_context} onChange={(event) => setField('additional_context', event.target.value)} rows={3} placeholder="Context for theme suggestions" /></div>
-      <div className="study-question-heading"><h3>Open response questions</h3><span>{form.questions.length} of 12</span></div>
-      {form.questions.map((question, index) => (
-        <div className="study-question-row" key={index}>
-          <label htmlFor={`question-${index}`}>Question {index + 1}</label>
-          <textarea id={`question-${index}`} value={question} onChange={(event) => updateQuestion(index, event.target.value)} rows={2} maxLength={1000} required placeholder="Ask an open ended question" />
-          {form.questions.length > 1 && <button type="button" className="study-text-button" onClick={() => setField('questions', form.questions.filter((_, position) => position !== index))}>Remove</button>}
-        </div>
-      ))}
-      {form.questions.length < 12 && <button type="button" className="study-secondary" onClick={() => setField('questions', [...form.questions, ''])}>+ Add question</button>}
-      <div className="study-actions"><button type="submit" className="study-primary" disabled={saving}>{saving ? 'Saving…' : 'Save draft'}</button><button type="button" className="study-text-button" onClick={onCancel}>Cancel</button></div>
-    </form>
-  );
-}
 
 function AuthForm({ onAuthenticated }) {
   const [mode, setMode] = useState('sign-in');
@@ -85,19 +50,25 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [studies, setStudies] = useState([]);
+  const [invitations, setInvitations] = useState([]);
   const [study, setStudy] = useState(null);
-  const [questions, setQuestions] = useState([]);
+  const [draftQuestions, setDraftQuestions] = useState([]);
+  const [versions, setVersions] = useState([]);
+  const [view, setView] = useState('draft');
   const [submissions, setSubmissions] = useState([]);
   const [analyses, setAnalyses] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const loadGeneration = useRef(0);
 
   useEffect(() => {
-    if (!supabase) { setAuthLoading(false); return; }
+    if (!supabase) { setAuthLoading(false); return undefined; }
     let active = true;
     supabase.auth.getSession().then(({ data }) => {
       if (active) { setUser(data.session?.user || null); setAuthLoading(false); }
@@ -110,180 +81,147 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
 
   const load = useCallback(async () => {
     if (!user || !supabase) return;
-    setLoading(true);
-    setError('');
-    if (!studyId) {
-      const { data, error: queryError } = await supabase.from('studies').select('id,title,status,share_code,created_at').order('created_at', { ascending: false });
-      if (queryError) setError(queryError.message);
-      else setStudies(data || []);
-    } else {
-      setStudy(null);
-      setQuestions([]);
-      setSubmissions([]);
-      setAnalyses([]);
-      const [studyResult, questionResult, submissionResult, analysisResult] = await Promise.all([
-        supabase.from('studies').select('*').eq('id', studyId).single(),
-        supabase.from('study_questions').select('*').eq('study_id', studyId).order('position'),
-        supabase.from('study_submissions').select('id,answers,participant_data,created_at').eq('study_id', studyId).order('created_at'),
-        supabase.from('study_analyses').select('*').eq('study_id', studyId),
-      ]);
-      const queryError = studyResult.error || questionResult.error || submissionResult.error || analysisResult.error;
-      if (queryError) setError(queryError.message);
-      else {
-        setStudy(studyResult.data);
-        setQuestions(questionResult.data || []);
-        setSubmissions(submissionResult.data || []);
-        setAnalyses(analysisResult.data || []);
+    const generation = ++loadGeneration.current;
+    setLoading(true); setError('');
+    try {
+      if (!studyId) {
+        const [list, pending] = await Promise.all([
+          supabase.from('studies').select('id,title,status,share_code,created_at,owner_id').order('created_at', { ascending: false }),
+          supabase.rpc('pending_study_invitations'),
+        ]);
+        if (generation !== loadGeneration.current) return;
+        if (list.error || pending.error) throw list.error || pending.error;
+        setStudies(list.data || []); setInvitations(pending.data || []);
+      } else {
+        const results = await Promise.all([
+          supabase.from('studies').select('*').eq('id', studyId).single(),
+          supabase.from('study_questions').select('*').eq('study_id', studyId).order('position'),
+          supabase.from('study_submissions').select('*').eq('study_id', studyId).order('created_at'),
+          supabase.from('study_analyses').select('*').eq('study_id', studyId),
+          supabase.from('study_versions').select('*').eq('study_id', studyId).order('version_number', { ascending: false }),
+          supabase.from('study_members').select('*').eq('study_id', studyId).order('created_at'),
+          supabase.rpc('study_role', { p_study_id: studyId }),
+        ]);
+        if (generation !== loadGeneration.current) return;
+        const failed = results.find((result) => result.error);
+        if (failed) throw failed.error;
+        const [s, q, r, a, v, m, access] = results.map((result) => result.data);
+        setStudy(s); setDraftQuestions(q || []); setSubmissions(r || []); setAnalyses(a || []);
+        setVersions(v || []); setMembers(m || []); setRole(access);
+        setView(s.status === 'draft' ? 'draft' : s.current_version_id); setEditing(false);
       }
-    }
-    setLoading(false);
+    } catch (failure) { if (generation === loadGeneration.current) { setError(failure.message || 'The study could not be loaded.'); setStudy(null); setRole(null); } }
+    finally { if (generation === loadGeneration.current) setLoading(false); }
   }, [user, studyId]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const saveNew = async (form) => {
-    setSaving(true); setError('');
-    const { data, error: createError } = await supabase.from('studies').insert({
-      owner_id: user.id,
-      title: form.title,
-      description: form.description,
-      research_question: form.research_question,
-      additional_context: form.additional_context,
-    }).select('id').single();
-    if (createError) { setError(createError.message); setSaving(false); return; }
-    const rows = form.questions.map((prompt, position) => ({ study_id: data.id, position, prompt }));
-    const { error: questionError } = await supabase.from('study_questions').insert(rows);
-    if (questionError) {
-      await supabase.from('studies').delete().eq('id', data.id);
-      setError(questionError.message);
-    } else {
-      setCreating(false);
-      navigate(`/studies/${data.id}`);
-    }
-    setSaving(false);
-  };
+  useEffect(() => { setStudy(null); setRole(null); setStudies([]); setInvitations([]); setCreating(false); setEditing(false); load(); return () => { loadGeneration.current += 1; }; }, [load]);
 
   const saveDraft = async (form) => {
     setSaving(true); setError('');
-    const { error: studyError } = await supabase.from('studies').update({
-      title: form.title,
-      description: form.description,
-      research_question: form.research_question,
-      additional_context: form.additional_context,
-    }).eq('id', study.id);
-    if (studyError) { setError(studyError.message); setSaving(false); return; }
-    for (let position = 0; position < form.questions.length; position += 1) {
-      const row = questions[position];
-      const query = row
-        ? supabase.from('study_questions').update({ prompt: form.questions[position], position }).eq('id', row.id)
-        : supabase.from('study_questions').insert({ study_id: study.id, prompt: form.questions[position], position });
-      const { error: questionError } = await query;
-      if (questionError) { setError(questionError.message); setSaving(false); return; }
-    }
-    if (questions.length > form.questions.length) {
-      const removed = questions.slice(form.questions.length).map((question) => question.id);
-      const { error: deleteError } = await supabase.from('study_questions').delete().in('id', removed);
-      if (deleteError) { setError(deleteError.message); setSaving(false); return; }
-    }
-    setEditing(false); setSaving(false); await load();
-  };
-
-  const setStatus = async (status) => {
-    setSaving(true); setError('');
-    const { error: statusError } = await supabase.from('studies').update({ status }).eq('id', study.id);
-    setSaving(false);
-    if (statusError) setError(statusError.message);
-    else await load();
-  };
-
-  const copyLink = async () => {
-    try { await navigator.clipboard.writeText(studyLink(study.share_code)); setNotice('Study link copied.'); }
-    catch { setNotice('Copy the study link shown below.'); }
-  };
-
-  const exportAnalysis = (analysis, question) => {
-    const blob = new Blob([JSON.stringify({ study: study.title, question: question.prompt, ...analysis }, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `eduthemes-${study.share_code}-question-${question.position + 1}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const launchAnalysis = async (question, analysis = null) => {
-    setError('');
-    setSaving(true);
-    try { await onAnalyze(study, question, submissions, analysis); }
-    catch (launchError) { setError(launchError.message || 'Could not start coding.'); }
+    try {
+      const { data, error: saveError } = await supabase.rpc('save_study_draft', {
+        p_study_id: creating ? null : study.id, p_form: form,
+        p_expected_revision: creating ? 0 : study.draft_revision,
+      });
+      if (saveError) throw saveError;
+      setCreating(false); setEditing(false);
+      if (studyId === data) await load(); else navigate(`/studies/${data}`);
+    } catch (failure) { setError(failure.message || 'The draft could not be saved.'); }
     finally { setSaving(false); }
   };
-
-  const exportSubmissions = () => {
-    const url = URL.createObjectURL(new Blob([submissionsToCsv(submissions, questions)], { type: 'text/csv;charset=utf-8' }));
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `eduthemes-${study.share_code}-participants.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+  const setStatus = async (status) => {
+    setSaving(true); setError('');
+    try {
+      const { data, error: statusError } = await supabase.from('studies').update({ status }).eq('id', study.id).select('id');
+      if (statusError) throw statusError;
+      if (!data?.length) throw new Error('Only the study owner can change publication status.');
+      setNotice(status === 'draft' ? 'A new draft is ready. The participant link is paused until you publish it. Earlier versions and responses are preserved.' : status === 'open' ? 'The study is open to participants.' : 'The study is closed to new responses.');
+      await load();
+    } catch (failure) { setError(failure.message || 'The study status could not be changed.'); }
+    finally { setSaving(false); }
   };
-
+  const acceptInvitation = async (invitation) => {
+    setSaving(true); setError('');
+    try {
+      const { data, error: acceptError } = await supabase.rpc('accept_study_invitation', { p_invitation_id: invitation.id });
+      if (acceptError) throw acceptError;
+      navigate(`/studies/${data}`);
+    } catch (failure) { setError(failure.message); }
+    finally { setSaving(false); }
+  };
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(studyLink(study.share_code)); setNotice('Study link copied.'); }
+    catch { setError('Copy the study link shown below.'); }
+  };
+  const download = (content, type, name) => {
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = name; anchor.click(); URL.revokeObjectURL(url);
+  };
+  const selectedVersion = versions.find((version) => version.id === view);
+  const questions = selectedVersion?.questions || (view === 'draft' ? draftQuestions : []);
+  const responses = selectedVersion ? submissions.filter((submission) => submission.study_version_id === selectedVersion.id) : [];
+  const versionAnalyses = selectedVersion ? analyses.filter((analysis) => analysis.study_version_id === selectedVersion.id) : [];
+  const canEdit = role === 'owner' || role === 'researcher';
+  const launchAnalysis = async (question, analysis = null) => {
+    if (!canEdit || !selectedVersion) return;
+    setError(''); setSaving(true);
+    try {
+      const previous = versionAnalyses.find((entry) => entry.question_id === question.id);
+      await onAnalyze({ ...study, ...selectedVersion, id: study.id, owner_id: study.owner_id, current_version_id: selectedVersion.id }, question, responses, analysis, previous?.revision || 0);
+    } catch (failure) { setError(failure.message || 'Could not start coding.'); }
+    finally { setSaving(false); }
+  };
   const signOut = async () => {
     const { error: signOutError } = await supabase.auth.signOut();
-    if (signOutError) setError(signOutError.message);
-    else navigate('/');
+    if (signOutError) setError(signOutError.message); else navigate('/');
   };
 
-  if (!supabaseConfigured) return <main className="study-shell"><h1>Connect Supabase to EduThemes</h1><p>Add the project URL and publishable key to the frontend environment, then apply the SQL migration. The setup steps are in the README.</p></main>;
+  if (!supabaseConfigured) return <main className="study-shell"><h1>Connect Supabase to EduThemes</h1><p>Follow the setup steps in the README to connect the workspace.</p></main>;
   if (authLoading) return <main className="study-shell"><p role="status">Loading researcher workspace…</p></main>;
   if (!user) return <AuthForm onAuthenticated={setUser} />;
 
-  return (
-    <main className="study-shell researcher-shell">
-      <div className="study-topbar"><span className="study-eyebrow">Researcher workspace</span><button type="button" className="study-text-button" onClick={signOut}>Sign out</button></div>
-      {error && <p className="study-error" role="alert">{error}</p>}
-      {notice && <p className="study-note" role="status">{notice}</p>}
-      {!studyId ? (
-        <>
-          <div className="study-hero"><div><h1>Your studies</h1><p>Collect responses and turn them into themes.</p></div><button type="button" className="study-primary" onClick={() => setCreating(true)}>+ Create study</button></div>
-          {hasActiveAnalysis && <section className="study-panel study-inline"><div><strong>Analysis in progress</strong><p>Continue your coding session.</p></div><button className="study-secondary" onClick={onResumeAnalysis}>Continue analysis</button></section>}
-          {creating && <StudyForm onSave={saveNew} onCancel={() => setCreating(false)} saving={saving} />}
-          {loading ? <p role="status">Loading studies…</p> : studies.length ? (
-            <div className="study-list">{studies.map((item) => <Link to={`/studies/${item.id}`} className="study-list-card" key={item.id}><span className="study-status">{item.status}</span><h2>{item.title}</h2><p>Created {new Date(item.created_at).toLocaleDateString()}</p><span className="study-open-link">Open study →</span></Link>)}</div>
-          ) : !creating && !error && <section className="study-panel study-empty"><h2>No studies yet</h2><p>Create a study, add questions, and share its link with participants.</p><button type="button" className="study-secondary" onClick={() => setCreating(true)}>Create your first study</button></section>}
-          <div className="study-legacy-link"><Link to="/analysis">Analyze an existing response file →</Link></div>
-        </>
-      ) : (
-        <>
-          <Link className="study-back" to="/">← All studies</Link>
-          {loading && !study ? <p role="status">Loading study…</p> : study ? (
-            <>
-              <div className="study-hero"><div><span className="study-status">{study.status}</span><h1>{study.title}</h1><p>{study.research_question}</p></div><div className="study-actions">{study.status === 'draft' ? <button className="study-primary" disabled={saving} onClick={() => setStatus('open')}>Publish study</button> : <button className="study-secondary" disabled={saving} onClick={() => setStatus(study.status === 'open' ? 'closed' : 'open')}>{study.status === 'open' ? 'Close study' : 'Reopen study'}</button>}</div></div>
-              {study.status === 'draft' ? (
-                editing ? <StudyForm key={study.id} initial={{ ...study, questions: questions.map((question) => question.prompt) }} onSave={saveDraft} onCancel={() => setEditing(false)} saving={saving} />
-                  : <section className="study-panel study-inline"><div><h2>Draft questions</h2><ol>{questions.map((question) => <li key={question.id}>{question.prompt}</li>)}</ol></div><button className="study-secondary" onClick={() => setEditing(true)}>Edit draft</button></section>
-              ) : <section className="study-panel share-panel"><div><h2>Participant link</h2><p>Share this link or code with students and participants.</p><code>{studyLink(study.share_code)}</code><p className="study-code">Code: {study.share_code}</p></div><button className="study-secondary" onClick={copyLink}>Copy link</button></section>}
-              <section className="study-responses"><div className="study-section-heading"><div><h2>Questions and responses</h2><p>{submissions.length} {submissions.length === 1 ? 'submission' : 'submissions'} received · {submissions.filter((item) => item.participant_data?.source === 'canvas').length} with Canvas details</p></div><div className="study-actions"><button type="button" className="study-secondary" disabled={!submissions.length} onClick={exportSubmissions}>Download responses and participant data</button><button type="button" className="study-text-button" onClick={load}>Refresh</button></div></div>
-                {questions.map((question) => {
-                  const answerCount = submissions.filter((submission) => Boolean(submission.answers?.[question.id]?.trim())).length;
-                  const analysis = analyses.find((entry) => entry.question_id === question.id);
-                  return <article className="study-panel study-question-card" key={question.id}>
-                    <div className="study-question-top"><span>Question {question.position + 1}</span><span>{answerCount} {answerCount === 1 ? 'response' : 'responses'}</span></div>
-                    <h3>{question.prompt}</h3>
-                    {analysis && <p className="study-note">{analysis.stage === 'results' ? 'Findings saved' : 'Coding in progress'} · {analysis.response_count} responses in saved analysis{answerCount > analysis.response_count ? ` · ${answerCount - analysis.response_count} new since then` : ''}</p>}
-                    <div className="study-actions">
-                      {analysis?.stage !== 'results' && analysis && <button className="study-primary" disabled={saving} onClick={() => launchAnalysis(question, analysis)}>Resume coding</button>}
-                      {answerCount > 0 && <button className={analysis ? 'study-secondary' : 'study-primary'} disabled={saving} onClick={() => launchAnalysis(question)}>{analysis ? 'Analyze current responses' : 'Start coding'}</button>}
-                    </div>
-                    {answerCount > 0 && <details className="study-answer-list"><summary>View collected responses</summary><ol>{submissions.filter((submission) => submission.answers?.[question.id]?.trim()).map((submission) => <li key={submission.id}><p>{submission.answers[question.id]}</p>{submission.participant_data?.source === 'canvas' ? <details><summary>Canvas participant details{submission.participant_data.name ? ` · ${submission.participant_data.name}` : ''}</summary><dl>{participantDetails(submission.participant_data).map(([label, value]) => <React.Fragment key={label}><dt>{label}</dt><dd>{value}</dd></React.Fragment>)}</dl></details> : <small>Anonymous participant</small>}</li>)}</ol></details>}
-                    {analysis?.stage === 'results' && <div className="study-findings"><h4>Saved findings</h4><p>{analysis.results?.summary || 'No summary saved.'}</p><ul>{(analysis.results?.themes || []).map((theme) => <li key={theme.name}>{theme.name}: {theme.frequency}</li>)}</ul><button type="button" className="study-text-button" onClick={() => exportAnalysis(analysis, question)}>Download coded results</button></div>}
-                  </article>;
-                })}
-              </section>
-            </>
-          ) : !loading && <section className="study-panel"><h1>Study not found</h1><p>It may have been removed or belongs to another researcher.</p></section>}
-        </>
-      )}
-    </main>
-  );
+  return <main className="study-shell researcher-shell">
+    <div className="study-topbar"><span className="study-eyebrow">Researcher workspace</span><button type="button" className="study-text-button" onClick={signOut}>Sign out</button></div>
+    {error && <p className="study-error" role="alert">{error}</p>}{notice && <p className="study-note" role="status">{notice}</p>}
+    {!studyId ? <>
+      <div className="study-hero"><div><h1>Your studies</h1><p>Work with your team to collect responses and turn them into themes.</p></div><button type="button" className="study-primary" onClick={() => setCreating(true)}>+ Create study</button></div>
+      {invitations.length > 0 && <section className="study-panel study-invitations"><h2>Study invitations</h2><p>Invitations for {user.email}. Accept to join the research team.</p>{invitations.map((invitation) => <div className="study-inline" key={invitation.id}><div><strong>{invitation.title}</strong><p>Invited as {invitation.role}</p></div><button type="button" className="study-primary" disabled={saving} onClick={() => acceptInvitation(invitation)}>Accept invitation</button></div>)}</section>}
+      {hasActiveAnalysis && <section className="study-panel study-inline"><div><strong>Analysis in progress</strong><p>Continue your coding session.</p></div><button className="study-secondary" onClick={onResumeAnalysis}>Continue analysis</button></section>}
+      {creating && <StudyForm onSave={saveDraft} onCancel={() => setCreating(false)} saving={saving} />}
+      {loading ? <p role="status">Loading studies…</p> : studies.length ? <div className="study-list">{studies.map((item) => <Link to={`/studies/${item.id}`} className="study-list-card" key={item.id}><span className="study-status">{item.status}</span><h2>{item.title}</h2><p>{item.owner_id === user.id ? 'Your study' : 'Shared with you'} · Created {new Date(item.created_at).toLocaleDateString()}</p><span className="study-open-link">Open study →</span></Link>)}</div> : !creating && !error && <section className="study-panel study-empty"><h2>No studies yet</h2><p>Create a study, add questions, and share its link with participants.</p><button type="button" className="study-secondary" onClick={() => setCreating(true)}>Create your first study</button></section>}
+      <div className="study-legacy-link"><Link to="/analysis">Analyze an existing response file →</Link></div>
+    </> : <>
+      <Link className="study-back" to="/">← All studies</Link>
+      {loading && !study ? <p role="status">Loading study…</p> : study ? <>
+        <div className="study-hero"><div><span className="study-status">{study.status}</span><h1>{study.title}</h1><p>{study.research_question}</p></div>
+          {role === 'owner' && <div className="study-actions">{study.status === 'draft' ? <button className="study-primary" disabled={saving || !study.consent_text.trim() || study.participant_mode === 'optional_canvas'} onClick={() => setStatus('open')}>Publish {versions.length ? 'new version' : 'study'}</button> : <>
+            <button className="study-secondary" disabled={saving} onClick={() => setStatus(study.status === 'open' ? 'closed' : 'open')}>{study.status === 'open' ? 'Close study' : 'Reopen study'}</button>
+            {study.status === 'closed' && <button className="study-primary" disabled={saving} onClick={() => setStatus('draft')}>Create next version</button>}
+          </>}</div>}
+        </div>
+        {role === 'reviewer' && <p className="study-note">You have read-only access to this study.</p>}
+        {study.status === 'draft' && <>
+          {!study.consent_text.trim() && <p className="study-note">Add participant consent text before publishing this draft.</p>}
+          {editing ? <StudyForm key={`${study.id}-${study.draft_revision}`} initial={{ ...study, questions: draftQuestions.map((question) => question.prompt) }} onSave={saveDraft} onCancel={() => setEditing(false)} saving={saving} /> : <section className="study-panel study-inline"><div><h2>Draft questions</h2><ol>{draftQuestions.map((question) => <li key={question.id}>{question.prompt}</li>)}</ol></div>{canEdit && <button className="study-secondary" onClick={() => setEditing(true)}>Edit draft</button>}</section>}
+        </>}
+        {study.status !== 'draft' && <section className="study-panel share-panel"><div><h2>Participant link</h2><p>This link opens the latest published version when the study is open.</p><code>{studyLink(study.share_code)}</code><p className="study-code">Code: {study.share_code}</p></div><button className="study-secondary" onClick={copyLink}>Copy link</button></section>}
+        {versions.length > 0 && <section className="study-panel study-history"><div className="study-field"><label htmlFor="study-version">Study history</label><select id="study-version" value={view || ''} onChange={(event) => setView(event.target.value)}>
+          {study.status === 'draft' && <option value="draft">Current draft</option>}{versions.map((version) => <option value={version.id} key={version.id}>Version {version.version_number}{version.id === study.current_version_id ? ' · latest published' : ''} · {new Date(version.published_at).toLocaleDateString()}</option>)}
+        </select></div>{selectedVersion && <><p>Viewing version {selectedVersion.version_number} · {selectedVersion.participant_mode === 'anonymous' ? 'Anonymous responses' : selectedVersion.participant_mode === 'canvas' ? 'Canvas-identified responses' : 'Anonymous or Canvas responses (legacy)'}</p><details><summary>View published questions and consent</summary><ol>{selectedVersion.questions.map((question) => <li key={question.id}>{question.prompt}</li>)}</ol><h3>Participant consent</h3><p className="study-consent-copy">{selectedVersion.consent_required ? selectedVersion.consent_text : 'No research consent text was recorded for this version. It was published before consent tracking was introduced.'}</p></details></>}</section>}
+        {selectedVersion && <section className="study-responses"><div className="study-section-heading"><div><h2>Questions and responses</h2><p>{responses.length} {responses.length === 1 ? 'submission' : 'submissions'} · Version {selectedVersion.version_number}</p></div><div className="study-actions"><button type="button" className="study-secondary" aria-label="Download responses and consent records" disabled={!responses.length} onClick={() => download(submissionsToCsv(responses, questions), 'text/csv;charset=utf-8', `eduthemes-${study.share_code}-v${selectedVersion.version_number}-responses.csv`)}>Download responses</button><button type="button" className="study-text-button" onClick={load}>Refresh</button></div></div>
+          {questions.map((question) => {
+            const answers = responses.filter((submission) => Boolean(submission.answers?.[question.id]?.trim()));
+            const analysis = versionAnalyses.find((entry) => entry.question_id === question.id);
+            return <article className="study-panel study-question-card" key={question.id}>
+              <div className="study-question-top"><span>Question {question.position + 1}</span><span>{answers.length} {answers.length === 1 ? 'response' : 'responses'}</span></div><h3>{question.prompt}</h3>
+              {analysis && <p className="study-note">{analysis.stage === 'results' ? 'Findings saved' : 'Coding in progress'} · {analysis.response_count} responses in saved analysis{answers.length > analysis.response_count ? ` · ${answers.length - analysis.response_count} new since then` : ''}</p>}
+              {canEdit && <div className="study-actions">{analysis && analysis.stage !== 'results' && <button className="study-primary" disabled={saving} onClick={() => launchAnalysis(question, analysis)}>Resume coding</button>}{answers.length > 0 && <button className={analysis ? 'study-secondary' : 'study-primary'} disabled={saving} onClick={() => launchAnalysis(question)}>{analysis ? 'Analyze current responses' : 'Start coding'}</button>}</div>}
+              {answers.length > 0 && <details className="study-answer-list"><summary>View collected responses</summary><ol>{answers.map((submission) => <li key={submission.id} id={`response-${submission.id}`}><p>{submission.answers[question.id]}</p><small>{submission.consent_accepted_at ? `Consent accepted ${new Date(submission.consent_accepted_at).toLocaleString()}` : 'Legacy submission · no recorded research consent'}</small>{submission.participant_data?.source === 'canvas' ? <details><summary>Canvas participant details{submission.participant_data.name ? ` · ${submission.participant_data.name}` : ''}</summary><dl>{participantDetails(submission.participant_data).map(([label, value]) => <React.Fragment key={label}><dt>{label}</dt><dd>{value}</dd></React.Fragment>)}</dl></details> : <small>Anonymous participant</small>}</li>)}</ol></details>}
+              {analysis?.stage === 'results' && <div className="study-findings"><h4>Saved findings</h4><p>{analysis.results?.summary || 'No summary saved.'}</p><ul>{(analysis.results?.themes || []).map((theme) => <li key={theme.name}>{theme.name}: {theme.frequency}</li>)}</ul><StudyEvidence analysis={analysis} responses={responses} questionId={question.id} /><button type="button" className="study-text-button" onClick={() => download(JSON.stringify({ study: study.title, question: question.prompt, version: selectedVersion, ...analysis }, null, 2), 'application/json', `eduthemes-${study.share_code}-v${selectedVersion.version_number}-question-${question.position + 1}.json`)}>Download coded results</button></div>}
+            </article>;
+          })}
+        </section>}
+        <StudyTeam study={study} members={members} role={role} onChanged={load} onError={setError} onNotice={setNotice} />
+      </> : !loading && <section className="study-panel"><h1>Study unavailable</h1><p>Check that you have accepted your invitation and still have access to this study.</p></section>}
+    </>}
+  </main>;
 }

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from './supabase';
 
 const configuredApiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_URL;
 
@@ -9,6 +10,15 @@ const defaultApiUrl = import.meta.env.DEV
 export const API_URL = (configuredApiUrl || defaultApiUrl).replace(/\/+$/, "");
 
 axios.defaults.timeout = 5 * 60 * 1000;
+
+// Only attach the researcher token to our own analysis service.
+axios.interceptors.request.use(async (config) => {
+  if (supabase && config.url?.startsWith(`${API_URL}/`)) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) config.headers.set('Authorization', `Bearer ${data.session.access_token}`);
+  }
+  return config;
+});
 
 export const getApiErrorCode = (error) => error?.response?.data?.code || null;
 

@@ -7,6 +7,7 @@ import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowHeader from './WorkflowHeader';
 import WorkflowAlert from './WorkflowAlert';
 import { addThemeAssignment, rejectThemeAssignments, removeThemeAssignment } from '../utils/themeAssignments';
+import { recordReviewDecision } from '../utils/reviewDecisions';
 //import ReviewModal from './ReviewModal';
 
 const getReadableTextColor = (color = '#000000') => {
@@ -56,15 +57,12 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
     }, [claudeData, hasUnclassifiedTheme, setClaudeData]);
     
     useEffect(() => {
-        if (currentTheme && !responseActions[currentTheme.name]) {
-            setResponseActions(prev => ({
-                ...prev,
-                [currentTheme.name]: Array(themeResponses.length).fill(null)
-            }));
-        }
-    }, [currentTheme, themeResponses, responseActions]);
+        setResponseActions(prev => ({ ...prev, [currentTheme.name]: themeResponses.map((index) =>
+            dataset[index]?.review_decisions?.[currentTheme.name]?.action || null) }));
+    }, [currentTheme.name, claudeData, dataset]);
 
     const handleAction = (index, action) => {
+        setDataset((previous) => recordReviewDecision(previous, [themeResponses[index]], currentTheme.name, action));
         const updatedActions = [...(responseActions[currentTheme.name] || [])];
         updatedActions[index] = action;
         
@@ -79,6 +77,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
 
 
     const handleUndo = (index) => {
+        setDataset((previous) => recordReviewDecision(previous, [themeResponses[index]], currentTheme.name, null));
         const updatedActions = [...(responseActions[currentTheme.name] || [])];
         updatedActions[index] = null;
         
@@ -89,6 +88,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
     };
 
     const handleAcceptAll = () => {
+        setDataset((previous) => recordReviewDecision(previous, themeResponses, currentTheme.name, 'approve'));
         setResponseActions(prev => ({
             ...prev,
             [currentTheme.name]: Array(themeResponses.length).fill('approve')
@@ -96,6 +96,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
     };
 
     const handleRejectAll = () => {
+        setDataset((previous) => recordReviewDecision(previous, themeResponses, currentTheme.name, 'deny'));
         setResponseActions(prev => ({
             ...prev,
             [currentTheme.name]: Array(themeResponses.length).fill('deny')

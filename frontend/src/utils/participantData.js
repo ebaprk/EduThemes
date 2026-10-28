@@ -25,12 +25,12 @@ function csvCell(value) {
 }
 
 export function submissionsToCsv(submissions, questions) {
-  const headers = ['Submission ID', 'Submitted at', 'Participant source',
+  const headers = ['Submission ID', 'Submitted at', 'Study version ID', 'Consent accepted at', 'Participant source',
     ...participantFields.map(([, label]) => label),
     ...questions.map((q) => `Question ${q.position + 1}: ${q.prompt}`)];
   const rows = submissions.map((submission) => {
     const profile = submission.participant_data || {};
-    return [submission.id, submission.created_at, profile.source || 'anonymous',
+    return [submission.id, submission.created_at, submission.study_version_id, submission.consent_accepted_at, profile.source || 'anonymous',
       ...participantFields.map(([field]) => Array.isArray(profile[field]) ? profile[field].join('; ') : profile[field]),
       ...questions.map((question) => submission.answers?.[question.id] || '')];
   });

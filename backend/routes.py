@@ -11,6 +11,7 @@ import tempfile
 from src.llm.serve_llm import serve_llm
 from src.llm.openai_analysis import NavigatorError
 from dataset_utils import preprocess_dataframe
+from study_access import StudyAccessError, require_study_access
 
 routes_bp = Blueprint('routes', __name__)
 
@@ -45,6 +46,11 @@ def require_session(session_id):
             410,
             'SESSION_EXPIRED',
         )
+    if session['study_id']:
+        try:
+            require_study_access(session['study_id'], edit=request.method != 'GET')
+        except StudyAccessError as exc:
+            return None, error_response(str(exc), exc.status, 'STUDY_ACCESS_DENIED')
     return session, None
 
 
@@ -106,10 +112,12 @@ def init_db():
                 expires_at DATETIME
             )
         ''')
+        if 'study_id' not in {row[1] for row in cursor.execute('PRAGMA table_info(sessions)')}:
+            cursor.execute('ALTER TABLE sessions ADD COLUMN study_id TEXT')
         conn.commit()
     
 
-def create_session():
+def create_session(study_id=None):
     import uuid
     from datetime import datetime, timedelta
 
@@ -120,9 +128,9 @@ def create_session():
         cursor = conn.cursor()
         cursor.execute('''
             INSERT INTO sessions 
-            (id, status, expires_at) 
-            VALUES (?, ?, ?)
-        ''', (session_id, 'CREATED', expires_at))
+            (id, status, expires_at, study_id)
+            VALUES (?, ?, ?, ?)
+        ''', (session_id, 'CREATED', expires_at, study_id))
         conn.commit()
     
     return session_id
@@ -166,9 +174,17 @@ def get_session(session_id):
 @routes_bp.route('/session/start', methods=['POST'])
 def start_session():
     try:
+        data = request.get_json(silent=True) or {}
+        if not isinstance(data, dict):
+            return error_response('A valid session request is required.')
+        study_id = data.get('study_id')
+        if study_id is not None:
+            require_study_access(study_id, edit=True)
         cleanup_expired_sessions()
-        session_id = create_session()
+        session_id = create_session(study_id)
         return jsonify({"session_id": session_id})
+    except StudyAccessError as exc:
+        return error_response(str(exc), exc.status, 'STUDY_ACCESS_DENIED')
     except Exception:
         return error_response(
             'The analysis service could not create a session. Please try again.',
@@ -252,7 +268,7 @@ def upload_dataset(session_id):
             if file_ext.lower() in ['.xlsx', '.xls']:
                 df = pd.read_excel(filepath)
             elif file_ext.lower() == '.csv':
-                df = pd.read_csv(filepath)
+                df = pd.read_csv(filepath, dtype=str, keep_default_na=False)
             else:
                 raise ValueError("Unsupported file format. Please use Excel or CSV files.")
             
@@ -359,7 +375,7 @@ def get_theme_suggestions(session_id):
         if file_ext in ['.xlsx', '.xls']:
             df = pd.read_excel(dataset_path)
         elif file_ext == '.csv':
-            df = pd.read_csv(dataset_path)
+            df = pd.read_csv(dataset_path, dtype=str, keep_default_na=False)
         else:
             return jsonify({"error": "Unsupported file format"}), 400
             
@@ -447,7 +463,7 @@ def submit_final_dataset(session_id):
                 if file_ext in ['.xlsx', '.xls']:
                     df = pd.read_excel(dataset_path)
                 elif file_ext == '.csv':
-                    df = pd.read_csv(dataset_path)
+                    df = pd.read_csv(dataset_path, dtype=str, keep_default_na=False)
                 else:
                     raise ValueError("Unsupported file format")
                 
@@ -621,7 +637,7 @@ def submit_manual_coding(session_id):
         if file_ext in ['.xlsx', '.xls']:
             df = pd.read_excel(dataset_path)
         elif file_ext == '.csv':
-            df = pd.read_csv(dataset_path)
+            df = pd.read_csv(dataset_path, dtype=str, keep_default_na=False)
         else:
             return jsonify({"error": "Unsupported file format"}), 400
         
@@ -767,7 +783,7 @@ def analyze_text(session_id):
         if file_ext in ['.xlsx', '.xls']:
             df = pd.read_excel(dataset_path)
         elif file_ext == '.csv':
-            df = pd.read_csv(dataset_path)
+            df = pd.read_csv(dataset_path, dtype=str, keep_default_na=False)
         else:
             return jsonify({"response": "Sorry, I can't process this file format."}), 200
             

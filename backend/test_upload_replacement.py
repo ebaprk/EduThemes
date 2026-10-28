@@ -84,6 +84,11 @@ class UploadReplacementTests(unittest.TestCase):
             404,
         )
 
+    def test_csv_preserves_literal_na_and_numeric_text_for_source_links(self):
+        result = self.upload('Response\nNA\n0001\nnull\n')
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual([entry['original'] for entry in result.json['preprocessed_dataset']], ['NA', '0001', 'null'])
+
 
 if __name__ == '__main__':
     unittest.main()

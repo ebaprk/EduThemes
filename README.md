@@ -12,9 +12,30 @@ Researchers create draft studies with open-response questions, publish a study,
 and share a link to the participant app or a code. Participants submit responses
 there without an account. Existing researcher-domain `/join` links redirect to
 the participant domain.
-Only the researcher who owns the study can read its submissions. A researcher
+The study owner and accepted research team members can read its submissions. A researcher
 can code each question's responses with the existing Code → Review → Results
 workflow; progress and completed findings are saved to Supabase per question.
+
+## Phase 1: teams, versions, and consent
+
+The workspace now supports owner-managed invitations, researcher and read-only
+reviewer roles, immutable published study versions, explicit anonymous or
+Canvas-identified participation, and version-specific consent records.
+Researchers can close a study, prepare a new draft, and publish its next version
+while preserving earlier questions, responses, and analyses. Participants review
+consent before answering, recover drafts within their browser tab, and download a
+study receipt. Saved theme evidence links back to original responses and consent
+records, and coding decisions survive a refresh.
+
+Apply `supabase/migrations/202610280001_teams_versions_consent.sql` before releasing
+the updated apps and backend. This migration preserves existing data, labels
+older consent as unrecorded, and replaces draft/analysis writes with atomic,
+revision-checked operations. **A coordinated release is required:** older
+researcher builds cannot save drafts or coding after this migration.
+
+See [the Phase 1 release guide](docs/phase1-release.md) for the roles, migration,
+verification commands, and release order. The companion participant project is
+updated separately; this repository does not deploy it.
 
 ### Supabase setup
 
@@ -75,6 +96,10 @@ integration is live.** The migration must precede the updated researcher app.
 ```bash
 cd frontend
 npm test
+npm run test:database
+npm run build
+# Build the companion participant app first; browser tests use synthetic services.
+npm run test:browser
 
 cd ../backend
 python -m unittest

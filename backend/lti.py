@@ -95,6 +95,8 @@ def rpc(name, arguments):
             raise LtiError('The study is closed or the answers are incomplete. Refresh the study and try again.', 422) from None
         if code == 'PT409':
             raise LtiError('This submission was already used for different answers. Refresh before submitting again.', 409) from None
+        if code == 'PT412':
+            raise LtiError('The study has changed. Reload it and review the current consent before submitting.', 412) from None
         current_app.logger.error('Canvas database operation failed: %s (HTTP %s)', name, error.response.status_code)
         raise LtiError('Canvas data could not be saved. Please try again.', 503) from None
     except (httpx.HTTPError, ValueError):
@@ -318,10 +320,21 @@ def submit():
         request_id = str(UUID(data.get('request_id', ''), version=None))
     except (ValueError, TypeError, AttributeError):
         raise LtiError('A valid submission request ID is required.') from None
-    submission_id = rpc('submit_canvas_study', {
+    arguments = {
         'p_code': data['code'], 'p_answers': data['answers'],
         'p_token_hash': token_hash, 'p_request_id': request_id,
-    })
+    }
+    if 'version_id' in data:
+        try:
+            arguments['p_version_id'] = str(UUID(data['version_id']))
+        except (ValueError, TypeError, AttributeError):
+            raise LtiError('Reload the study to review its current version.', 422) from None
+        if not isinstance(data.get('consent_accepted'), bool):
+            raise LtiError('Review the study consent before submitting.', 422)
+        arguments['p_consent_accepted'] = data['consent_accepted']
+        submission_id = rpc('submit_canvas_study_version', arguments)
+    else:
+        submission_id = rpc('submit_canvas_study', arguments)
     return jsonify(submission_id=submission_id), 201
 
 

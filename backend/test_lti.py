@@ -234,6 +234,19 @@ class CanvasTests(unittest.TestCase):
             self.assertNotIn('private-token', str(error.exception))
             self.assertEqual(error.exception.status, 503)
 
+    def test_versioned_submission_passes_explicit_consent_and_version_to_database(self):
+        headers = {**self.origin, 'Authorization': 'Bearer ' + 't' * 43}
+        body = {'code': 'ABCDEF123456', 'answers': {'q': 'answer'}, 'request_id': str(uuid4()),
+                'version_id': str(uuid4()), 'consent_accepted': True, 'share_participant_details': True}
+        with patch.object(lti, 'rpc', return_value='submission-id') as rpc:
+            self.assertEqual(self.client.post('/lti/submit', json=body, headers=headers).status_code, 201)
+            self.assertEqual(rpc.call_args.args[0], 'submit_canvas_study_version')
+            self.assertEqual(rpc.call_args.args[1]['p_version_id'], body['version_id'])
+            self.assertIs(rpc.call_args.args[1]['p_consent_accepted'], True)
+            for field, value in [('version_id', 'bad'), ('consent_accepted', 'true')]:
+                invalid = {**body, field: value}
+                self.assertEqual(self.client.post('/lti/submit', json=invalid, headers=headers).status_code, 422)
+
     def test_unconfigured_integration_fails_closed(self):
         with patch.dict('os.environ', {'LTI_REGISTRATIONS_JSON': '[]'}):
             self.assertEqual(self.login().status_code, 503)
