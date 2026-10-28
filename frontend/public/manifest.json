@@ -3,28 +3,28 @@
   "name": "EduThemes",
   "icons": [
     {
-      "src": "eduthemes-mark.svg",
+      "src": "eduthemes-mark.svg?v=20261028-green-book",
       "sizes": "any",
       "type": "image/svg+xml"
     },
     {
-      "src": "favicon-eduthemes.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
+      "src": "favicon-eduthemes.ico?v=20261028-green-book",
+      "sizes": "64x64 48x48 32x32 24x24 16x16",
       "type": "image/x-icon"
     },
     {
-      "src": "favicon-eduthemes-192.png",
+      "src": "favicon-eduthemes-192.png?v=20261028-green-book",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "favicon-eduthemes-512.png",
+      "src": "favicon-eduthemes-512.png?v=20261028-green-book",
       "type": "image/png",
       "sizes": "512x512"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#315f9f",
+  "theme_color": "#176b52",
   "background_color": "#ffffff"
 }
