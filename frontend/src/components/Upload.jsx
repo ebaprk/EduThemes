@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Button, Form, Spinner } from 'react-bootstrap';
+import { Button, Form } from 'react-bootstrap';
 import {
     FaArrowLeft,
     FaArrowRight,
@@ -10,6 +10,7 @@ import {
 import axios from 'axios';
 import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowAlert from './WorkflowAlert';
+import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
@@ -30,6 +31,7 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
     const [additionalContext, setAdditionalContext] = useState('');
     const [apiKey, setApiKey] = useState('');
     const [availableModels, setAvailableModels] = useState(null);
+    const [modelsLoading, setModelsLoading] = useState(true);
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const questionRef = useRef(null);
 
@@ -43,7 +45,8 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
                 const configured = Object.entries(data.models).filter(([, enabled]) => enabled);
                 if (configured.length === 1) setApiKey(configured[0][0]);
             })
-            .catch(() => {});
+            .catch(() => {})
+            .finally(() => { if (!controller.signal.aborted) setModelsLoading(false); });
         return () => controller.abort();
     }, []);
 
@@ -89,7 +92,7 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
     };
 
     const uploadDataset = async () => {
-        if (!validateQuestion() || !sessionId) return;
+        if (isLoading || !validateQuestion() || !sessionId) return;
 
         const formData = new FormData();
         formData.append('dataset', file);
@@ -122,6 +125,7 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
     };
 
     const goForward = () => {
+        if (isLoading || (currentQuestion === 3 && modelsLoading)) return;
         if (!validateQuestion()) return;
         setError(null);
         if (currentQuestion === questions.length - 1) uploadDataset();
@@ -157,7 +161,7 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
                     <h1 ref={questionRef} tabIndex="-1">{question.title}</h1>
                     <p>{question.note}</p>
 
-                    <div className="setup-control">
+                    {isLoading ? <LoadingSkeleton variant="responses" label="Reading your responses and preparing the coding workspace…" /> : <div className="setup-control">
                         {currentQuestion === 0 && (
                             <Form.Control
                                 className="setup-text-input"
@@ -196,7 +200,7 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
                             />
                         )}
 
-                        {currentQuestion === 3 && (
+                        {currentQuestion === 3 && (modelsLoading ? <LoadingSkeleton variant="suggestions" rows={1} label="Loading available analysis models…" /> :
                             <div className="setup-models" role="radiogroup" aria-label="Analysis model">
                                 {[
                                     { id: 'navigator', name: 'NaviGator AI', detail: 'University of Florida' },
@@ -237,7 +241,7 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
                                 </label>
                             </div>
                         )}
-                    </div>
+                    </div>}
 
                     <WorkflowAlert message={error} onClose={() => setError(null)} />
 
@@ -247,8 +251,8 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
                                 <FaArrowLeft aria-hidden="true" /> Back
                             </Button>
                         )}
-                        <Button type="submit" className="setup-next" disabled={isLoading} aria-busy={isLoading}>
-                            {isLoading ? <><Spinner as="span" animation="border" size="sm" /> Reading your data…</> : <>{currentQuestion === questions.length - 1 ? 'Analyze responses' : 'Continue'} <FaArrowRight aria-hidden="true" /></>}
+                        <Button type="submit" className="setup-next" disabled={isLoading || (currentQuestion === 3 && modelsLoading)} aria-busy={isLoading}>
+                            {isLoading ? <><Skeleton className="edu-skeleton--button" /> Reading your data…</> : <>{currentQuestion === questions.length - 1 ? 'Analyze responses' : 'Continue'} <FaArrowRight aria-hidden="true" /></>}
                         </Button>
                         {!isLoading && <span className="setup-enter">press <strong>{currentQuestion === 1 || currentQuestion === 2 ? '⌘ + Enter' : 'Enter ↵'}</strong></span>}
                     </div>

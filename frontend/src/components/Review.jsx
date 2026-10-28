@@ -1,5 +1,6 @@
+import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import React, { useState, useEffect } from 'react';
-import { Container, Button, Card, Row, Col, Modal, Badge, Spinner, Alert, ProgressBar, Nav, Tab, Form, ListGroup, OverlayTrigger} from 'react-bootstrap';
+import { Container, Button, Card, Row, Col, Modal, Badge, Alert, ProgressBar, Nav, Tab, Form, ListGroup, OverlayTrigger} from 'react-bootstrap';
 import { FaCheck, FaTimes, FaUndo } from 'react-icons/fa';
 import axios, { all } from 'axios';
 import LabelCreationWindow from './LabelCreationWindow';
@@ -366,6 +367,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
 
             <WorkflowAlert message={error} onClose={() => setError(null)} />
 
+            {isLoading ? <LoadingSkeleton variant="results" label="Preparing your final themes and summary…" /> : (
             <Row className="g-4 align-items-stretch">
                 <Col lg={4} xl={3} className="review-sidebar">
                     <Card>
@@ -437,13 +439,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                     
                                     {aiLoading ? (
                                         <>
-                                            <Spinner 
-                                                as="span" 
-                                                animation="border" 
-                                                size="sm" 
-                                                role="status" 
-                                                aria-hidden="true" 
-                                            /> 
+                                            <Skeleton className="edu-skeleton--button" />
                                             &nbsp;&nbsp;Reassigning...
                                         </>
                                     ) : (
@@ -462,17 +458,12 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                 <Button 
                                     variant="primary" 
                                     onClick={handleNextTheme} 
+                                    aria-busy={isLoading}
                                     disabled={(!allActionsCompleted || isLoading)}
                                 >
                                     {isLoading ? (
                                         <>
-                                            <Spinner 
-                                                as="span" 
-                                                animation="border" 
-                                                size="sm" 
-                                                role="status" 
-                                                aria-hidden="true" 
-                                            /> 
+                                            <Skeleton className="edu-skeleton--button" />
                                             &nbsp;&nbsp;Processing...
                                         </>
                                     ) : (
@@ -518,7 +509,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                         <Card.Body>
                             <div className="review-response-list">
                                
-                                {themeResponses.length > 0 ? (
+                                {aiLoading ? <LoadingSkeleton label="Reassigning responses to your themes…" rows={6} /> : themeResponses.length > 0 ? (
                                     themeResponses.map((responseIndex, idx) => {
                                         const responseText = responseIndex < dataset.length ? 
                                             dataset[responseIndex].original : 
@@ -649,6 +640,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                     </Card>
                 </Col>
             </Row>
+            )}
 
             <Modal 
                 show={showReassignModal} 
@@ -768,13 +760,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                 >
                                     {loadingSuggestions ? (
                                         <>
-                                            <Spinner 
-                                                as="span" 
-                                                animation="border" 
-                                                size="sm" 
-                                                role="status" 
-                                                aria-hidden="true" 
-                                            /> 
+                                            <Skeleton className="edu-skeleton--button" />
                                             &nbsp;&nbsp;Refreshing...
                                         </>
                                     ) : (
@@ -784,12 +770,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                             </div>
                             
                             {loadingSuggestions ? (
-                                <div className="text-center py-4">
-                                    <Spinner animation="border" role="status">
-                                        <span className="visually-hidden">Loading...</span>
-                                    </Spinner>
-                                    <p className="mt-2">Analyzing your responses to generate theme suggestions...</p>
-                                </div>
+                                <LoadingSkeleton variant="suggestions" label="Generating theme suggestions…" />
                             ) : suggestedThemes.length > 0 ? (
                                 <ListGroup>
                                     {suggestedThemes.map((theme, index) => {

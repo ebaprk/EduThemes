@@ -9,6 +9,7 @@ import Preview from "./components/Preview";
 import NotFound from "./components/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Researcher from "./components/Researcher";
+import LoadingSkeleton from './components/LoadingSkeleton';
 import { API_URL } from "./api";
 import { supabase } from './supabase';
 import { attachResponseSources, responseRecordsForQuestion, responsesForQuestion, responsesToCsv } from './utils/studyResponses';
@@ -70,7 +71,7 @@ function ResearcherGate({ children }) {
     });
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
-  if (allowed === null) return <div className="route-loading" role="status">Checking researcher access…</div>;
+  if (allowed === null) return <main className="workflow-page"><LoadingSkeleton variant="analysis" label="Checking researcher access…" /></main>;
   return allowed ? children : <Navigate to="/" replace />;
 }
 
@@ -319,7 +320,7 @@ function App() {
       <Header hasActiveAnalysis={Boolean(sessionId && currentStage !== 'start')} />
       <div className="app-content">
         {analysisSource && ['preview', 'review', 'results'].includes(currentStage) && (
-          <div className="study-analysis-banner"><span><strong>{analysisSource.title}</strong> · {analysisSource.prompt}</span><span role="status">{analysisSaveState}</span>{analysisSaveState.startsWith('Could not') && <button type="button" className="study-text-button" onClick={downloadCurrentCoding}>Download current coding</button>}<Link to={`/studies/${analysisSource.studyId}`} onClick={async (event) => { event.preventDefault(); await saveQueue.current; navigate(`/studies/${analysisSource.studyId}`); }}>Study overview</Link></div>
+          <div className="study-analysis-banner"><span><strong>{analysisSource.title}</strong> · {analysisSource.prompt}</span>{analysisSaveState.startsWith('Saving') ? <LoadingSkeleton variant="inline" label={analysisSaveState} /> : <span role="status">{analysisSaveState}</span>}{analysisSaveState.startsWith('Could not') && <button type="button" className="study-text-button" onClick={downloadCurrentCoding}>Download current coding</button>}<Link to={`/studies/${analysisSource.studyId}`} onClick={async (event) => { event.preventDefault(); await saveQueue.current; navigate(`/studies/${analysisSource.studyId}`); }}>Study overview</Link></div>
         )}
         {storageWarning && (
           <div className="app-storage-warning" role="status">
@@ -328,7 +329,7 @@ function App() {
           </div>
         )}
         <ErrorBoundary key={normalizedPath}>
-          <Suspense fallback={<div className="route-loading" role="status">Loading this analysis step…</div>}>
+          <Suspense fallback={<main className="workflow-page"><LoadingSkeleton variant={currentStage === 'results' ? 'results' : 'analysis'} label="Loading this analysis step…" /></main>}>
           <Routes>
           <Route path="/" element={<Researcher onAnalyze={handleStudyAnalysis} hasActiveAnalysis={Boolean(sessionId)} onResumeAnalysis={() => handleAdvanceStage(resumeStage)} />} />
           <Route path="/studies/:studyId" element={<Researcher onAnalyze={handleStudyAnalysis} hasActiveAnalysis={Boolean(sessionId)} onResumeAnalysis={() => handleAdvanceStage(resumeStage)} />} />

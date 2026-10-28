@@ -9,6 +9,7 @@ import { FaDownload, FaRedo } from 'react-icons/fa';
 import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowHeader from './WorkflowHeader';
 import WorkflowAlert from './WorkflowAlert';
+import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 
 ChartJS.register(
   ChartTooltip,
@@ -21,14 +22,15 @@ ChartJS.register(
 );
 
 const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0 }) => {
-  const [summary, setSummary] = useState("");
+  const [summary, setSummary] = useState(results?.summary || "");
   const [error, setError] = useState(null);
-  const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const [isSummaryLoading, setIsSummaryLoading] = useState(!results?.summary);
   const [isDownloading, setIsDownloading] = useState(false);
   
   useEffect(() => {
     if (results && results.summary) {
       setSummary(results.summary);
+      setIsSummaryLoading(false);
     } else {
       const fetchSummary = async () => {
         setIsSummaryLoading(true);
@@ -154,9 +156,7 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0 
                 </Button>
               </div>
               <div className="summary-content">
-                <ReactMarkdown>
-                  {isSummaryLoading ? 'Loading your analysis summary…' : summary || "No summary is available. Retry by returning to the review step and finishing again."}
-                </ReactMarkdown>
+                {isSummaryLoading ? <LoadingSkeleton label="Loading your analysis summary…" rows={8} /> : <ReactMarkdown>{summary || "No summary is available. Retry by returning to the review step and finishing again."}</ReactMarkdown>}
               </div>
             </Card.Body>
           </Card>
@@ -253,7 +253,7 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0 
                   disabled={isDownloading}
                   aria-busy={isDownloading}
                 >
-                  <FaDownload className="me-2" aria-hidden="true" />
+                  {isDownloading ? <Skeleton className="edu-skeleton--button" /> : <FaDownload className="me-2" aria-hidden="true" />}
                   {isDownloading ? 'Preparing download…' : 'Download dataset'}
                 </Button>
               </div>

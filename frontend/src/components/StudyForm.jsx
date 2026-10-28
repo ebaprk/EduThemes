@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Skeleton } from './LoadingSkeleton';
 
 const emptyForm = { title: '', description: '', research_question: '', additional_context: '', consent_text: '', participant_mode: 'anonymous', questions: [''] };
 
@@ -30,6 +31,6 @@ export default function StudyForm({ initial = emptyForm, onSave, onCancel, savin
       {form.questions.length > 1 && <button type="button" className="study-text-button" onClick={() => setField('questions', form.questions.filter((_, i) => i !== index))}>Remove</button>}
     </div>)}
     {form.questions.length < 12 && <button type="button" className="study-secondary" onClick={() => setField('questions', [...form.questions, ''])}>+ Add question</button>}
-    <div className="study-actions"><button type="submit" className="study-primary" disabled={saving}>{saving ? 'Saving…' : 'Save draft'}</button><button type="button" className="study-text-button" onClick={onCancel}>Cancel</button></div>
+    <div className="study-actions"><button type="submit" className="study-primary" disabled={saving} aria-busy={saving}>{saving ? <><Skeleton className="edu-skeleton--button" />Saving…</> : 'Save draft'}</button><button type="button" className="study-text-button" onClick={onCancel}>Cancel</button></div>
   </form>;
 }

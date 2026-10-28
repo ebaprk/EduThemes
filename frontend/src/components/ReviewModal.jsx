@@ -1,5 +1,6 @@
+import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import React, { useState, useEffect } from 'react';
-import { Container, Button, Card, Row, Col, Modal, Badge, Spinner, Alert, ProgressBar, Nav, Tab, Form, ListGroup, OverlayTrigger} from 'react-bootstrap';
+import { Container, Button, Card, Row, Col, Modal, Badge, Alert, ProgressBar, Nav, Tab, Form, ListGroup, OverlayTrigger} from 'react-bootstrap';
 import { FaCheck, FaTimes, FaUndo } from 'react-icons/fa';
 import axios, { all } from 'axios';
 import LabelCreationWindow from './LabelCreationWindow';
@@ -88,13 +89,7 @@ const ReviewModal = ({allThemes, addTheme, setLabels, showEditLabels, currentThe
                                 >
                                     {loadingSuggestions ? (
                                         <>
-                                            <Spinner 
-                                                as="span" 
-                                                animation="border" 
-                                                size="sm" 
-                                                role="status" 
-                                                aria-hidden="true" 
-                                            /> 
+                                            <Skeleton className="edu-skeleton--button" />
                                             &nbsp;&nbsp;Refreshing...
                                         </>
                                     ) : (
@@ -104,12 +99,7 @@ const ReviewModal = ({allThemes, addTheme, setLabels, showEditLabels, currentThe
                             </div>
                             
                             {loadingSuggestions ? (
-                                <div className="text-center py-4">
-                                    <Spinner animation="border" role="status">
-                                        <span className="visually-hidden">Loading...</span>
-                                    </Spinner>
-                                    <p className="mt-2">Analyzing your responses to generate theme suggestions...</p>
-                                </div>
+                                <LoadingSkeleton variant="suggestions" label="Generating theme suggestions…" />
                             ) : suggestedThemes.length > 0 ? (
                                 <ListGroup>
                                     {suggestedThemes.map((theme, index) => {

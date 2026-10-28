@@ -6,6 +6,7 @@ import { participantDetails, submissionsToCsv } from '../utils/participantData';
 import StudyForm from './StudyForm';
 import StudyTeam from './StudyTeam';
 import StudyEvidence from './StudyEvidence';
+import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import './Studies.css';
 
 function AuthForm({ onAuthenticated }) {
@@ -37,8 +38,8 @@ function AuthForm({ onAuthenticated }) {
         <div className="study-field"><label htmlFor="researcher-email">Email</label><input id="researcher-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></div>
         <div className="study-field"><label htmlFor="researcher-password">Password</label><input id="researcher-password" type="password" minLength={6} autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} required /></div>
         {message && <p className={message.startsWith('Check') ? 'study-note' : 'study-error'} role="status">{message}</p>}
-        <button className="study-primary" type="submit" disabled={busy}>{busy ? 'Please wait…' : mode === 'sign-in' ? 'Sign in' : 'Create account'}</button>
-        <button className="study-text-button" type="button" onClick={() => { setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in'); setMessage(''); }}>{mode === 'sign-in' ? 'New here? Create an account' : 'Already have an account? Sign in'}</button>
+        <button className="study-primary" type="submit" disabled={busy} aria-busy={busy}>{busy ? <><Skeleton className="edu-skeleton--button" />{mode === 'sign-in' ? 'Signing in…' : 'Creating account…'}</> : mode === 'sign-in' ? 'Sign in' : 'Create account'}</button>
+        <button className="study-text-button" type="button" disabled={busy} onClick={() => { setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in'); setMessage(''); }}>{mode === 'sign-in' ? 'New here? Create an account' : 'Already have an account? Sign in'}</button>
       </form>
     </main>
   );
@@ -59,8 +60,11 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
   const [analyses, setAnalyses] = useState([]);
   const [members, setMembers] = useState([]);
   const [role, setRole] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadedKey, setLoadedKey] = useState(null);
+  const [startingQuestionId, setStartingQuestionId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState('');
@@ -111,7 +115,7 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
         setView(s.status === 'draft' ? 'draft' : s.current_version_id); setEditing(false);
       }
     } catch (failure) { if (generation === loadGeneration.current) { setError(failure.message || 'The study could not be loaded.'); setStudy(null); setRole(null); } }
-    finally { if (generation === loadGeneration.current) setLoading(false); }
+    finally { if (generation === loadGeneration.current) { setLoadedKey(`${user.id}:${studyId || 'list'}`); setLoading(false); } }
   }, [user, studyId]);
   useEffect(() => { setStudy(null); setRole(null); setStudies([]); setInvitations([]); setCreating(false); setEditing(false); load(); return () => { loadGeneration.current += 1; }; }, [load]);
 
@@ -163,35 +167,43 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
   const canEdit = role === 'owner' || role === 'researcher';
   const launchAnalysis = async (question, analysis = null) => {
     if (!canEdit || !selectedVersion) return;
-    setError(''); setSaving(true);
+    setError(''); setSaving(true); setStartingQuestionId(question.id);
     try {
       const previous = versionAnalyses.find((entry) => entry.question_id === question.id);
       await onAnalyze({ ...study, ...selectedVersion, id: study.id, owner_id: study.owner_id, current_version_id: selectedVersion.id }, question, responses, analysis, previous?.revision || 0);
     } catch (failure) { setError(failure.message || 'Could not start coding.'); }
-    finally { setSaving(false); }
+    finally { setSaving(false); setStartingQuestionId(null); }
   };
   const signOut = async () => {
-    const { error: signOutError } = await supabase.auth.signOut();
-    if (signOutError) setError(signOutError.message); else navigate('/');
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
+      navigate('/');
+    } catch (failure) { setError(failure.message || 'Could not sign out. Please try again.'); }
+    finally { setSigningOut(false); }
   };
 
   if (!supabaseConfigured) return <main className="study-shell"><h1>Connect Supabase to EduThemes</h1><p>Follow the setup steps in the README to connect the workspace.</p></main>;
-  if (authLoading) return <main className="study-shell"><p role="status">Loading researcher workspace…</p></main>;
+  if (authLoading) return <main className="study-shell"><LoadingSkeleton variant={studyId ? 'study' : 'workspace'} label="Loading researcher workspace…" /></main>;
   if (!user) return <AuthForm onAuthenticated={setUser} />;
+  const loadingData = loading || loadedKey !== `${user.id}:${studyId || 'list'}`;
 
   return <main className="study-shell researcher-shell">
-    <div className="study-topbar"><span className="study-eyebrow">Researcher workspace</span><button type="button" className="study-text-button" onClick={signOut}>Sign out</button></div>
+    <div className="study-topbar"><span className="study-eyebrow">Researcher workspace</span><button type="button" className="study-text-button" onClick={signOut} disabled={signingOut} aria-busy={signingOut}>{signingOut ? <><Skeleton className="edu-skeleton--button" />Signing out…</> : 'Sign out'}</button></div>
     {error && <p className="study-error" role="alert">{error}</p>}{notice && <p className="study-note" role="status">{notice}</p>}
+    {(saving || (loadingData && studyId && study?.id === studyId)) && <LoadingSkeleton variant="inline" label={startingQuestionId ? 'Preparing coding workspace…' : saving ? 'Saving study changes…' : 'Refreshing study…'} />}
     {!studyId ? <>
       <div className="study-hero"><div><h1>Your studies</h1><p>Work with your team to collect responses and turn them into themes.</p></div><button type="button" className="study-primary" onClick={() => setCreating(true)}>+ Create study</button></div>
       {invitations.length > 0 && <section className="study-panel study-invitations"><h2>Study invitations</h2><p>Invitations for {user.email}. Accept to join the research team.</p>{invitations.map((invitation) => <div className="study-inline" key={invitation.id}><div><strong>{invitation.title}</strong><p>Invited as {invitation.role}</p></div><button type="button" className="study-primary" disabled={saving} onClick={() => acceptInvitation(invitation)}>Accept invitation</button></div>)}</section>}
       {hasActiveAnalysis && <section className="study-panel study-inline"><div><strong>Analysis in progress</strong><p>Continue your coding session.</p></div><button className="study-secondary" onClick={onResumeAnalysis}>Continue analysis</button></section>}
       {creating && <StudyForm onSave={saveDraft} onCancel={() => setCreating(false)} saving={saving} />}
-      {loading ? <p role="status">Loading studies…</p> : studies.length ? <div className="study-list">{studies.map((item) => <Link to={`/studies/${item.id}`} className="study-list-card" key={item.id}><span className="study-status">{item.status}</span><h2>{item.title}</h2><p>{item.owner_id === user.id ? 'Your study' : 'Shared with you'} · Created {new Date(item.created_at).toLocaleDateString()}</p><span className="study-open-link">Open study →</span></Link>)}</div> : !creating && !error && <section className="study-panel study-empty"><h2>No studies yet</h2><p>Create a study, add questions, and share its link with participants.</p><button type="button" className="study-secondary" onClick={() => setCreating(true)}>Create your first study</button></section>}
+      {loadingData ? <LoadingSkeleton variant="cards" label="Loading studies…" /> : studies.length ? <div className="study-list">{studies.map((item) => <Link to={`/studies/${item.id}`} className="study-list-card" key={item.id}><span className="study-status">{item.status}</span><h2>{item.title}</h2><p>{item.owner_id === user.id ? 'Your study' : 'Shared with you'} · Created {new Date(item.created_at).toLocaleDateString()}</p><span className="study-open-link">Open study →</span></Link>)}</div> : !creating && !error && <section className="study-panel study-empty"><h2>No studies yet</h2><p>Create a study, add questions, and share its link with participants.</p><button type="button" className="study-secondary" onClick={() => setCreating(true)}>Create your first study</button></section>}
       <div className="study-legacy-link"><Link to="/analysis">Analyze an existing response file →</Link></div>
     </> : <>
       <Link className="study-back" to="/">← All studies</Link>
-      {loading && !study ? <p role="status">Loading study…</p> : study ? <>
+      {loadingData && study?.id !== studyId ? <LoadingSkeleton variant="study" label="Loading study…" /> : study ? <>
         <div className="study-hero"><div><span className="study-status">{study.status}</span><h1>{study.title}</h1><p>{study.research_question}</p></div>
           {role === 'owner' && <div className="study-actions">{study.status === 'draft' ? <button className="study-primary" disabled={saving || !study.consent_text.trim() || study.participant_mode === 'optional_canvas'} onClick={() => setStatus('open')}>Publish {versions.length ? 'new version' : 'study'}</button> : <>
             <button className="study-secondary" disabled={saving} onClick={() => setStatus(study.status === 'open' ? 'closed' : 'open')}>{study.status === 'open' ? 'Close study' : 'Reopen study'}</button>
@@ -213,6 +225,7 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
             const analysis = versionAnalyses.find((entry) => entry.question_id === question.id);
             return <article className="study-panel study-question-card" key={question.id}>
               <div className="study-question-top"><span>Question {question.position + 1}</span><span>{answers.length} {answers.length === 1 ? 'response' : 'responses'}</span></div><h3>{question.prompt}</h3>
+              {startingQuestionId === question.id && <LoadingSkeleton label="Preparing responses for coding…" rows={4} />}
               {analysis && <p className="study-note">{analysis.stage === 'results' ? 'Findings saved' : 'Coding in progress'} · {analysis.response_count} responses in saved analysis{answers.length > analysis.response_count ? ` · ${answers.length - analysis.response_count} new since then` : ''}</p>}
               {canEdit && <div className="study-actions">{analysis && analysis.stage !== 'results' && <button className="study-primary" disabled={saving} onClick={() => launchAnalysis(question, analysis)}>Resume coding</button>}{answers.length > 0 && <button className={analysis ? 'study-secondary' : 'study-primary'} disabled={saving} onClick={() => launchAnalysis(question)}>{analysis ? 'Analyze current responses' : 'Start coding'}</button>}</div>}
               {answers.length > 0 && <details className="study-answer-list"><summary>View collected responses</summary><ol>{answers.map((submission) => <li key={submission.id} id={`response-${submission.id}`}><p>{submission.answers[question.id]}</p><small>{submission.consent_accepted_at ? `Consent accepted ${new Date(submission.consent_accepted_at).toLocaleString()}` : 'Legacy submission · no recorded research consent'}</small>{submission.participant_data?.source === 'canvas' ? <details><summary>Canvas participant details{submission.participant_data.name ? ` · ${submission.participant_data.name}` : ''}</summary><dl>{participantDetails(submission.participant_data).map(([label, value]) => <React.Fragment key={label}><dt>{label}</dt><dd>{value}</dd></React.Fragment>)}</dl></details> : <small>Anonymous participant</small>}</li>)}</ol></details>}
@@ -221,7 +234,7 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
           })}
         </section>}
         <StudyTeam study={study} members={members} role={role} onChanged={load} onError={setError} onNotice={setNotice} />
-      </> : !loading && <section className="study-panel"><h1>Study unavailable</h1><p>Check that you have accepted your invitation and still have access to this study.</p></section>}
+      </> : !loadingData && <section className="study-panel"><h1>Study unavailable</h1><p>Check that you have accepted your invitation and still have access to this study.</p></section>}
     </>}
   </main>;
 }

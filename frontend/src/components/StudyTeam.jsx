@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabase';
+import { Skeleton } from './LoadingSkeleton';
 
 export default function StudyTeam({ study, members, role, onChanged, onError, onNotice }) {
   const [email, setEmail] = useState('');
@@ -37,6 +38,6 @@ export default function StudyTeam({ study, members, role, onChanged, onError, on
     </ul>
     {owner && <form className="study-invite-form" onSubmit={invite}><div className="study-field"><label htmlFor="invite-email">Collaborator email</label><input id="invite-email" type="email" maxLength={254} value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="colleague@ufl.edu" /></div>
       <div className="study-field"><label htmlFor="invite-role">Role</label><select id="invite-role" value={memberRole} onChange={(e) => setMemberRole(e.target.value)}><option value="researcher">Researcher</option><option value="reviewer">Reviewer</option></select></div>
-      <button type="submit" className="study-secondary" disabled={busy}>{busy ? 'Updating…' : 'Create invitation'}</button><p className="study-help">Share the invitation yourself. Access starts after the invited person signs in with their verified email and accepts.</p></form>}
+      <button type="submit" className="study-secondary" disabled={busy} aria-busy={busy}>{busy ? <><Skeleton className="edu-skeleton--button" />Updating…</> : 'Create invitation'}</button><p className="study-help">Share the invitation yourself. Access starts after the invited person signs in with their verified email and accepts.</p></form>}
   </section>;
 }

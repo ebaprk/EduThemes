@@ -1,6 +1,7 @@
+import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import React, { useState, useEffect } from 'react';
 import { 
-  Container, Spinner, Button, Card, Row, Col, Form,
+  Container, Button, Card, Row, Col, Form,
   Table, Modal, ListGroup, Alert
 } from 'react-bootstrap';
 import LabelModal from './LabelModal';
@@ -220,6 +221,7 @@ const Preview = ({
                 </div>
             )}
 
+            {isLoading ? <LoadingSkeleton variant="responses" label="Classifying responses and preparing your review…" /> : (
             <Row className="g-4 align-items-stretch">
                 <Col lg={4} xl={3} className="preview-sidebar">
                     <Card>
@@ -322,6 +324,7 @@ const Preview = ({
                                 </span>
                                 <Button 
                                     onClick={handleReview} 
+                                    aria-busy={isLoading}
                                     disabled={
                                         labels.length === 0 || 
                                         codedCount === 0 ||
@@ -332,13 +335,7 @@ const Preview = ({
                                 >
                                     {isLoading ? (
                                         <>
-                                            <Spinner 
-                                                as="span" 
-                                                animation="border" 
-                                                size="sm" 
-                                                role="status" 
-                                                aria-hidden="true" 
-                                            /> 
+                                            <Skeleton className="edu-skeleton--button" />
                                             &nbsp;&nbsp;Preparing review…
                                         </>
                                     ) : (
@@ -443,6 +440,7 @@ const Preview = ({
                     </Card>
                 </Col>
             </Row>
+            )}
 
             <Modal 
                 show={showSuggestions} 
@@ -474,13 +472,7 @@ const Preview = ({
                         >
                             {loadingSuggestions ? (
                                 <>
-                                    <Spinner 
-                                        as="span" 
-                                        animation="border" 
-                                        size="sm" 
-                                        role="status" 
-                                        aria-hidden="true" 
-                                    /> 
+                                    <Skeleton className="edu-skeleton--button" />
                                     &nbsp;&nbsp;Generating…
                                 </>
                             ) : (
@@ -490,12 +482,7 @@ const Preview = ({
                     </div>
                     
                     {loadingSuggestions ? (
-                        <div className="text-center py-4">
-                            <Spinner animation="border" role="status">
-                                <span className="visually-hidden">Loading...</span>
-                            </Spinner>
-                            <p className="mt-2">Analyzing your responses to generate theme suggestions…</p>
-                        </div>
+                        <LoadingSkeleton variant="suggestions" label="Generating theme suggestions…" />
                     ) : suggestedThemes.length > 0 ? (
                         <ListGroup>
                             {suggestedThemes.map((theme, index) => {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Button, Spinner } from 'react-bootstrap';
+import { Alert, Button } from 'react-bootstrap';
 import axios from 'axios';
 import {
     FaArrowRight,
@@ -11,6 +11,7 @@ import {
 import { API_URL, getApiErrorMessage } from '../api';
 import './Start.css';
 import WorkflowAlert from './WorkflowAlert';
+import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 
 const workflowSteps = [
     { number: '01', icon: FaFileAlt, title: 'Set up', description: 'Add responses and project context.' },
@@ -70,7 +71,7 @@ const Start = ({
             <span className="start-card__eyebrow">New analysis</span>
             <div className="start-card__body">
                 <h2 id="new-analysis-title">Start with a response file</h2>
-                <p>Upload an Excel or CSV file, describe your study, and work through the analysis step by step.</p>
+                {isStarting ? <LoadingSkeleton variant="text" label="Preparing your analysis workspace…" rows={4} /> : <p>Upload an Excel or CSV file, describe your study, and work through the analysis step by step.</p>}
             </div>
             <div className="start-card__footer">
                 <Button
@@ -80,7 +81,7 @@ const Start = ({
                     aria-busy={isStarting}
                 >
                     {isStarting ? (
-                        <><Spinner as="span" animation="border" size="sm" aria-hidden="true" /> Starting…</>
+                        <><Skeleton className="edu-skeleton--button" /> Starting…</>
                     ) : (
                         <>{hasActiveAnalysis ? 'Start a new analysis' : 'Create an analysis'} <FaArrowRight aria-hidden="true" /></>
                     )}

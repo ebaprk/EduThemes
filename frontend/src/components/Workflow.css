@@ -33,14 +33,6 @@
     font-size: 1.25rem;
 }
 
-.route-loading {
-    display: grid;
-    min-height: 45vh;
-    place-items: center;
-    color: var(--edu-muted);
-    font-weight: 600;
-}
-
 .workflow-page {
     width: min(100%, 1280px);
     margin: 0 auto;
