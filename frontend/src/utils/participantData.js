@@ -17,7 +17,7 @@ export function participantDetails(profile = {}) {
   });
 }
 
-function csvCell(value) {
+export function csvCell(value) {
   let text = value == null ? '' : String(value);
   // Spreadsheet exports must not execute user text as a formula.
   if (/^[\s]*[=+@-]/.test(text) || /^[\t\r\n]/.test(text)) text = `'${text}`;
@@ -27,12 +27,12 @@ function csvCell(value) {
 export function submissionsToCsv(submissions, questions) {
   const headers = ['Submission ID', 'Submitted at', 'Study version ID', 'Consent accepted at', 'Participant source',
     ...participantFields.map(([, label]) => label),
-    ...questions.map((q) => `Question ${q.position + 1}: ${q.prompt}`)];
+    ...questions.map((q) => `Question ${q.position + 1}: ${q.prompt}`), 'Activity ID', 'Study enrollment ID'];
   const rows = submissions.map((submission) => {
     const profile = submission.participant_data || {};
-    return [submission.id, submission.created_at, submission.study_version_id, submission.consent_accepted_at, profile.source || 'anonymous',
+    return [submission.id, submission.created_at, submission.study_version_id, submission.consent_accepted_at, submission.enrollment_id ? 'study_code' : profile.source || 'anonymous',
       ...participantFields.map(([field]) => Array.isArray(profile[field]) ? profile[field].join('; ') : profile[field]),
-      ...questions.map((question) => submission.answers?.[question.id] || '')];
+      ...questions.map((question) => submission.answers?.[question.id] || ''), submission.activity_id, submission.enrollment_id];
   });
   return [headers, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n');
 }

@@ -8,7 +8,9 @@ export function responsesForQuestion(questionId, submissions, savedAnalysis = nu
 export function responseRecordsForQuestion(questionId, submissions) {
   return submissions.filter((submission) => typeof submission.answers?.[questionId] === 'string' && submission.answers[questionId].trim())
     .map((submission) => ({ original: submission.answers[questionId], submission_id: submission.id,
-      study_version_id: submission.study_version_id, question_id: questionId }));
+      study_version_id: submission.study_version_id, question_id: questionId,
+      ...(submission.activity_id ? { activity_id: submission.activity_id } : {}),
+      ...(submission.enrollment_id ? { enrollment_id: submission.enrollment_id } : {}) }));
 }
 
 export function attachResponseSources(dataset, sources) {

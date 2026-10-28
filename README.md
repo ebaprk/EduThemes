@@ -37,6 +37,16 @@ See [the Phase 1 release guide](docs/phase1-release.md) for the roles, migration
 verification commands, and release order. The companion participant project is
 updated separately; this repository does not deploy it.
 
+### Phase 2.1: operations and multiple activities
+
+Study operations include dashboards, recruitment targets,
+coordinator handoff records, versioned baseline/follow-up/diary activity plans,
+and a private participant hub with durable drafts and consent receipts.
+Apply `supabase/migrations/202610280002_study_operations_activities.sql` before
+deploying either updated frontend. Existing single-activity and Canvas flows
+remain compatible. See [the release guide](docs/phase2-activities-release.md)
+for current deployment status, access rules, local walkthroughs, and pilot limits.
+
 ### Supabase setup
 
 The [EduThemes Supabase project](https://supabase.com/dashboard/project/ihocmfxrhbiyilnzdptu)
@@ -55,8 +65,8 @@ the backend's `CORS_ORIGINS`. The participant app connects directly to
 Supabase from its own project.
 
 The study, question, submission, and coding tables have row-level security.
-The public link uses two narrowly scoped database functions: one reads the
-questions for an open study, and one validates and stores a complete response.
+Public links use narrowly scoped database functions to read published study
+plans, validate submissions, and access private activity drafts and receipts.
 Participant responses and saved coding are not exposed through public table
 queries.
 
