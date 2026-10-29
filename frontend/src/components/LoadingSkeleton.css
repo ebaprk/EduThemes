@@ -1,14 +1,14 @@
 .edu-loading { width: 100%; min-width: 0; margin-block: 18px; }
-.edu-loading__label { display: block; margin-bottom: 14px; color: #586960; font-size: .9rem; line-height: 1.5; }
-.edu-skeleton { position: relative; display: block; overflow: hidden; width: 100%; height: .85rem; border-radius: 6px; background: #e1ebe5; }
-.edu-skeleton::after { position: absolute; inset: 0; content: ''; background: linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent); transform: translateX(-100%); animation: edu-skeleton-shimmer 1.8s ease-in-out infinite; }
+.edu-loading__label { display: block; margin-bottom: 14px; color: #4e5a68; font-size: .9rem; line-height: 1.5; }
+.edu-skeleton { position: relative; display: block; overflow: hidden; width: 100%; height: .85rem; border-radius: 6px; background: #e8e3da; }
+.edu-skeleton::after { position: absolute; inset: 0; content: ''; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .65), transparent); transform: translateX(-100%); animation: edu-skeleton-shimmer 1.8s ease-in-out infinite; }
 .edu-skeleton-lines, .edu-skeleton-stack { display: grid; gap: 14px; min-width: 0; }
 .edu-skeleton-stack { gap: 20px; }
-.edu-skeleton-panel { display: grid; align-content: start; gap: 22px; min-width: 0; padding: 26px; border: 1px solid #d7e1d9; border-radius: 18px; background: #fff; }
+.edu-skeleton-panel { display: grid; align-content: start; gap: 22px; min-width: 0; padding: 26px; border: 1px solid #e5dfd4; border-radius: 18px; background: #fff; }
 .edu-skeleton-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .edu-skeleton-workspace { display: grid; grid-template-columns: minmax(210px, 1fr) minmax(0, 3fr); gap: 24px; }
 .edu-skeleton-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 22px; }
-.edu-skeleton-response { display: grid; grid-template-columns: minmax(0, 1fr) 20%; gap: 24px; padding-block: 24px; border-top: 1px solid #e7eee9; }
+.edu-skeleton-response { display: grid; grid-template-columns: minmax(0, 1fr) 20%; gap: 24px; padding-block: 24px; border-top: 1px solid #e5dfd4; }
 .edu-skeleton-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
 .edu-skeleton--heading { width: 65%; max-width: 32rem; height: 2.6rem; margin-block: 8px; }
 .edu-skeleton--title { width: 65%; height: 1.25rem; }
@@ -17,7 +17,7 @@
 .edu-skeleton--action { width: 8rem; max-width: 55%; height: 2.6rem; margin-top: 5px; border-radius: 9px; }
 .edu-skeleton--pill { height: 1.5rem; border-radius: 20px; }
 .edu-skeleton--steps { height: 3.5rem; margin-bottom: 12px; border-radius: 12px; }
-.edu-loading--inline { display: inline-flex; width: auto; max-width: 100%; align-items: center; flex-wrap: wrap; gap: 12px; margin-block: 8px; color: #586960; font-size: .88rem; }
+.edu-loading--inline { display: inline-flex; width: auto; max-width: 100%; align-items: center; flex-wrap: wrap; gap: 12px; margin-block: 8px; color: #4e5a68; font-size: .88rem; }
 .edu-loading__inline-bars { display: inline-flex; align-items: center; gap: 5px; }
 .edu-loading__inline-bars .edu-skeleton { width: 28px; height: .65rem; }
 .edu-loading__inline-bars .edu-skeleton:nth-child(2) { width: 20px; }
