@@ -25,6 +25,8 @@ const Header = ({ hasActiveAnalysis = false }) => {
                     />
                     <span className="site-brand__name">EduThemes</span>
                 </Navbar.Brand>
+                <div className="site-header__context"><span>Research workspace</span><small>From responses to understanding</small></div>
+                <Link className="site-header__home" to="/" onClick={handleHome}>Your studies <span aria-hidden="true">↗</span></Link>
             </Container>
         </Navbar>
     );

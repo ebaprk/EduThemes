@@ -14,6 +14,7 @@ import { API_URL } from "./api";
 import { supabase } from './supabase';
 import { attachResponseSources, responseRecordsForQuestion, responsesForQuestion, responsesToCsv } from './utils/studyResponses';
 import "./components/Workflow.css";
+import "./styles/ContextTheme.css";
 
 const Review = lazy(() => import('./components/Review'));
 const Analyze = lazy(() => import('./components/Analyze'));
@@ -250,9 +251,9 @@ function App() {
   useLayoutEffect(() => {
     let secondFrame;
     const firstFrame = window.requestAnimationFrame(() => {
-      window.scrollTo(0, 0);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       secondFrame = window.requestAnimationFrame(() => {
-        window.scrollTo(0, 0);
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
         const heading = document.querySelector('main h1, .workflow-heading h1');
         if (heading) {
           heading.setAttribute('tabindex', '-1');
@@ -265,7 +266,7 @@ function App() {
       window.cancelAnimationFrame(firstFrame);
       if (secondFrame) window.cancelAnimationFrame(secondFrame);
     };
-  }, [currentStage]);
+  }, [currentStage, location.pathname]);
 
   useEffect(() => {
     const handleStorageError = () => setStorageWarning(true);
