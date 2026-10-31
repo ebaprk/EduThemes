@@ -1,6 +1,6 @@
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
-import React, { useState, useEffect } from 'react';
-import { 
+import React, { useState, useEffect, useRef } from 'react';
+import {
   Container, Button, Card, Row, Col, Form,
   Table, Modal, ListGroup, Alert
 } from 'react-bootstrap';
@@ -11,35 +11,30 @@ import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowHeader from './WorkflowHeader';
 import WorkflowAlert from './WorkflowAlert';
 
-const Preview = ({ 
-  sessionId, 
-  dataset, 
-  setDataset, 
-  labels, 
-  setLabels, 
-  claudeData, 
-  svmData, 
-  setClaudeData, 
-  setSvmData, 
-  onAdvanceStage, 
+const Preview = ({
+  sessionId, ensureSession,
+  dataset,
+  setDataset,
+  labels,
+  setLabels,
+  claudeData,
+  svmData,
+  setClaudeData,
+  setSvmData,
+  onAdvanceStage,
     projectMetadata,
     uploadSummary,
 }) => {
-    const [selectedEntry, setSelectedEntry] = useState(null);
-    const [selectedIndex, setSelectedIndex] = useState(null);
+    const [query, setQuery] = useState(''); const [uncodedOnly, setUncodedOnly] = useState(false);
+    const [selectedIndex, setSelectedIndex] = useState(0); const selectedEntry = dataset?.[selectedIndex] || null;
+    const active = useRef(true);
+    useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
     const [isLoading, setIsLoading] = useState(false);
     const [suggestedThemes, setSuggestedThemes] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
     const [error, setError] = useState(null);
     const [suggestionError, setSuggestionError] = useState(null);
-
-    useEffect(() => {
-      if (dataset && dataset.length > 0 && selectedEntry === null) {
-        setSelectedEntry(dataset[0]);
-        setSelectedIndex(0);
-      }
-    }, [dataset, selectedEntry]);
 
     const getRandomItem = (arr) => {
         // Generate a random floating-point number between 0 (inclusive) and 1 (exclusive)
@@ -55,88 +50,30 @@ const Preview = ({
         return arr[floorIndex];
     }
 
-    const handleSelectEntry = (entry, index) => {
-        if (index === selectedIndex) {
-            return;
-        }
-        saveThemes();
-        setSelectedIndex(index);
-        setSelectedEntry(entry);//console.log(selectedEntry.original));
+    const handleSelectEntry = (_entry, index) => setSelectedIndex(index);
+    const handleThemeChange = (event, entry = null, index = null) => {
+      const theme = labels.find(label => label.name === event.target.value);
+      const target = index ?? selectedIndex;
+      if (theme) setDataset(previous => previous.map((item, position) => position === target && !item.themes?.some(t => t.name === theme.name) ? { ...item, themes: [...(item.themes || []), theme] } : item));
+      event.target.value = '';
     };
-
-    const handleThemeChange = (e, entry = null, index = null) => {
-        const newTheme = e.target.value;
-        if (newTheme.trim() === '') return;
-
-        const theme = labels.find(label => label.name === newTheme);
-        if (!theme) return;
-
-        if (entry && index !== null) {
-            // Handle table row theme change
-            const currentEntry = dataset[index];
-
-            if (!currentEntry.themes?.some(t => t.name === newTheme)) {
-                setDataset(dataset.map((item, itemIndex) => itemIndex === index
-                    ? { ...item, themes: [...(item.themes || []), theme] }
-                    : item));
-            }
-        } else if (selectedEntry) {
-            // Handle selected entry theme change
-            if (!selectedEntry.themes?.some(t => t.name === newTheme)) {
-                setSelectedEntry((prev) => ({
-                    ...prev,
-                    themes: [...(prev.themes || []), theme],
-                }));
-                saveThemes();
-            }
-        }
-
-        e.target.value = '';
-    };
-
-    const saveThemes = () => {
-        if (selectedEntry) {
-            const updatedEntry = { ...selectedEntry, themes: selectedEntry.themes || [] };
-            const updatedDataset = [...dataset];
-            updatedDataset[selectedIndex] = updatedEntry;
-            setDataset(updatedDataset);
-        }
-    };
-
-    const removeTheme = (themeName, ind = null, themeIndex = null) => {
-        if (ind != null) { 
-            setDataset(dataset.map((item, itemIndex) => itemIndex === ind
-                ? { ...item, themes: item.themes?.filter((_, idx) => idx !== themeIndex) || [] }
-                : item));
-            //console.log('REMOVED', updatedDataset);
-        }
-        else{
-            const updatedEntry = {
-                ...selectedEntry,
-                themes: selectedEntry.themes?.filter((theme) => theme.name !== themeName) || [],
-            };
-            setSelectedEntry(updatedEntry);
-            setDataset(dataset.map((item, index) => index === selectedIndex ? updatedEntry : item));
-            //setTimeout(() => saveThemes(), 0);
-        }
-        
-       
-    };
-
+    const removeTheme = (name, index = null, themeIndex = null) => setDataset(previous => previous.map((item, position) => position === (index ?? selectedIndex) ? { ...item, themes: (item.themes || []).filter((theme, i) => themeIndex !== null ? i !== themeIndex : theme.name !== name) } : item));
     const handleGetSuggestedThemes = async () => {
         setLoadingSuggestions(true);
         setSuggestionError(null);
-        
+
         try {
             if (showSuggestions) {
                 setSuggestedThemes([]);
             }
-            
-            const response = await axios.post(`${API_URL}/session/${sessionId}/suggest-themes`, {
+
+            const activeSession = ensureSession ? await ensureSession() : sessionId;
+            const response = await axios.post(`${API_URL}/session/${activeSession}/suggest-themes`, {
                 labels: labels,
                 apiKey: projectMetadata.apiKey
             });
 
+            if (!active.current) return;
             if (response.data && response.data.suggested_themes) {
                 setSuggestedThemes(response.data.suggested_themes);
                 if (!showSuggestions) {
@@ -158,13 +95,13 @@ const Preview = ({
         if (!themeExists) {
             const COLORS = ['#176b52', '#ff7856', '#d0a72d', '#7a5c99', '#3f7d9d', '#8a6a2f', '#556b5d', '#9a4f61'];
             const color = getRandomItem(COLORS)//Math.floor(Math.random()*16777215).toString(16);
-            
+
             const newTheme = {
                 name: theme.name,
                 description: theme.description,
                 color: color
             };
-            
+
             setLabels([...labels, newTheme]);
         }
     };
@@ -180,12 +117,14 @@ const Preview = ({
                 }))
                 .filter((entry) => entry.themes.length > 0);
 
-            const response = await axios.post(`${API_URL}/session/${sessionId}/submit-manual-coding`, {
+            const activeSession = ensureSession ? await ensureSession() : sessionId;
+            const response = await axios.post(`${API_URL}/session/${activeSession}/submit-manual-coding`, {
                 labels,
                 manual_codings: manualCodings,
                 apiKey: projectMetadata.apiKey
             });
 
+            if (!active.current) return;
             setClaudeData(response.data.claude_data);
             setSvmData(response.data.svm_data);
             onAdvanceStage();
@@ -206,8 +145,8 @@ const Preview = ({
             <WorkflowHeader
                 currentStep={2}
                 eyebrow="Step 2 · Manual coding"
-                title="Shape the themes in your data"
-                description="Create a useful theme set, code a representative sample, and give the AI a strong foundation for classification."
+                title="Code responses"
+                description="Assign themes to examples, then classify the remaining responses."
             />
 
             <WorkflowAlert message={error} onClose={() => setError(null)} />
@@ -221,18 +160,11 @@ const Preview = ({
                 </div>
             )}
 
-            {isLoading ? <LoadingSkeleton variant="responses" label="Classifying responses and preparing your review…" /> : (
-            <Row className="g-4 align-items-stretch">
+            {isLoading && <LoadingSkeleton variant="inline" label="Classifying responses…" />}
+            {(
+            <fieldset disabled={isLoading} className="study-unframed-fieldset"><Row className="g-4 align-items-stretch">
                 <Col lg={4} xl={3} className="preview-sidebar">
-                    <Card>
-                        <Card.Body>
-                            <span className="sidebar-card__label">Your workspace</span>
-                            <h5>Manual coding</h5>
-                            <p className="text-muted mb-0">
-                                Select responses from the table, build your theme set, and code examples before review.
-                            </p>
-                        </Card.Body>
-                    </Card>
+
 
                     <Card>
                         <Card.Body>
@@ -244,19 +176,19 @@ const Preview = ({
                                 <>
                                     {labels.map((label, index) => (
                                         <div key={index} className="theme-list__item">
-                                            <div 
+                                            <div
                                                 className="theme-list__dot"
-                                                style={{ 
+                                                style={{
                                                     backgroundColor: label.color
                                                 }}
                                             ></div>
                                             <div>
-                                                <div>{label.name.length > 24 ? 
-                                                        label.name.substring(0, 24) + '...' : 
+                                                <div>{label.name.length > 24 ?
+                                                        label.name.substring(0, 24) + '...' :
                                                         label.name}</div>
                                                 {/* {label.description && (
-                                                    <small className="text-muted">{label.description.length > 50 ? 
-                                                        label.description.substring(0, 50) + '...' : 
+                                                    <small className="text-muted">{label.description.length > 50 ?
+                                                        label.description.substring(0, 50) + '...' :
                                                         label.description}
                                                     </small>
                                                 )} */}
@@ -281,10 +213,10 @@ const Preview = ({
                                             <span>Original</span>
                                             <p>{selectedEntry.original}</p>
                                         </div>
-                                        <div className="selected-response__block">
+{selectedEntry.cleaned !== selectedEntry.original && (                                        <div className="selected-response__block">
                                             <span>Cleaned</span>
                                             <p>{selectedEntry.cleaned}</p>
-                                        </div>
+                                        </div>)}
                                     </div>
                                 </>
                             ) : (
@@ -309,9 +241,9 @@ const Preview = ({
                                         themes: (entry.themes || []).filter((theme) => theme.name !== themeName),
                                     })))}
                                 />
-                                <Button 
-                                    variant="outline-primary" 
-                                    onClick={() => setShowSuggestions(true)}
+                                <Button
+                                    variant="outline-primary"
+                                    onClick={() => { setShowSuggestions(true); handleGetSuggestedThemes(); }}
                                     disabled={loadingSuggestions}
                                 >
                                     <FaTags className="me-2" aria-hidden="true" />
@@ -322,13 +254,13 @@ const Preview = ({
                                 <span className="workflow-stat">
                                     Coded <strong>{codedCount}/{totalResponses}</strong> · {percentageCoded}%
                                 </span>
-                                <Button 
-                                    onClick={handleReview} 
+                                <Button
+                                    onClick={handleReview}
                                     aria-busy={isLoading}
                                     disabled={
-                                        labels.length === 0 || 
+                                        labels.length === 0 ||
                                         codedCount === 0 ||
-                                        !sessionId || 
+                                        !sessionId ||
                                         isLoading
                                     }
                                     title={codedCount === 0 ? 'Assign at least one theme to a response before continuing.' : undefined}
@@ -340,7 +272,7 @@ const Preview = ({
                                         </>
                                     ) : (
                                         <>
-                                            Review classifications
+                                            Classify responses
                                             <FaArrowRight className="ms-2" aria-hidden="true" />
                                         </>
                                     )}
@@ -351,10 +283,10 @@ const Preview = ({
                         <Card.Body id="given_chart">
                             <div className="preview-table-wrap">
                                 {dataset && dataset.length > 0 ? (
-                                    <Table hover responsive size="sm" className="preview-table">
+                                    <><div className="coding-filters"><input aria-label="Search responses" type="search" placeholder="Search responses" value={query} onChange={e => setQuery(e.target.value)} /><label><input type="checkbox" checked={uncodedOnly} onChange={e => setUncodedOnly(e.target.checked)} /> Uncoded only</label></div><Table hover responsive size="sm" className="preview-table">
                                         <thead>
                                             <tr>
-                                                <th 
+                                                <th
                                                     className="text-center align-middle preview-index-cell"
                                                 >
                                                     #
@@ -364,11 +296,11 @@ const Preview = ({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {dataset.map((entry, index) => (
-                                                
-                                                <tr 
-                                                    key={index} 
-                                                    onClick={() => handleSelectEntry(entry, index)}                                                     
+                                            {dataset.map((entry, index) => (!entry.original.toLowerCase().includes(query.toLowerCase()) || (uncodedOnly && entry.themes?.length)) ? null : (
+
+                                                <tr
+                                                    key={index}
+                                                    onClick={() => handleSelectEntry(entry, index)}
                                                     className={index === selectedIndex ? 'is-selected' : ''}
                                                     aria-selected={index === selectedIndex}
                                                     tabIndex="0"
@@ -379,12 +311,12 @@ const Preview = ({
                                                         }
                                                     }}
                                                 >
-                                                    <td 
+                                                    <td
                                                         className="text-center align-middle preview-index-cell"
                                                     >
                                                         {index + 1}
                                                     </td>
-                                                    <td 
+                                                    <td
                                                         className="align-middle preview-response-cell"
                                                     >
                                                         {entry.original}
@@ -402,7 +334,7 @@ const Preview = ({
                                                                     <option key={label.name} value={label.name}>{label.name}</option>
                                                                 ))}
                                                             </Form.Select>
-                                                            {entry.themes && entry.themes.length > 0 ? 
+                                                            {entry.themes && entry.themes.length > 0 ?
                                                                 entry.themes.map((theme, tidx) => (
                                                                     <button
                                                                         type="button"
@@ -421,7 +353,7 @@ const Preview = ({
                                                                         {theme.name}
                                                                         <span className="theme-pill__remove" aria-hidden="true">×</span>
                                                                     </button>
-                                                                )) : 
+                                                                )) :
                                                                 <span className="text-muted small">No theme assigned</span>
                                                             }
                                                         </div>
@@ -429,7 +361,7 @@ const Preview = ({
                                                 </tr>
                                             ))}
                                         </tbody>
-                                    </Table>
+                                    </Table></>
                                 ) : (
                                     <p className="workflow-empty mb-0">
                                         No dataset available. Please upload a dataset.
@@ -439,11 +371,11 @@ const Preview = ({
                         </Card.Body>
                     </Card>
                 </Col>
-            </Row>
+            </Row></fieldset>
             )}
 
-            <Modal 
-                show={showSuggestions} 
+            <Modal
+                show={showSuggestions}
                 onHide={() => setShowSuggestions(false)}
                 centered
                 size="lg"
@@ -460,13 +392,13 @@ const Preview = ({
                     )}
                     <div className="suggestions-toolbar">
                         <span>
-                            {suggestedThemes.length > 0 ? 
-                                `Found ${suggestedThemes.length} theme suggestions` : 
+                            {suggestedThemes.length > 0 ?
+                                `Found ${suggestedThemes.length} theme suggestions` :
                                 "Generate themes"}
                         </span>
-                        <Button 
-                            variant="outline-primary" 
-                            size="sm" 
+                        <Button
+                            variant="outline-primary"
+                            size="sm"
                             onClick={handleGetSuggestedThemes}
                             disabled={loadingSuggestions || !sessionId || dataset?.length === 0}
                         >
@@ -480,7 +412,7 @@ const Preview = ({
                             )}
                         </Button>
                     </div>
-                    
+
                     {loadingSuggestions ? (
                         <LoadingSkeleton variant="suggestions" label="Generating theme suggestions…" />
                     ) : suggestedThemes.length > 0 ? (
@@ -488,7 +420,7 @@ const Preview = ({
                             {suggestedThemes.map((theme, index) => {
                                 const alreadyAdded = labels.some(l => l.name === theme.name);
                                 return (
-                                    <ListGroup.Item 
+                                    <ListGroup.Item
                                         key={index}
                                         className={`suggestion-item ${alreadyAdded ? 'bg-light' : ''}`}
                                     >
@@ -496,7 +428,7 @@ const Preview = ({
                                             <h5>{theme.name}</h5>
                                             <p className="text-muted mb-0">{theme.description}</p>
                                         </div>
-                                        <Button 
+                                        <Button
                                             variant={alreadyAdded ? "outline-secondary" : "outline-primary"}
                                             onClick={() => handleAddSuggestedTheme(theme)}
                                             disabled={alreadyAdded}

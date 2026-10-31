@@ -463,3 +463,54 @@ body, .App { background: var(--edu-paper); color: var(--edu-ink); }
   .edu-loading--cards .edu-skeleton-grid { grid-template-columns: minmax(0,1fr); }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .App :where(button,a), .study-list-card { transition: none; } .auth-research-visual { transform: none; } }
+
+/* Research work surfaces: compact context, task navigation, and useful data. */
+.dashboard-content { display:block; }
+.dashboard-studies { width:100%; }
+.study-hero { margin-bottom:24px; }
+.study-hero h1 { font-size:28px; margin:8px 0; }
+.study-topbar:has(.study-eyebrow:empty) { min-height:24px; margin-bottom:8px; }
+.study-section-nav { position:sticky; top:64px; z-index:8; background:var(--edu-surface,#fff); padding:0; margin-bottom:24px; }
+.study-section-nav button { border:0; border-bottom:2px solid transparent; background:none; padding:12px 16px; color:inherit; cursor:pointer; }
+.study-section-nav button[aria-current=page] { border-bottom-color:#995a40; color:#854a32; font-weight:600; }
+.study-overview-counts { display:flex; gap:32px; padding:0 0 24px; }
+.study-overview-counts div { display:flex; flex-direction:column; gap:4px; font-size:13px; color:#65716b; }
+.study-overview-counts strong { font-size:26px; color:#202923; }
+.work-queue-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 0; border-bottom:1px solid #e4e7e5; }
+.work-queue-row small,.share-panel small { display:block; margin-top:6px; color:#65716b; }
+.version-control { display:flex; align-items:center; gap:8px; font-size:13px; }
+.version-control select { padding:8px; border:1px solid #dde2de; border-radius:6px; background:#fff; }
+.study-secondary { display:inline-flex; align-items:center; text-decoration:none; }
+.study-actions { flex-wrap:wrap; }
+.study-panel details { padding:12px 0; }
+.study-panel h3 { font-size:18px; }
+.study-analysis-queue .study-panel { margin-bottom:16px; }
+.auth-layout { display:block; min-height:calc(100vh - 80px); }
+.auth-form-area { max-width:480px; margin:48px auto; padding:24px; }
+.auth-form-container { width:100%; }
+.workflow-heading { margin-bottom:24px; }
+.workflow-heading h1 { font-size:28px; }
+.workflow-heading__copy p { margin-bottom:0; }
+.coding-filters { display:flex; gap:16px; align-items:center; padding:12px 16px; }
+.coding-filters input[type=search] { min-width:160px; flex:1; border:1px solid #dde2de; border-radius:6px; padding:8px; }
+.coding-filters label { display:flex; align-items:center; gap:6px; font-size:13px; }
+button.review-theme-list__item { width:100%; border:0; background:transparent; text-align:left; color:inherit; }
+button.review-theme-list__item.is-current { background:#f5eee9; }
+button.review-theme-list__item:focus-visible { outline:2px solid #995a40; }
+.import-page { max-width:860px; }
+.findings-exports { margin:16px 0; }
+.start-dashboard { display:block; max-width:760px; }
+.start-card { margin-bottom:16px; }
+.sidebar-label { display:none; }
+@media(max-width:700px) { .study-overview-counts { gap:16px; flex-wrap:wrap; } .study-section-nav { overflow-x:auto; white-space:nowrap; top:56px; } .version-control { flex-wrap:wrap; } .coding-filters { flex-wrap:wrap; } }
+.study-resume-link { display:block; margin-top:6px; font-size:13px; }
+.analysis-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
+@media(max-width:600px) { .analysis-metrics { grid-template-columns:1fr; } }
+.analysis-page .analysis-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.analysis-page .findings-exports { justify-content:flex-start; gap:8px; }
+.summary-content h2 { font-size:22px; }
+.summary-content h3 { font-size:18px; }
+.study-analysis-banner { position:sticky; top:64px; z-index:6; flex-wrap:wrap; }
+.study-analysis-banner > span:first-child { white-space:normal; overflow:visible; text-overflow:clip; max-width:none; flex:1; min-width:220px; }
+@media(max-width:900px) { .study-analysis-banner { top:56px; } }
+@media(max-width:600px) { .analysis-page .analysis-metrics { grid-template-columns:1fr; } }

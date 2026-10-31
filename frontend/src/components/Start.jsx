@@ -101,9 +101,9 @@ const Start = ({
                 )}
 
                 <header className="start-heading">
-                    <span className="start-heading__eyebrow">From responses to understanding</span>
-                    <h1>Your analysis workspace</h1>
-                    <p>Bring your response file. Discover the patterns, with your judgment at the center.</p>
+
+                    <h1>Import responses</h1>
+
                 </header>
 
                 <div className="start-dashboard">
@@ -131,20 +131,6 @@ const Start = ({
 
                     {newAnalysisCard}
 
-                    {!hasActiveAnalysis && (
-                        <aside className="start-card start-card--prep" aria-labelledby="before-you-begin-title">
-                            <span className="start-card__eyebrow">Before you begin</span>
-                            <h2 id="before-you-begin-title">Have these ready</h2>
-                            <ul className="start-prep-list">
-                                <li>An Excel or CSV file of open-ended responses</li>
-                                <li>A research question</li>
-                                <li>A short description of your project</li>
-                            </ul>
-                            <a className="start-example-link" href="/assets/sample-responses.csv" download="sample-responses.csv">
-                                Download sample CSV <FaArrowRight aria-hidden="true" />
-                            </a>
-                        </aside>
-                    )}
                 </div>
 
                 <WorkflowAlert
@@ -154,25 +140,6 @@ const Start = ({
                     className="start-alert"
                 />
 
-                <section className="start-workflow" aria-labelledby="workflow-title">
-                    <div className="start-workflow__heading">
-                        <div>
-                            <span className="start-heading__eyebrow">Your workflow</span>
-                            <h2 id="workflow-title">Four steps from file to findings</h2>
-                        </div>
-                        <p>You can return to earlier steps as you review your work.</p>
-                    </div>
-                    <ol className="start-workflow__grid">
-                        {workflowSteps.map(({ number, icon: Icon, title, description }) => (
-                            <li className="start-step" key={number}>
-                                <span className="start-step__icon" aria-hidden="true"><Icon /></span>
-                                <span className="start-step__number">{number}</span>
-                                <h3>{title}</h3>
-                                <p>{description}</p>
-                            </li>
-                        ))}
-                    </ol>
-                </section>
             </div>
         </main>
     );

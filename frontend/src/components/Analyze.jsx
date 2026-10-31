@@ -7,13 +7,15 @@ import "./Analyze.css";
 import ReactMarkdown from 'react-markdown';
 import { FaDownload, FaRedo } from 'react-icons/fa';
 import { API_URL, getApiErrorMessage } from '../api';
+import { csvCell } from '../utils/participantData';
+import StudyEvidence from './StudyEvidence';
 import WorkflowHeader from './WorkflowHeader';
 import WorkflowAlert from './WorkflowAlert';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 
 ChartJS.register(
   ChartTooltip,
-  ArcElement, 
+  ArcElement,
   Legend,
   CategoryScale,
   LinearScale,
@@ -21,17 +23,17 @@ ChartJS.register(
   Title
 );
 
-const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0 }) => {
+const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0, analysisSource, dataset = [] }) => {
   const [summary, setSummary] = useState(results?.summary || "");
   const [error, setError] = useState(null);
   const [isSummaryLoading, setIsSummaryLoading] = useState(!results?.summary);
   const [isDownloading, setIsDownloading] = useState(false);
-  
+
   useEffect(() => {
     if (results && results.summary) {
       setSummary(results.summary);
       setIsSummaryLoading(false);
-    } else {
+    } else if (sessionId?.startsWith('study:')) { setSummary(''); setIsSummaryLoading(false); } else {
       const fetchSummary = async () => {
         setIsSummaryLoading(true);
         try {
@@ -46,37 +48,14 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0 
           setIsSummaryLoading(false);
         }
       };
-      
+
       fetchSummary();
     }
   }, [results, sessionId]);
 
-  const handleDownloadJSON = async () => {
-    setError(null);
-    setIsDownloading(true);
-    try {
-      const response = await axios.get(`${API_URL}/session/${sessionId}/download-final-dataset`);
-      const data = response.data;
-
-      if (response.status === 200) {
-        const blob = new Blob([JSON.stringify(data.final_dataset, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "final_dataset.json";
-        link.click();
-        URL.revokeObjectURL(url);
-      } else {
-        setError(`We couldn't download the dataset. ${data.error || 'Please try again.'}`);
-      }
-    } catch (error) {
-      console.error("Error fetching dataset:", error);
-      setError(getApiErrorMessage(error, "We couldn't download the dataset."));
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-  
+  const download = (content, name, type) => { const url=URL.createObjectURL(new Blob([content],{type})); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url); };
+  const handleDownloadJSON = () => download(JSON.stringify({study:analysisSource?.title,question:analysisSource?.prompt,version:analysisSource?.versionId,results,labels,responses:dataset},null,2),'coded-responses.json','application/json');
+  const downloadCsv = () => { const quote = csvCell; download(['Response,Themes', ...dataset.map(entry => [entry.original,entry.themes?.map(t=>t.name).join('; ')].map(quote).join(','))].join('\n'),'coded-responses.csv','text/csv'); };
   const handleDownloadSummary = () => {
     if (summary) {
       const blob = new Blob([summary], { type: "text/plain" });
@@ -106,14 +85,15 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0 
     ? themeData.reduce((leading, item) => Number(item.frequency || 0) > Number(leading.frequency || 0) ? item : leading)
     : null;
   const unclassifiedCount = Number(themeData.find((item) => item.name === 'Unclassified')?.frequency || 0);
-  
+
   return (
     <Container fluid className="workflow-page analysis-page">
       <WorkflowHeader
         currentStep={4}
         eyebrow="Step 4 · Analysis complete"
-        title="Your themes, clearly summarized"
-        description="Explore the story in your responses, compare theme frequency, and download the outputs for your next step."
+        title="Findings"
+        readOnly={analysisSource?.readOnly}
+        description=""
       />
 
       <WorkflowAlert message={error} onClose={() => setError(null)} />
@@ -121,47 +101,33 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0 
       <div className="analysis-metrics">
         <div className="analysis-metric">
           <span>Themes discovered</span>
-          <strong>{themeData.length}</strong>
+          <strong>{themeData.filter(t => t.name !== 'Unclassified').length}</strong>
         </div>
         <div className="analysis-metric">
           <span>Responses analyzed</span>
           <strong>{responseCount}</strong>
         </div>
-        <div className="analysis-metric">
-          <span>Theme mentions</span>
-          <strong>{totalMentions}</strong>
-        </div>
+
         <div className="analysis-metric">
           <span>Still unclassified</span>
           <strong>{unclassifiedCount}</strong>
         </div>
-        <div className="analysis-metric">
-          <span>Leading theme</span>
-          <strong title={leadingTheme?.name}>{leadingTheme?.name || '—'}</strong>
-        </div>
+
       </div>
-      
+
+      <div className="study-actions findings-exports"><button className="study-secondary" onClick={handleDownloadSummary}>Download summary</button><button className="study-secondary" onClick={downloadCsv}>Download coded CSV</button><button className="study-secondary" onClick={handleDownloadJSON}>Download full analysis</button></div>
       <Tabs defaultActiveKey="summary" className="analysis-tabs">
         <Tab eventKey="summary" title="Summary">
           <Card className="workflow-panel analysis-panel">
             <Card.Body>
-              <div className="analysis-panel__toolbar">
-                <Button 
-                  variant="outline-primary" 
-                  onClick={handleDownloadSummary}
-                  disabled={!summary || isSummaryLoading}
-                >
-                  <FaDownload className="me-2" aria-hidden="true" />
-                  Download summary
-                </Button>
-              </div>
+
               <div className="summary-content">
-                {isSummaryLoading ? <LoadingSkeleton label="Loading your analysis summary…" rows={8} /> : <ReactMarkdown>{summary || "No summary is available. Retry by returning to the review step and finishing again."}</ReactMarkdown>}
+                {isSummaryLoading ? <LoadingSkeleton label="Loading your analysis summary…" rows={8} /> : <ReactMarkdown>{summary || "No summary was saved for this run."}</ReactMarkdown>}
               </div>
             </Card.Body>
           </Card>
         </Tab>
-        
+
         <Tab eventKey="visualization" title="Visualizations">
           <Row className="g-4">
             <Col md={6}>
@@ -199,7 +165,7 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0 
                 </Card.Body>
               </Card>
             </Col>
-            
+
             <Col md={6}>
               <Card className="analysis-chart-card h-100">
                 <Card.Header>Theme Frequency</Card.Header>
@@ -226,7 +192,7 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0 
                           display: false,
                         },
                       },
-                      
+
                     }}
                   />
                   <table className="visually-hidden">
@@ -242,22 +208,12 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0 
             </Col>
           </Row>
         </Tab>
-        
-        <Tab eventKey="themes" title="Theme List">
+
+        <Tab eventKey="themes" title="Themes & evidence">
           <Card className="workflow-panel analysis-panel">
             <Card.Body>
-              <div className="analysis-panel__toolbar">
-                <Button 
-                  variant="outline-primary" 
-                  onClick={handleDownloadJSON}
-                  disabled={isDownloading}
-                  aria-busy={isDownloading}
-                >
-                  {isDownloading ? <Skeleton className="edu-skeleton--button" /> : <FaDownload className="me-2" aria-hidden="true" />}
-                  {isDownloading ? 'Preparing download…' : 'Download dataset'}
-                </Button>
-              </div>
-              
+
+
               <div>
                 {themeData && themeData.length > 0 ? (
                   <div className="analysis-theme-grid">
@@ -274,7 +230,7 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0 
                         )}
                         placement="bottom"
                       >
-                        <div 
+                        <div
                           key={index}
                           className="analysis-theme-card"
                           style={{ '--theme-color': item.color || '#8d95a5' }}
@@ -298,17 +254,18 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0 
             </Card.Body>
           </Card>
         </Tab>
-        
+
       </Tabs>
-      
+
+      <StudyEvidence analysis={{coded_responses:dataset,labels}} responses={[]} sourceBase={analysisSource ? `/studies/${analysisSource.studyId}?section=collect&version=${analysisSource.versionId}` : null} questionId={analysisSource?.questionId} />
       <div className="analysis-new-action">
-        <Button 
-          variant="primary" 
+        <Button
+          variant="primary"
           size="lg"
           onClick={() => onAdvanceStage()}
         >
           <FaRedo className="me-2" aria-hidden="true" />
-          Start a new analysis
+          {analysisSource ? 'Back to study analysis' : 'Import another dataset'}
         </Button>
       </div>
     </Container>
@@ -320,13 +277,13 @@ function isDarkColor(color) {
   if (hex.length === 3) {
     hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
   }
-  
+
   const r = parseInt(hex.substr(0, 2), 16);
   const g = parseInt(hex.substr(2, 2), 16);
   const b = parseInt(hex.substr(4, 2), 16);
-  
+
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  
+
   return luminance < 0.5;
 }
 

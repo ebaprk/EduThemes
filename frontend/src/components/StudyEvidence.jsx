@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function StudyEvidence({ analysis, responses, questionId }) {
+export default function StudyEvidence({ analysis, responses, questionId, sourceBase }) {
   const dataset = analysis.coded_responses || [];
   const names = [...new Set(dataset.flatMap((entry) => (entry.themes || []).map((theme) => theme.name)))];
   const openSource = (event, id) => {
@@ -22,7 +22,7 @@ export default function StudyEvidence({ analysis, responses, questionId }) {
         const decision = entry.review_decisions?.[name];
         return <li key={entry.submission_id || index}><blockquote>{original || entry.original}</blockquote>{original && original !== entry.original && <p className="study-help">Text used for coding: {entry.original}</p>}
           {decision && <p className="study-help">{decision.action === 'approve' ? 'Classification accepted' : 'Classification rejected'}{decision.recorded_at ? ` · ${new Date(decision.recorded_at).toLocaleString()}` : ''}</p>}
-          {source ? <a href={`#response-${source.id}`} onClick={(event) => openSource(event, source.id)}>View original response and consent record</a> : <small>Original response text retained; no source link recorded for this imported or legacy entry.</small>}
+          {source ? <a href={`#response-${source.id}`} onClick={(event) => openSource(event, source.id)}>View original response and consent record</a> : sourceBase && entry.submission_id ? <a href={`${sourceBase}#response-${entry.submission_id}`}>View original response and consent</a> : <small>Imported response</small>}
         </li>;
       })}</ol></details>;
     })}

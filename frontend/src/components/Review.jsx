@@ -1,5 +1,5 @@
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Container, Button, Card, Row, Col, Modal, Badge, Alert, ProgressBar, Nav, Tab, Form, ListGroup, OverlayTrigger} from 'react-bootstrap';
 import { FaCheck, FaTimes, FaUndo } from 'react-icons/fa';
 import axios, { all } from 'axios';
@@ -18,9 +18,12 @@ const getReadableTextColor = (color = '#000000') => {
     return ((red * 299 + green * 587 + blue * 114) / 1000) > 150 ? '#172b4d' : '#ffffff';
 };
 
-const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset, claudeData, setClaudeData, onAdvanceStage, projectMetadata }) => {
-    const [currentThemeIndex, setCurrentThemeIndex] = useState(0);
+const Review = ({ sessionId, ensureSession, labels, setLabels, setResults, dataset, setDataset, claudeData, setClaudeData, onAdvanceStage, projectMetadata }) => {
+    const [currentThemeIndex, setCurrentThemeIndex] = useState(() => Math.min(Number(sessionStorage.getItem(`review-position:${sessionId}`)) || 0, Math.max(labels.length-1,0)));
+    useEffect(() => { sessionStorage.setItem(`review-position:${sessionId}`, String(currentThemeIndex)); }, [currentThemeIndex, sessionId]);
     const [responseActions, setResponseActions] = useState({});
+    const active = useRef(true);
+    useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const [showReassignModal, setShowReassignModal] = useState(false);
@@ -34,29 +37,29 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
     const [tempUncCat, setTempUncCat] = useState({});
     const [aiLoading, setAiLoading] = useState(false);
     const [allThemes, setAllThemes] = useState([...labels])
-    
+
 
     const unclassifiedTheme = {
         name: "Unclassified",
         description: "Responses that don't fit any other theme",
         color: "#cccccc"
     };
-    
+
     const hasUnclassifiedTheme = labels.some(label => label.name === "Unclassified");
     //let allThemes = hasUnclassifiedTheme ? labels : [...labels];
     const currentTheme = allThemes[currentThemeIndex] || { name: "None", color: "#cccccc" };
     let themeResponses = claudeData?.[currentTheme.name] || [];
-    
+
     useEffect(() => {
-        
-        
+
+
         //console.log(dataset)
-        
+
         if (!hasUnclassifiedTheme && claudeData && !claudeData["Unclassified"]) {
             setClaudeData((previous) => ({ ...previous, Unclassified: [] }));
         }
     }, [claudeData, hasUnclassifiedTheme, setClaudeData]);
-    
+
     useEffect(() => {
         setResponseActions(prev => ({ ...prev, [currentTheme.name]: themeResponses.map((index) =>
             dataset[index]?.review_decisions?.[currentTheme.name]?.action || null) }));
@@ -66,14 +69,14 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
         setDataset((previous) => recordReviewDecision(previous, [themeResponses[index]], currentTheme.name, action));
         const updatedActions = [...(responseActions[currentTheme.name] || [])];
         updatedActions[index] = action;
-        
+
         setResponseActions(prev => ({
             ...prev,
             [currentTheme.name]: updatedActions
         }));
     };
 
-    
+
 
 
 
@@ -81,7 +84,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
         setDataset((previous) => recordReviewDecision(previous, [themeResponses[index]], currentTheme.name, null));
         const updatedActions = [...(responseActions[currentTheme.name] || [])];
         updatedActions[index] = null;
-        
+
         setResponseActions(prev => ({
             ...prev,
             [currentTheme.name]: updatedActions
@@ -111,8 +114,10 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
             .filter(index => index !== null);
 
         if (rejectedIndices.length > 0) {
-            setRejectedEntries(rejectedIndices);
-            setShowReassignModal(true);
+            const updated = rejectThemeAssignments({classifications:claudeData,dataset,rejectedIndices,themeName:currentTheme.name,unclassifiedTheme});
+            setClaudeData(updated.classifications); setDataset(updated.dataset);
+            if (currentThemeIndex < allThemes.length-1) setCurrentThemeIndex(currentThemeIndex+1);
+            else handleSubmitFinalDataset(updated.classifications,updated.dataset);
         } else if (currentThemeIndex < allThemes.length - 1) {
 
             setCurrentThemeIndex(currentThemeIndex + 1);
@@ -129,18 +134,20 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
     const handleGetSuggestedThemes = async () => {
         setLoadingSuggestions(true);
         setSuggestionError(null);
-        
+
         try {
             if (showSuggestions) {
                 setSuggestedThemes([]);
             }
             const responses = themeResponses.map(idx => dataset[idx]?.original || "Response not found").join('\n');
-            const response = await axios.post(`${API_URL}/session/${sessionId}/suggest-themes`, {
+            const activeSession = ensureSession ? await ensureSession() : sessionId;
+            const response = await axios.post(`${API_URL}/session/${activeSession}/suggest-themes`, {
                 response: responses,
                 specBool: 'true',
                 apiKey: projectMetadata.apiKey
             });
 
+            if (!active.current) return;
             if (response.data && response.data.suggested_themes) {
                 setSuggestedThemes(response.data.suggested_themes);
                 if (!showSuggestions) {
@@ -210,13 +217,15 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
         setError(null);
 
         try {
-            const response = await axios.post(`${API_URL}/session/${sessionId}/submit-manual-coding`, {
+            const activeSession = ensureSession ? await ensureSession() : sessionId;
+            const response = await axios.post(`${API_URL}/session/${activeSession}/submit-manual-coding`, {
                 labels: allThemes,
                 response: sent,
                 specBool: 'true',
                 apiKey: projectMetadata.apiKey
             });
 
+            if (!active.current) return;
             const dataReturned = response.data.claude_data;
 
             let updated = { classifications: claudeData, dataset };
@@ -241,7 +250,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
             setAiLoading(false);
         }
     }
-    
+
     const addTheme = (theme) => {
         if (!theme?.name || allThemes.some((item) => item.name.toLowerCase() === theme.name.toLowerCase())) return;
         if (allThemes.filter((item) => item.name !== 'Unclassified').length >= 10) {
@@ -260,7 +269,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
         }));
 
         // Update dataset entries to include the new theme structure if needed
-        setDataset(prevDataset => 
+        setDataset(prevDataset =>
             prevDataset.map(entry => ({
                 ...entry,
                 themes: entry.themes || []  // Ensure themes array exists
@@ -312,15 +321,17 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
 
             setDataset(updatedDataset);
 
+            const activeSession = ensureSession ? await ensureSession() : sessionId;
             const response = await axios.post(
-                `${API_URL}/session/${sessionId}/submit-final-dataset`,
-                { 
+                `${API_URL}/session/${activeSession}/submit-final-dataset`,
+                {
                     dataset: updatedDataset,
                     labels: allThemes,
                     apiKey: projectMetadata.apiKey
                 }
             );
 
+            if (!active.current) return;
             if (response.status === 200) {
                 setResults({
                     themes: response.data.themes || [],
@@ -336,21 +347,19 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
             setIsLoading(false);
         }
     };
-    
+
     const currentActions = responseActions[currentTheme.name] || Array(themeResponses.length).fill(null);
     const allActionsCompleted = currentTheme.name === "Unclassified" || currentActions.every(action => action !== null);
-    
+
     const totalThemes = allThemes.length;
     const completedThemes = Object.keys(responseActions).filter(theme => {
         const actions = responseActions[theme];
         return actions && actions.every(action => action !== null);
     }).length;
-    
-    const progressPercentage =  isLoading ? 100 : ( currentTheme.name === "Unclassified" 
-        ? 100
-        : totalThemes > 0 
-            ? (completedThemes / totalThemes) * 100 
-            : 0);
+
+    const totalAssignments = Object.entries(claudeData || {}).filter(([name]) => name !== 'Unclassified').reduce((n,[,indices]) => n+indices.length,0);
+    const reviewedAssignments = Object.entries(claudeData || {}).filter(([name]) => name !== 'Unclassified').reduce((n,[name,indices]) => n+indices.filter(i => dataset[i]?.review_decisions?.[name]?.action).length,0);
+    const progressPercentage = totalAssignments ? reviewedAssignments / totalAssignments * 100 : 0;
     const formattedThemeName = `${currentTheme.name} (${themeResponses.length} ${themeResponses.length === 1 ? 'response' : 'responses'})`;
     const pendingCount = currentTheme.name === "Unclassified"
         ? 0
@@ -361,60 +370,52 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
             <WorkflowHeader
                 currentStep={3}
                 eyebrow="Step 3 · Quality review"
-                title="Review every classification with confidence"
-                description="Approve the AI’s theme assignments, correct anything that does not fit, and keep the final dataset grounded in your judgment."
+                title="Review classifications"
+                description="Accept or reject assignments. Responses can be assigned to more than one theme."
             />
 
             <WorkflowAlert message={error} onClose={() => setError(null)} />
 
-            {isLoading ? <LoadingSkeleton variant="results" label="Preparing your final themes and summary…" /> : (
-            <Row className="g-4 align-items-stretch">
+            {isLoading && <LoadingSkeleton variant="inline" label="Preparing findings…" />}
+            {(
+            <fieldset disabled={isLoading} className="study-unframed-fieldset"><Row className="g-4 align-items-stretch">
                 <Col lg={4} xl={3} className="review-sidebar">
-                    <Card>
-                        <Card.Body>
-                            <span className="sidebar-card__label">Review workspace</span>
-                            <h5>Theme review</h5>
-                            <p className="text-muted mb-0">
-                                Approve or reject each response, then continue through the theme list.
-                            </p>
-                        </Card.Body>
-                    </Card>
                     <Card>
                         <Card.Body>
                             <span className="sidebar-card__label">Current theme</span>
                             <div className="current-theme">
-                                <div 
+                                <div
                                     className="current-theme__dot"
-                                    style={{ 
+                                    style={{
                                         backgroundColor: currentTheme.color
                                     }}
                                 ></div>
                                 <h2>{currentTheme.name}</h2>
                             </div>
                             <p className="current-theme__description">{currentTheme.description || "No description available"}</p>
-                            
+
                         </Card.Body>
                     </Card>
                     <Card>
                         <Card.Body>
-                            <span className="sidebar-card__label">Progress · {currentThemeIndex + 1} of {totalThemes}</span>
+                            <span className="sidebar-card__label">Theme · {currentThemeIndex + 1} of {totalThemes}</span>
                             <div className="review-theme-list">
                                 {allThemes.map((label, index) => {
-                                    const isComplete = responseActions[label.name] && 
+                                    const isComplete = responseActions[label.name] &&
                                         responseActions[label.name].every(action => action !== null);
-                                    
+
                                     return (
-                                        <div 
+                                        <button type="button" onClick={() => setCurrentThemeIndex(index)} aria-current={index === currentThemeIndex ? 'step' : undefined}
                                             key={index}
                                             className={`review-theme-list__item${index === currentThemeIndex ? ' is-current' : ''}`}
                                         >
-                                            <div 
+                                            <div
                                                 className={`review-theme-list__status${isComplete ? ' is-complete' : ''}`}
                                             ></div>
                                             <span>
                                                 {label.name}
                                             </span>
-                                        </div>
+                                        </button>
                                     );
                                 })}
                             </div>
@@ -430,13 +431,13 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                     {formattedThemeName}
                                 </h5>
                                 <div className="workflow-toolbar__group">
-                                {currentTheme.name === "Unclassified" && (<Button 
-                                variant="primary" 
+                                {currentTheme.name === "Unclassified" && (<Button
+                                variant="primary"
                                 onClick={() => queryAI()}
                                 disabled={aiLoading || themeResponses.length === 0}
                                 aria-busy={aiLoading}
                                 >
-                                    
+
                                     {aiLoading ? (
                                         <>
                                             <Skeleton className="edu-skeleton--button" />
@@ -445,21 +446,21 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                     ) : (
                                         'Reassign responses'
                                     )}
-                                    
+
                                 </Button>)}
-                                <Button 
+                                <Button
                                     variant="outline-primary"
                                     onClick={() => setShowEditLabels(true)}
                                 >
-                                    
+
                                     Edit themes
-                                    
+
                                 </Button>
-                                <Button 
-                                    variant="primary" 
-                                    onClick={handleNextTheme} 
+                                <Button
+                                    variant="primary"
+                                    onClick={handleNextTheme}
                                     aria-busy={isLoading}
-                                    disabled={(!allActionsCompleted || isLoading)}
+                                    disabled={(!allActionsCompleted || isLoading || (currentThemeIndex >= allThemes.length-1 && reviewedAssignments < totalAssignments))}
                                 >
                                     {isLoading ? (
                                         <>
@@ -467,18 +468,18 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                             &nbsp;&nbsp;Processing...
                                         </>
                                     ) : (
-                                        currentThemeIndex >= allThemes.length - 1 ? 'Finish analysis' : 'Next theme'
+                                        currentThemeIndex >= allThemes.length - 1 ? (themeResponses.length && currentTheme.name === 'Unclassified' ? 'Finish with unclassified responses' : 'Finish analysis') : 'Next theme'
                                     )}
                                 </Button>
                                 </div>
                             </div>
                         </Card.Header>
-                        
+
                         <div className="review-progress-strip">
                             <div className="review-progress-track">
                                 <span>
                                     {currentTheme.name === "Unclassified"
-                                        ? (themeResponses.length === 0 ? 'All responses have a theme' : 'Assign any responses that still need a theme')
+                                        ? `${reviewedAssignments} of ${totalAssignments} assignments reviewed · ${themeResponses.length} unclassified`
                                         : `${pendingCount} ${pendingCount === 1 ? 'response' : 'responses'} left to review`}
                                 </span>
                                 <ProgressBar
@@ -488,18 +489,18 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                 />
                             </div>
                             <div className="review-bulk-actions">
-                                <Button 
-                                    variant="success" 
-                                    size="sm" 
-                                    onClick={handleAcceptAll} 
+                                <Button
+                                    variant="success"
+                                    size="sm"
+                                    onClick={handleAcceptAll}
                                     disabled={currentTheme.name === "Unclassified"}
                                 >
                                     Accept all
                                 </Button>
-                                <Button 
-                                    variant="danger" 
-                                    size="sm" 
-                                    onClick={handleRejectAll} 
+                                <Button
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={handleRejectAll}
                                     disabled={currentTheme.name === "Unclassified"}
                                 >
                                     Reject all
@@ -508,42 +509,42 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                         </div>
                         <Card.Body>
                             <div className="review-response-list">
-                               
+
                                 {aiLoading ? <LoadingSkeleton label="Reassigning responses to your themes…" rows={6} /> : themeResponses.length > 0 ? (
                                     themeResponses.map((responseIndex, idx) => {
-                                        const responseText = responseIndex < dataset.length ? 
-                                            dataset[responseIndex].original : 
+                                        const responseText = responseIndex < dataset.length ?
+                                            dataset[responseIndex].original :
                                             "Response not found";
                                             {/*border-bottom*/}
                                         return (
-                                            <div 
-                                                key={`${currentTheme.name}-${idx}`} 
+                                            <div
+                                                key={`${currentTheme.name}-${idx}`}
                                                 className={`review-response-card${currentActions[idx] === 'approve' ? ' is-approved' : ''}${currentActions[idx] === 'deny' ? ' is-rejected' : ''}`}
                                             >
                                                 <span>
                                                     {responseText}
                                                 </span>
-                                                <div 
+                                                <div
                                                     className="review-response-actions"
                                                 >
                                                     {currentActions[idx] === null && currentTheme.name !== "Unclassified" && (
                                                         <>
-                                                            <Button 
-                                                                variant="success" 
-                                                                className="d-flex align-items-center" 
+                                                            <Button
+                                                                variant="success"
+                                                                className="d-flex align-items-center"
                                                                 size="sm"
                                                                 onClick={() => handleAction(idx, 'approve')}
-                                                                aria-label={`Accept response ${idx + 1}`}
+                                                                aria-label={`Accept response ${responseIndex + 1}`}
                                                                 title="Accept response"
                                                             >
                                                                 <FaCheck/>
                                                             </Button>
-                                                            <Button 
-                                                                variant="danger" 
-                                                                className="d-flex align-items-center" 
+                                                            <Button
+                                                                variant="danger"
+                                                                className="d-flex align-items-center"
                                                                 size="sm"
                                                                 onClick={() => handleAction(idx, 'deny')}
-                                                                aria-label={`Reject response ${idx + 1}`}
+                                                                aria-label={`Reject response ${responseIndex + 1}`}
                                                                 title="Reject response"
                                                             >
                                                                 <FaTimes/>
@@ -588,14 +589,14 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
 
                                                                     return (
                                                                         <div key={i} >
-                                                                            <Badge 
-                                                                                bg="light" 
-                                                                                text="dark" 
-                                                                                style={{ 
-                                                                                    
+                                                                            <Badge
+                                                                                bg="light"
+                                                                                text="dark"
+                                                                                style={{
+
                                                                                     marginRight: '5px',
                                                                                     marginTop: '0px',
-                                                                                    
+
                                                                                 }}
                                                                                 onClick={() => removeThemeFromCode(theme.name, responseIndex)}
                                                                             >
@@ -603,7 +604,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                                                                     backgroundColor: themeColor,
                                                                                     padding: '4px',
                                                                                     margin: '0px',
-                                                                                    
+
                                                                                     color: getReadableTextColor(themeColor),
                                                                                     borderRadius: '5px'
                                                                                 }}
@@ -635,15 +636,15 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                     </p>
                                 )}
                             </div>
-                            
+
                         </Card.Body>
                     </Card>
                 </Col>
-            </Row>
+            </Row></fieldset>
             )}
 
-            <Modal 
-                show={showReassignModal} 
+            <Modal
+                show={showReassignModal}
                 onHide={() => setShowReassignModal(false)}
                 centered
             >
@@ -669,8 +670,8 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                 </Modal.Footer>
             </Modal>
             {/*EDIT LABELS*/}
-            <Modal 
-                show={showEditLabels} 
+            <Modal
+                show={showEditLabels}
                 onHide={() => setShowEditLabels(false)}
                 centered
                 size="lg"
@@ -688,7 +689,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                     )}
                     <Row>
                     <Tab.Container id="left-tabs-example" defaultActiveKey="first">
-                    
+
                         <Col sm={3}>
                         <Nav variant="pills" className="review-theme-tabs flex-column">
                             <Nav.Item>
@@ -707,24 +708,24 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                             <Tab.Pane eventKey="first">
                                 {allThemes.map((label, index) => {
                                     //console.log(label);
-                                    const isComplete = responseActions[label.name] && 
+                                    const isComplete = responseActions[label.name] &&
                                         responseActions[label.name].every(action => action !== null);
-                                    
+
                                     return (
-                                        <div 
+                                        <div
                                             key={index}
                                             className=" align-items-center mb-2"
                                             style={{ opacity: index === currentThemeIndex ? 1 : 0.7 }}
                                         >
-                                            <div 
-                                                
+                                            <div
+
                                             ></div>
-                                            <span style={{ 
+                                            <span style={{
                                                     borderRadius: '10px',
-                                                    padding: '5px', 
+                                                    padding: '5px',
                                                     color: getReadableTextColor(label.color),
                                                     backgroundColor: label.color,
-                                                    
+
                                                 }}>
                                                 {label.name}
                                             </span>
@@ -745,16 +746,16 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                 />
                             </Tab.Pane>
                             <Tab.Pane eventKey="third">
-                                
+
                                 <div className="suggestions-toolbar">
                                 <span>
-                                    {suggestedThemes.length > 0 ? 
-                                        `Found ${suggestedThemes.length} theme suggestions` : 
+                                    {suggestedThemes.length > 0 ?
+                                        `Found ${suggestedThemes.length} theme suggestions` :
                                         "Generate themes"}
                                 </span>
-                                <Button 
-                                    variant="outline-primary" 
-                                    size="sm" 
+                                <Button
+                                    variant="outline-primary"
+                                    size="sm"
                                     onClick={handleGetSuggestedThemes}
                                     disabled={loadingSuggestions || !sessionId || dataset?.length === 0}
                                 >
@@ -768,7 +769,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                     )}
                                 </Button>
                             </div>
-                            
+
                             {loadingSuggestions ? (
                                 <LoadingSkeleton variant="suggestions" label="Generating theme suggestions…" />
                             ) : suggestedThemes.length > 0 ? (
@@ -776,7 +777,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                     {suggestedThemes.map((theme, index) => {
                                         const alreadyAdded = allThemes.some(l => l.name === theme.name);
                                         return (
-                                            <ListGroup.Item 
+                                            <ListGroup.Item
                                                 key={index}
                                                 className={`suggestion-item ${alreadyAdded ? 'bg-light' : ''}`}
                                             >
@@ -784,7 +785,7 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                                                     <h5>{theme.name} {alreadyAdded}</h5>
                                                     <p className="text-muted mb-0">{theme.description}</p>
                                                 </div>
-                                                <Button 
+                                                <Button
                                                     variant={alreadyAdded ? "outline-secondary" : "outline-primary"}
                                                     onClick={() => {addTheme(theme);}}
                                                     disabled={alreadyAdded}
@@ -803,9 +804,9 @@ const Review = ({ sessionId, labels, setLabels, setResults, dataset, setDataset,
                             </Tab.Pane>
                         </Tab.Content>
                         </Col>
-                    
+
                     </Tab.Container>
-                
+
                 </Row>
                 </Modal.Body>
 

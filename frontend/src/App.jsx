@@ -2,6 +2,8 @@ import React, { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } f
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import axios from 'axios';
 import "./App.css";
+import { AnalysisContext } from './components/AnalysisContext';
+import PasswordReset from './components/PasswordReset';
 import Header from "./components/Header";
 import Upload from "./components/Upload";
 import Start from "./components/Start";
@@ -10,6 +12,7 @@ import NotFound from "./components/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Researcher from "./components/Researcher";
 import LoadingSkeleton from './components/LoadingSkeleton';
+import { completedRuns, retainedRuns, resultsSnapshot, findRun } from './utils/analysisHistory';
 import { API_URL } from "./api";
 import { supabase } from './supabase';
 import { attachResponseSources, responseRecordsForQuestion, responsesForQuestion, responsesToCsv } from './utils/studyResponses';
@@ -80,7 +83,10 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
-  const currentStage = pathStages[normalizedPath] || "start";
+  const studyRoute = normalizedPath.match(/^\/studies\/([^/]+)\/questions\/([^/]+)\/(code|review|results)$/);
+  const currentStage = studyRoute ? ({code:'preview', review:'review', results:'results'})[studyRoute[3]] : pathStages[normalizedPath] || "start";
+  const [openingError, setOpeningError] = useState('');
+  const opening = useRef('');
 
   const [sessionId, setSessionId] = useSessionValue("eduthemes.sessionId", null);
   const [dataset, setDataset] = useSessionValue("eduthemes.dataset", null);
@@ -103,6 +109,11 @@ function App() {
     additionalContext: "",
     apiKey: ""
   });
+  const requestedRun = new URLSearchParams(location.search).get('run') || 'latest';
+  const requestedVersion = new URLSearchParams(location.search).get('version');
+  const contextMatches = Boolean(studyRoute && analysisSource?.studyId === studyRoute[1] && analysisSource?.questionId === studyRoute[2]
+    && (!requestedVersion || analysisSource.versionId === requestedVersion)
+    && (currentStage === 'results' ? (!analysisSource.readOnly && !new URLSearchParams(location.search).has('run')) || (analysisSource.readOnly && analysisSource.viewRun === requestedRun) : !analysisSource.readOnly));
   const resumeStage = results && dataset
     ? "results"
     : claudeData && dataset
@@ -146,7 +157,8 @@ function App() {
   };
 
   const handleAdvanceStage = (stage) => {
-    navigate(stagePaths[stage] || stagePaths.start);
+    navigate(analysisSource && ['preview','review','results'].includes(stage)
+      ? `/studies/${analysisSource.studyId}/questions/${analysisSource.questionId}/${stage === 'preview' ? 'code' : stage}?version=${analysisSource.versionId}` : stagePaths[stage] || stagePaths.start);
   };
 
   const handleSetProjectMetadata = (metadata) => {
@@ -157,48 +169,92 @@ function App() {
     const { data: auth } = await supabase.auth.getSession();
     if (!auth.session) throw new Error('Sign in before coding study responses.');
     const responses = responsesForQuestion(question.id, submissions, savedAnalysis);
-    if (!responses.length) throw new Error('There are no responses to code for this question yet.');
-    const modelStatus = await axios.get(`${API_URL}/models`);
-    if (!modelStatus.data?.models?.navigator) throw new Error('Set NAVIGATOR_API_KEY on the analysis backend before coding study responses.');
-    const csv = responsesToCsv(responses);
-    if (new Blob([csv]).size > 20 * 1024 * 1024) throw new Error('This question has more than 20 MB of responses. Download and split the data before analysis.');
-    const newSession = await axios.post(`${API_URL}/session/start`, { study_id: study.id });
-    const newSessionId = newSession.data.session_id;
-    if (!newSessionId) throw new Error('The analysis service did not create a session.');
+    if (!responses.length && savedAnalysis?.stage !== 'results') throw new Error('There are no responses to code for this question yet.');
+    const newSessionId = `study:${crypto.randomUUID()}`;
     const metadata = {
       researchQuestion: study.research_question,
       projectDescription: study.description || study.title,
       additionalContext: [study.additional_context, `Study question being coded: ${question.prompt}`].filter(Boolean).join('\n\n'),
       apiKey: 'navigator',
     };
-    const form = new FormData();
-    form.append('dataset', new File([csv], 'study-responses.csv', { type: 'text/csv' }));
-    form.append('researchQuestion', metadata.researchQuestion);
-    form.append('projectDescription', metadata.projectDescription);
-    form.append('additionalContext', metadata.additionalContext);
-    form.append('apiKey', metadata.apiKey);
+    const imported = savedAnalysis?.coded_responses || attachResponseSources(responses.map(original => ({ original, cleaned: original, themes: [] })), responseRecordsForQuestion(question.id, submissions));
+    handleSessionStart(newSessionId);
+    setDataset(imported);
+    setLabels(savedAnalysis?.labels || []);
+    setClaudeData(savedAnalysis?.classifications || null);
+    setResults(savedAnalysis?.stage === 'results' ? savedAnalysis.results : null);
+    setProjectMetadata(metadata);
+    setUploadSummary({ response_count: imported.length, response_column: 'Response' });
+    const original = savedAnalysis || submissions.savedAnalysis;
+    const source = { studyId: study.id, versionId: study.current_version_id, questionId: question.id, ownerId: study.owner_id,
+      actorId: auth.session.user.id, runId: savedAnalysis?.stage !== 'results' && savedAnalysis?.results?._run_id || newSessionId, revision: savedRevision || savedAnalysis?.revision || 0,
+      title: study.title, prompt: question.prompt, versionNumber: study.version_number, viewRun: new URLSearchParams(location.search).get('run') || 'latest',
+      retained: retainedRuns(original), readOnly: savedAnalysis?.stage === 'results' };
+    analysisRuns.current.set(source.runId, {revision:source.revision,blocked:false});
+    setAnalysisSource(source);
+    const step = savedAnalysis?.stage === 'results' ? 'results' : savedAnalysis?.stage === 'review' && savedAnalysis.classifications ? 'review' : 'code';
+    navigate(`/studies/${study.id}/questions/${question.id}/${step}?version=${study.current_version_id}${step === 'results' ? `&run=${source.viewRun}` : ''}`, { replace: Boolean(studyRoute) });
+  };
+
+  const activeSession = useRef(sessionId);
+  activeSession.current = sessionId;
+  const ensureAnalysisSession = async () => {
+    if (!sessionId?.startsWith('study:')) return sessionId;
     try {
-      const uploaded = await axios.post(`${API_URL}/session/${newSessionId}/upload-dataset`, form);
-      const imported = savedAnalysis?.coded_responses || attachResponseSources(uploaded.data.preprocessed_dataset, responseRecordsForQuestion(question.id, submissions));
-      handleSessionStart(newSessionId);
-      setDataset(imported);
-      setLabels(savedAnalysis?.labels || uploaded.data.predefined_themes || []);
-      setVisualization(uploaded.data.visualization_image);
-      setClaudeData(savedAnalysis?.classifications || null);
-      setProjectMetadata(metadata);
-      setUploadSummary(uploaded.data.dataset_summary || null);
-      setAnalysisSource({ studyId: study.id, versionId: study.current_version_id, questionId: question.id,
-        ownerId: study.owner_id, actorId: auth.session.user.id, runId: newSessionId,
-        revision: savedAnalysis?.revision || savedRevision, title: study.title, prompt: question.prompt });
-      navigate(savedAnalysis?.stage === 'review' && savedAnalysis.classifications ? '/review' : '/code');
-    } catch (error) {
-      await axios.delete(`${API_URL}/session/${newSessionId}`).catch(() => {});
-      throw new Error(error?.response?.data?.error || error.message || 'Could not prepare these responses for coding.');
-    }
+      const created = await axios.post(`${API_URL}/session/start`, { study_id: analysisSource?.studyId });
+      const id = created.data.session_id;
+      if (!id) throw new Error('Unable to connect to the analysis service.');
+      const form = new FormData();
+      form.append('dataset', new File([responsesToCsv(dataset.map(entry => entry.original))], 'responses.csv', {type:'text/csv'}));
+      for (const [key,value] of Object.entries(projectMetadata)) form.append(key,value);
+      await axios.post(`${API_URL}/session/${id}/upload-dataset`, form);
+      if (activeSession.current !== sessionId) throw new Error('Analysis changed.');
+      setSessionId(id);
+      return id;
+    } catch { throw new Error('The analysis service is unavailable. Your coding is saved; try this action again later.'); }
   };
 
   useEffect(() => {
-    if (!supabase || !analysisSource?.versionId || !dataset || !['preview', 'review', 'results'].includes(currentStage)) return undefined;
+    if (!studyRoute || !supabase) return;
+    const key = location.pathname + location.search;
+    const index = new URLSearchParams(location.search).get('run') || 'latest';
+    if (contextMatches && dataset && (currentStage !== 'results' || results)) return;
+    if (opening.current === key) return;
+    opening.current = key;
+    setOpeningError('');
+    let cancelled = false;
+    (async () => {
+      const {data:study,error} = await supabase.from('studies').select('*').eq('id',studyRoute[1]).single();
+      if(error || !study) throw error || new Error('Study unavailable.');
+      if (currentStage !== 'results') { const access=await supabase.rpc('study_role',{p_study_id:study.id}); if(access.error || !['owner','researcher'].includes(access.data)) throw new Error('You have read-only access. Open the saved findings from the study.'); }
+      const versionId = new URLSearchParams(location.search).get('version') || study.current_version_id;
+      const [versions, submissions, analyses] = await Promise.all([
+        supabase.from('study_versions').select('*').eq('study_id',study.id),
+        supabase.from('study_submissions').select('*').eq('study_id',study.id),
+        supabase.from('study_analyses').select('*').eq('study_id',study.id)]);
+      const failed = [versions,submissions,analyses].find(r => r.error); if(failed) throw failed.error;
+      const version = versions.data.find(v => v.id === versionId);
+      const question = version?.questions.find(q => q.id === studyRoute[2]);
+      if(!question) throw new Error('Question unavailable in this version.');
+      const analysis = analyses.data.find(a => a.question_id === question.id && a.study_version_id === versionId);
+      const saved = currentStage === 'results' ? findRun(analysis,index) : analysis;
+      if(currentStage === 'results' && !saved) throw new Error('No completed findings for this question.');
+      const entries = submissions.data.filter(r => r.study_version_id === versionId);
+      if (cancelled) return;
+      await handleStudyAnalysis({...study,...version,id:study.id,current_version_id:versionId},question,entries,saved,analysis?.revision || 0);
+    })().catch(error => { if (!cancelled) setOpeningError(error.message || 'Could not reopen this analysis.'); }).finally(() => { if (opening.current === key) opening.current = ''; });
+    return () => { cancelled = true; if (opening.current === key) opening.current = ''; };
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (currentStage !== 'results' || !results || !analysisSource || analysisSource.readOnly) return;
+    setAnalysisSource(previous => !previous || (previous.completedRun && JSON.stringify({...previous.completedRun.results,_run_id:undefined}) === JSON.stringify({...results,_run_id:undefined}) && JSON.stringify(previous.completedRun.coded_responses) === JSON.stringify(dataset) && JSON.stringify(previous.completedRun.labels) === JSON.stringify(labels)) ? previous : ({...previous,
+      retained: previous.completedRun ? [previous.completedRun, ...(previous.retained || [])] : previous.retained,
+      completedRun: {stage:'results',labels,coded_responses:dataset,classifications:claudeData,results:{...results,_run_id:previous.runId},response_count:dataset.length,updated_at:new Date().toISOString()} }));
+  }, [currentStage, results]);
+
+  useEffect(() => {
+    if (!supabase || !analysisSource?.versionId || analysisSource.readOnly || !dataset || !['preview', 'review', 'results'].includes(currentStage)) return undefined;
     const source = analysisSource;
     if (!analysisRuns.current.has(source.runId)) analysisRuns.current.set(source.runId, { revision: source.revision || 0, blocked: false });
     const run = analysisRuns.current.get(source.runId);
@@ -213,7 +269,7 @@ function App() {
       labels,
       coded_responses: dataset,
       classifications: claudeData,
-      results: currentStage === 'results' ? results : null,
+      results: resultsSnapshot(currentStage === 'results' ? results : null, currentStage !== 'results' && analysisSource.completedRun ? [analysisSource.completedRun, ...(analysisSource.retained || [])] : analysisSource.retained, analysisSource.runId),
       stage: currentStage === 'preview' ? 'code' : currentStage,
       response_count: dataset.length,
       updated_at: new Date().toISOString(),
@@ -234,7 +290,7 @@ function App() {
       }
     });
     return undefined;
-  }, [analysisSource?.runId, currentStage, dataset, labels, claudeData, results]);
+  }, [analysisSource?.runId, currentStage, dataset, labels, claudeData, results, analysisSource?.retained]);
 
   useEffect(() => {
     if (!supabase) return undefined;
@@ -280,6 +336,7 @@ function App() {
     window.addEventListener('eduthemes:session-expired', handleSessionExpired);
     const authListener = supabase?.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') handleSignOut();
+      if (event === 'PASSWORD_RECOVERY') navigate('/reset-password', {replace:true});
     });
     return () => {
       window.removeEventListener('eduthemes:storage-error', handleStorageError);
@@ -291,7 +348,7 @@ function App() {
   }, [navigate]);
 
   useEffect(() => {
-    if (!sessionId) return undefined;
+    if (!sessionId || sessionId.startsWith('study:')) return undefined;
     const controller = new AbortController();
 
     axios.get(`${API_URL}/session/${sessionId}`, { signal: controller.signal })
@@ -319,10 +376,10 @@ function App() {
   return (
     <div className="App">
       <a className="skip-to-content" href="#main-content">Skip to content</a>
-      <Header hasActiveAnalysis={Boolean(sessionId && currentStage !== 'start')} />
+      <Header analysisSource={analysisSource} hasActiveAnalysis={Boolean(sessionId && currentStage !== 'start')} />
       <div className="app-content" id="main-content" tabIndex="-1">
         {analysisSource && ['preview', 'review', 'results'].includes(currentStage) && (
-          <div className="study-analysis-banner"><span><strong>{analysisSource.title}</strong> · {analysisSource.prompt}</span>{analysisSaveState.startsWith('Saving') ? <LoadingSkeleton variant="inline" label={analysisSaveState} /> : <span role="status">{analysisSaveState}</span>}{analysisSaveState.startsWith('Could not') && <button type="button" className="study-text-button" onClick={downloadCurrentCoding}>Download current coding</button>}<Link to={`/studies/${analysisSource.studyId}`} onClick={async (event) => { event.preventDefault(); await saveQueue.current; navigate(`/studies/${analysisSource.studyId}`); }}>Study overview</Link></div>
+          <div className="study-analysis-banner"><span><strong>{analysisSource.title}</strong> · {analysisSource.versionNumber ? `Version ${analysisSource.versionNumber} · ` : ''}{analysisSource.prompt}</span>{analysisSaveState.startsWith('Saving') ? <LoadingSkeleton variant="inline" label={analysisSaveState} /> : <span role="status">{analysisSource.readOnly ? 'Saved findings' : analysisSaveState}</span>}{analysisSaveState.startsWith('Could not') && <button type="button" className="study-text-button" onClick={downloadCurrentCoding}>Download current coding</button>}<Link to={`/studies/${analysisSource.studyId}?section=analysis&version=${analysisSource.versionId}`} onClick={async (event) => { event.preventDefault(); await saveQueue.current; navigate(`/studies/${analysisSource.studyId}?section=analysis&version=${analysisSource.versionId}`); }}>Study overview</Link></div>
         )}
         {storageWarning && (
           <div className="app-storage-warning" role="status">
@@ -330,10 +387,12 @@ function App() {
             <button type="button" onClick={() => setStorageWarning(false)} aria-label="Dismiss storage warning">×</button>
           </div>
         )}
-        <ErrorBoundary key={normalizedPath}>
+        <AnalysisContext.Provider value={analysisSource}><ErrorBoundary key={normalizedPath}>
           <Suspense fallback={<main className="workflow-page"><LoadingSkeleton variant={currentStage === 'results' ? 'results' : 'analysis'} label="Loading this analysis step…" /></main>}>
-          <Routes>
+          {openingError ? <main className="workflow-page"><p role="alert">{openingError}</p><Link to={`/studies/${studyRoute?.[1]}?section=analysis`}>Back to study</Link></main> : studyRoute && (!contextMatches || !dataset || (currentStage === 'results' && !results)) ? <LoadingSkeleton variant="analysis" label="Opening saved analysis…" /> : <Routes location={studyRoute ? {...location, pathname: stagePaths[currentStage]} : location}>
+          <Route path="/reset-password" element={<PasswordReset />} />
           <Route path="/" element={<Researcher onAnalyze={handleStudyAnalysis} hasActiveAnalysis={Boolean(sessionId)} onResumeAnalysis={() => handleAdvanceStage(resumeStage)} />} />
+          <Route path="/studies/new" element={<Researcher onAnalyze={handleStudyAnalysis} />} />
           <Route path="/studies/:studyId" element={<Researcher onAnalyze={handleStudyAnalysis} hasActiveAnalysis={Boolean(sessionId)} onResumeAnalysis={() => handleAdvanceStage(resumeStage)} />} />
           <Route
             path="/analysis"
@@ -357,6 +416,7 @@ function App() {
             element={sessionId ? <ResearcherGate>
               <Upload
                 sessionId={sessionId}
+                ensureSession={ensureAnalysisSession}
                 setDataset={setDataset}
                 setLabels={setLabels}
                 setVisualization={setVisualization}
@@ -364,6 +424,7 @@ function App() {
                 setSvmData={setSvmData}
                 setResults={setResults}
                 onAdvanceStage={() => handleAdvanceStage("preview")}
+                projectMetadata={projectMetadata}
                 setProjectMetadata={handleSetProjectMetadata}
                 setUploadSummary={setUploadSummary}
               />
@@ -374,6 +435,7 @@ function App() {
             element={sessionId && dataset ? <ResearcherGate>
               <Preview
                 sessionId={sessionId}
+                ensureSession={ensureAnalysisSession}
                 dataset={dataset}
                 labels={labels}
                 setLabels={setLabels}
@@ -393,8 +455,9 @@ function App() {
             element={sessionId && dataset && claudeData ? <ResearcherGate>
               <Review
                 sessionId={sessionId}
+                ensureSession={ensureAnalysisSession}
                 visualization={visualization}
-                labels={[...labels, unclassifiedTheme]}
+                labels={[...labels.filter(label => label.name !== 'Unclassified'), unclassifiedTheme]}
                 setLabels={setLabels}
                 claudeData={claudeData}
                 setClaudeData={setClaudeData}
@@ -414,14 +477,17 @@ function App() {
                 results={results}
                 responseCount={dataset?.length || 0}
                 sessionId={sessionId}
-                onAdvanceStage={() => handleAdvanceStage("start")}
+                ensureSession={ensureAnalysisSession}
+                onAdvanceStage={() => analysisSource ? navigate(`/studies/${analysisSource.studyId}?section=analysis&version=${analysisSource.versionId}`) : handleAdvanceStage("start")}
+                analysisSource={analysisSource}
+                dataset={dataset}
               />
             </ResearcherGate> : <Navigate to={sessionId && dataset && claudeData ? "/review" : sessionId && dataset ? "/code" : sessionId ? "/upload" : "/"} replace />}
           />
           <Route path="*" element={<NotFound />} />
-          </Routes>
+          </Routes>}
           </Suspense>
-        </ErrorBoundary>
+        </ErrorBoundary></AnalysisContext.Provider>
       </div>
     </div>
   );

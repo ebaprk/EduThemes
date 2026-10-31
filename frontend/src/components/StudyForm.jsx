@@ -1,4 +1,4 @@
-import React, { useId, useLayoutEffect, useRef, useState } from 'react';
+import React, { useId, useLayoutEffect, useRef, useState, useEffect } from 'react';
 import { LuCheck, LuFileText, LuMessageSquare, LuSave, LuUsers } from 'react-icons/lu';
 import { Skeleton } from './LoadingSkeleton';
 import StudyActivityEditor from './StudyActivityEditor';
@@ -7,15 +7,20 @@ import './StudyForm.css';
 
 const emptyForm = { title: '', description: '', research_question: '', additional_context: '', consent_text: '', participant_mode: 'anonymous', compensation_details: '', contact_info: '' };
 
-export default function StudyForm({ initial = emptyForm, onSave, onCancel, saving, initialSection = 'design' }) {
+export default function StudyForm({ initial = emptyForm, onSave, onCancel, saving, initialSection = 'design', draftKey }) {
   const id = useId();
   const editor = useRef(null);
   const sectionRefs = useRef({});
   const Heading = initial.id ? 'h2' : 'h1';
-  const [form, setForm] = useState(() => ({ ...emptyForm, ...initial,
+  const storageKey = draftKey ? `eduthemes.draft.${draftKey}` : null;
+  const [form, setForm] = useState(() => { try { const saved = storageKey && localStorage.getItem(storageKey); if (saved) { const parsed = JSON.parse(saved); if (parsed.revision === (initial.draft_revision || 0)) return parsed.form; } } catch {} return ({ ...emptyForm, ...initial,
     participant_mode: initial.participant_mode === 'optional_canvas' ? '' : (initial.participant_mode || 'anonymous'),
     activities: activityDrafts(initial),
-  }));
+  }); });
+  useEffect(() => { if (!storageKey || saving) return; try { localStorage.setItem(storageKey, JSON.stringify({ revision: initial.draft_revision || 0, form })); } catch {} }, [form, storageKey, saving, initial.draft_revision]);
+  const baseline = useRef(JSON.stringify({...emptyForm,...initial,activities:activityDrafts(initial)}));
+  const dirty = JSON.stringify(form) !== baseline.current;
+  useEffect(() => { if (!dirty) return; const warn = event => { event.preventDefault(); event.returnValue = ""; }; window.addEventListener("beforeunload", warn); return () => window.removeEventListener("beforeunload", warn); }, [dirty]);
   const [validation, setValidation] = useState('');
   const unsupportedCanvasPlan = form.activities.length > 1 && form.participant_mode === 'canvas';
   const setField = (field, value) => { setValidation(''); setForm((previous) => ({ ...previous, [field]: value })); };
@@ -30,7 +35,7 @@ export default function StudyForm({ initial = emptyForm, onSave, onCancel, savin
     section?.querySelector('input, select, textarea')?.focus({ preventScroll: true });
   }, [initialSection]);
 
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault();
     if (saving) return;
     setValidation('');
@@ -48,11 +53,12 @@ export default function StudyForm({ initial = emptyForm, onSave, onCancel, savin
       }
     }
     if (!editor.current.reportValidity()) return;
-    onSave(studyDraftPayload(form));
+    const saved = await onSave(studyDraftPayload(form));
+    if (saved && storageKey) localStorage.removeItem(storageKey);
   };
 
   return <form ref={editor} className="study-panel study-editor study-form" onSubmit={submit} noValidate aria-busy={saving}>
-    <header className="study-editor-heading"><div><Heading>{initial.id ? 'Edit study' : 'Create study'}</Heading><p>Manage your study details, participation, and questions in one place.</p></div><span>Private draft</span></header>
+    <header className="study-editor-heading"><div><Heading>{initial.id ? 'Edit study' : 'Create study'}</Heading></div><span>{dirty ? 'Unsaved changes · recovery on this device' : 'Private draft'}</span></header>
     <nav className="study-editor-nav" aria-label="Study setup sections">
       <a href={`#${id}-design`}><LuFileText aria-hidden="true" />Study design</a>
       <a href={`#${id}-participation`}><LuUsers aria-hidden="true" />Participation</a>
@@ -62,7 +68,7 @@ export default function StudyForm({ initial = emptyForm, onSave, onCancel, savin
     <fieldset className="study-form-fields" disabled={saving}>
       <legend className="visually-hidden">Study settings</legend>
       <section id={`${id}-design`} ref={(element) => { sectionRefs.current.design = element; }} className="study-editor-section" aria-labelledby={`${id}-design-heading`}>
-        <div className="study-editor-section-title"><h3 id={`${id}-design-heading`}>Study design</h3><p>Define your research question and the context for your study.</p></div>
+        <div className="study-editor-section-title"><h3 id={`${id}-design-heading`}>Study design</h3></div>
         <div className="study-form-grid">
           <div className="study-field"><label htmlFor={`${id}-title`}>Study title</label><input id={`${id}-title`} value={form.title} onChange={(event) => setField('title', event.target.value)} maxLength={160} required placeholder="e.g. How students learn with AI" /></div>
           <div className="study-field"><label htmlFor={`${id}-question`}>Research question</label><input id={`${id}-question`} value={form.research_question} onChange={(event) => setField('research_question', event.target.value)} maxLength={500} required placeholder="What are you trying to understand?" /></div>
@@ -71,7 +77,7 @@ export default function StudyForm({ initial = emptyForm, onSave, onCancel, savin
         </div>
       </section>
       <section id={`${id}-participation`} ref={(element) => { sectionRefs.current.participation = element; }} className="study-editor-section" aria-labelledby={`${id}-participation-heading`}>
-        <div className="study-editor-section-title"><h3 id={`${id}-participation-heading`}>Participation and consent</h3><p>Set participant identity and the information people review before taking part.</p></div>
+        <div className="study-editor-section-title"><h3 id={`${id}-participation-heading`}>Participation and consent</h3></div>
         <div className="study-field study-form-identity"><label htmlFor={`${id}-participant-mode`}>Participant identity</label><select id={`${id}-participant-mode`} value={form.participant_mode} onChange={(event) => setField('participant_mode', event.target.value)} required aria-describedby={`${id}-identity-help`}>
           <option value="" disabled>Choose how people participate</option><option value="anonymous">Anonymous responses</option><option value="canvas" disabled={form.activities.length > 1}>Identified through Canvas</option>
         </select><p id={`${id}-identity-help`} className="study-help">Anonymous studies do not attach Canvas details. Multiple activities are linked with a private study code after the participant agrees. Canvas participation supports one activity.</p></div>
@@ -88,6 +94,6 @@ export default function StudyForm({ initial = emptyForm, onSave, onCancel, savin
         <StudyActivityEditor activities={form.activities} onChange={setActivities} disabled={saving} multipleAllowed={form.participant_mode !== 'canvas'} />
       </section>
     </fieldset>
-    <footer className="study-actions study-form-footer"><span className="study-editor-save-hint"><LuCheck aria-hidden="true" />Your study stays private until you publish.</span><button type="button" className="study-secondary" disabled={saving} onClick={onCancel}>Cancel</button><button type="submit" className="study-primary" disabled={saving || unsupportedCanvasPlan} aria-busy={saving}>{saving ? <><Skeleton className="edu-skeleton--button" />Saving…</> : <><LuSave aria-hidden="true" />Save draft</>}</button></footer>
+    <footer className="study-actions study-form-footer"><button type="button" className="study-secondary" disabled={saving} onClick={onCancel}>{initial.id ? 'Back to study' : 'Back to studies'}</button><button type="submit" className="study-primary" disabled={saving || unsupportedCanvasPlan} aria-busy={saving}>{saving ? <><Skeleton className="edu-skeleton--button" />Saving…</> : <><LuSave aria-hidden="true" />Save draft</>}</button></footer>
   </form>;
 }

@@ -1,40 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Button, Form } from 'react-bootstrap';
-import {
-    FaArrowLeft,
-    FaArrowRight,
-    FaCheck,
-    FaFileExcel,
-    FaUpload,
-} from 'react-icons/fa';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowAlert from './WorkflowAlert';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
-
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
-
-const questions = [
-    { eyebrow: 'Your inquiry', title: 'Research question', note: 'What do you want to learn from these responses?' },
-    { eyebrow: 'The study', title: 'Project description', note: 'Briefly describe the setting, participants, and goal.' },
-    { eyebrow: 'Optional details', title: 'Additional context', note: 'Add terminology or context that could affect the analysis.' },
-    { eyebrow: 'Analysis engine', title: 'Analysis model', note: 'Choose the model that will suggest the first set of themes.' },
-    { eyebrow: 'Your responses', title: 'Response file', note: 'Upload an Excel or CSV file up to 20 MB.' },
-];
-
-const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualization, setClaudeData, setSvmData, setResults, setProjectMetadata, setUploadSummary }) => {
-    const [file, setFile] = useState(null);
-    const [error, setError] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [projectDescription, setProjectDescription] = useState('');
-    const [researchQuestion, setResearchQuestion] = useState('');
-    const [additionalContext, setAdditionalContext] = useState('');
-    const [apiKey, setApiKey] = useState('');
-    const [availableModels, setAvailableModels] = useState(null);
-    const [modelsLoading, setModelsLoading] = useState(true);
-    const [currentQuestion, setCurrentQuestion] = useState(0);
-    const questionRef = useRef(null);
-
+const Upload = ({sessionId,onAdvanceStage,setDataset,setLabels,setVisualization,setClaudeData,setSvmData,setResults,setProjectMetadata,setUploadSummary,projectMetadata={}}) => {
+ const [file,setFile]=useState(null),[error,setError]=useState(null),[isLoading,setIsLoading]=useState(false);
+ const [researchQuestion,setResearchQuestion]=useState(projectMetadata.researchQuestion || '');
+ const [projectDescription,setProjectDescription]=useState(projectMetadata.projectDescription || '');
+ const [additionalContext,setAdditionalContext]=useState(projectMetadata.additionalContext || '');
+ const [apiKey,setApiKey]=useState(projectMetadata.apiKey || '');
+ const [availableModels,setAvailableModels]=useState(null),[modelsLoading,setModelsLoading]=useState(true);
     useEffect(() => {
         const controller = new AbortController();
         fetch(`${API_URL}/models`, { signal: controller.signal })
@@ -49,12 +25,6 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
             .finally(() => { if (!controller.signal.aborted) setModelsLoading(false); });
         return () => controller.abort();
     }, []);
-
-    useEffect(() => {
-        setError(null);
-        const frame = window.requestAnimationFrame(() => questionRef.current?.focus());
-        return () => window.cancelAnimationFrame(frame);
-    }, [currentQuestion]);
 
     const handleFileChange = (event) => {
         const selectedFile = event.target.files?.[0];
@@ -78,21 +48,9 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
         }
     };
 
-    const validateQuestion = () => {
-        const messages = [
-            !researchQuestion.trim() && 'Add a research question to continue.',
-            !projectDescription.trim() && 'Add a short project description to continue.',
-            false,
-            !apiKey && 'Choose an analysis model to continue.',
-            !file && 'Choose an Excel or CSV file to continue.',
-        ];
-        const message = messages[currentQuestion];
-        if (message) setError(message);
-        return !message;
-    };
-
     const uploadDataset = async () => {
-        if (isLoading || !validateQuestion() || !sessionId) return;
+        if (isLoading || !sessionId) return;
+        if (!researchQuestion.trim() || !projectDescription.trim() || !apiKey || !file) { setError('Add a research question, project description, model, and response file.'); return; }
 
         const formData = new FormData();
         formData.append('dataset', file);
@@ -124,148 +82,18 @@ const Upload = ({ sessionId, onAdvanceStage, setDataset, setLabels, setVisualiza
         }
     };
 
-    const goForward = () => {
-        if (isLoading || (currentQuestion === 3 && modelsLoading)) return;
-        if (!validateQuestion()) return;
-        setError(null);
-        if (currentQuestion === questions.length - 1) uploadDataset();
-        else setCurrentQuestion((value) => value + 1);
-    };
-
-    const goBack = () => {
-        if (currentQuestion === 0) return;
-        setCurrentQuestion((value) => value - 1);
-    };
-
-    const handleKeyDown = (event) => {
-        const isTextarea = event.target.tagName === 'TEXTAREA';
-        if (event.key === 'Enter' && (!isTextarea || event.metaKey || event.ctrlKey)) {
-            event.preventDefault();
-            goForward();
-        }
-    };
-
-    const question = questions[currentQuestion];
-    const progress = ((currentQuestion + 1) / questions.length) * 100;
-
-    return (
-        <main className="setup-flow" onKeyDown={handleKeyDown}>
-            <div className="setup-progress" aria-label={`Setup question ${currentQuestion + 1} of ${questions.length}`}>
-                <div className="setup-progress__track"><span style={{ width: `${progress}%` }} /></div>
-                <span>{String(currentQuestion + 1).padStart(2, '0')} / {String(questions.length).padStart(2, '0')}</span>
-            </div>
-
-            <form className="setup-stage" onSubmit={(event) => { event.preventDefault(); goForward(); }}>
-                <div className="setup-stage__copy" key={currentQuestion}>
-                    <span className="setup-stage__eyebrow">{question.eyebrow}</span>
-                    <h1 ref={questionRef} tabIndex="-1">{question.title}</h1>
-                    <p>{question.note}</p>
-
-                    {isLoading ? <LoadingSkeleton variant="responses" label="Reading your responses and preparing the coding workspace…" /> : <div className="setup-control">
-                        {currentQuestion === 0 && (
-                            <Form.Control
-                                className="setup-text-input"
-                                type="text"
-                                aria-label="Research question"
-                                placeholder="e.g. How do students use AI to learn?"
-                                value={researchQuestion}
-                                onChange={(event) => setResearchQuestion(event.target.value)}
-                                autoFocus
-                            />
-                        )}
-
-                        {currentQuestion === 1 && (
-                            <Form.Control
-                                className="setup-textarea"
-                                as="textarea"
-                                rows={4}
-                                aria-label="Project description"
-                                placeholder="This study explores…"
-                                value={projectDescription}
-                                onChange={(event) => setProjectDescription(event.target.value)}
-                                autoFocus
-                            />
-                        )}
-
-                        {currentQuestion === 2 && (
-                            <Form.Control
-                                className="setup-textarea"
-                                as="textarea"
-                                rows={4}
-                                aria-label="Additional context"
-                                placeholder="Optional context…"
-                                value={additionalContext}
-                                onChange={(event) => setAdditionalContext(event.target.value)}
-                                autoFocus
-                            />
-                        )}
-
-                        {currentQuestion === 3 && (modelsLoading ? <LoadingSkeleton variant="suggestions" rows={1} label="Loading available analysis models…" /> :
-                            <div className="setup-models" role="radiogroup" aria-label="Analysis model">
-                                {[
-                                    { id: 'navigator', name: 'NaviGator AI', detail: 'University of Florida' },
-                                ].map((model, index) => {
-                                    const unavailable = availableModels?.[model.id] === false;
-                                    const selected = apiKey === model.id;
-                                    return (
-                                        <button
-                                            className={`setup-model${selected ? ' is-selected' : ''}`}
-                                            type="button"
-                                            role="radio"
-                                            aria-checked={selected}
-                                            disabled={unavailable}
-                                            onClick={() => setApiKey(model.id)}
-                                            autoFocus={index === 0}
-                                            key={model.id}
-                                        >
-                                            <span className="setup-model__key">{String.fromCharCode(65 + index)}</span>
-                                            <span><strong>{model.name}</strong><small>{unavailable ? 'Unavailable' : model.detail}</small></span>
-                                            {selected && <FaCheck aria-hidden="true" />}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        {currentQuestion === 4 && (
-                            <div className={`setup-file${file ? ' has-file' : ''}`}>
-                                <FaFileExcel aria-hidden="true" />
-                                <div>
-                                    <strong>{file ? file.name : 'Choose your response file'}</strong>
-                                    <span>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · Ready to analyze` : '.xlsx, .xls, or .csv · 20 MB maximum'}</span>
-                                </div>
-                                <label className="setup-file__button">
-                                    <FaUpload aria-hidden="true" />
-                                    {file ? 'Replace' : 'Browse'}
-                                    <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} autoFocus />
-                                </label>
-                            </div>
-                        )}
-                    </div>}
-
-                    <WorkflowAlert message={error} onClose={() => setError(null)} />
-
-                    <div className="setup-actions">
-                        {currentQuestion > 0 && (
-                            <Button type="button" className="setup-back" onClick={goBack} disabled={isLoading}>
-                                <FaArrowLeft aria-hidden="true" /> Back
-                            </Button>
-                        )}
-                        <Button type="submit" className="setup-next" disabled={isLoading || (currentQuestion === 3 && modelsLoading)} aria-busy={isLoading}>
-                            {isLoading ? <><Skeleton className="edu-skeleton--button" /> Reading your data…</> : <>{currentQuestion === questions.length - 1 ? 'Analyze responses' : 'Continue'} <FaArrowRight aria-hidden="true" /></>}
-                        </Button>
-                        {!isLoading && <span className="setup-enter">press <strong>{currentQuestion === 1 || currentQuestion === 2 ? '⌘ + Enter' : 'Enter ↵'}</strong></span>}
-                    </div>
-                </div>
-            </form>
-
-            {currentQuestion === 4 && (
-                <footer className="setup-footer">
-                    <a href="/assets/sample-responses.csv" download="sample-responses.csv">Download sample CSV</a>
-                </footer>
-            )}
-        </main>
-    );
+    return <main className="workflow-page import-page"><h1>Import responses</h1>
+      <form className="study-panel study-form" onSubmit={e => { e.preventDefault(); uploadDataset(); }}>
+        <fieldset disabled={isLoading} className="study-unframed-fieldset">
+        <div className="study-field"><label htmlFor="import-question">Research question</label><input id="import-question" required value={researchQuestion} onChange={e => setResearchQuestion(e.target.value)} /></div>
+        <div className="study-field"><label htmlFor="import-description">Project description</label><textarea id="import-description" required value={projectDescription} onChange={e => setProjectDescription(e.target.value)} /></div>
+        <div className="study-field"><label htmlFor="import-context">Additional context (optional)</label><textarea id="import-context" value={additionalContext} onChange={e => setAdditionalContext(e.target.value)} /></div>
+        {modelsLoading ? <LoadingSkeleton variant="inline" label="Checking analysis service…" /> : <div className="study-field"><label htmlFor="import-model">Analysis model</label><select id="import-model" required value={apiKey} onChange={e => setApiKey(e.target.value)}><option value="">Select model</option><option value="navigator" disabled={availableModels?.navigator === false}>NaviGator AI</option></select></div>}
+        <div className="study-field"><label htmlFor="import-file">Response file · CSV or Excel · up to 20 MB</label><input id="import-file" type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} /></div>
+        </fieldset><WorkflowAlert message={error} onClose={() => setError(null)} />
+        {isLoading && <LoadingSkeleton variant="inline" label="Importing responses…" />}
+        <button className="study-primary" type="submit" disabled={isLoading || modelsLoading} aria-busy={isLoading}>{isLoading ? <><Skeleton className="edu-skeleton--button" /> Importing…</> : 'Import responses'}</button>
+        <a className="study-text-button" href="/assets/sample-responses.csv" download>Sample CSV</a>
+      </form></main>;
 };
-
 export default Upload;

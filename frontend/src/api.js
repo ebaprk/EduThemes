@@ -34,6 +34,8 @@ export const getApiErrorMessage = (error, fallbackMessage) => {
     return 'This analysis session expired. Start a new analysis to continue.';
   }
 
+  if (serverMessage && /API[_ ]KEY|NAVIGATOR_API|not configured/i.test(serverMessage)) return `${fallbackMessage} The analysis service is temporarily unavailable. Your coding is retained.`;
+
   if (serverMessage) {
     return serverMessage;
   }
