@@ -318,8 +318,9 @@ function App() {
 
   return (
     <div className="App">
+      <a className="skip-to-content" href="#main-content">Skip to content</a>
       <Header hasActiveAnalysis={Boolean(sessionId && currentStage !== 'start')} />
-      <div className="app-content">
+      <div className="app-content" id="main-content" tabIndex="-1">
         {analysisSource && ['preview', 'review', 'results'].includes(currentStage) && (
           <div className="study-analysis-banner"><span><strong>{analysisSource.title}</strong> · {analysisSource.prompt}</span>{analysisSaveState.startsWith('Saving') ? <LoadingSkeleton variant="inline" label={analysisSaveState} /> : <span role="status">{analysisSaveState}</span>}{analysisSaveState.startsWith('Could not') && <button type="button" className="study-text-button" onClick={downloadCurrentCoding}>Download current coding</button>}<Link to={`/studies/${analysisSource.studyId}`} onClick={async (event) => { event.preventDefault(); await saveQueue.current; navigate(`/studies/${analysisSource.studyId}`); }}>Study overview</Link></div>
         )}

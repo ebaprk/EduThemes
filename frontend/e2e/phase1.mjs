@@ -83,9 +83,26 @@ async function scenario(name, fn) {
         const saved = { ...body.p_snapshot, revision: body.p_expected_revision + 1 };
         data.analyses = [saved]; return reply(saved.revision);
       }
+      if (rpc === 'get_public_study' && data.loadDelay) await new Promise((resolve) => setTimeout(resolve, data.loadDelay));
       if (rpc === 'get_public_study') return reply({ ...data.versions[0], version_id: data.versions[0].id, ...{ participant_mode: data.study.participant_mode } });
       if (rpc === 'submit_study_version') {
+        if (data.submitDelay) await new Promise((resolve) => setTimeout(resolve, data.submitDelay));
         if (data.failSubmission) return reply({ message: 'Connection interrupted. Please try again.', code: 'NETWORK_TEST' }, 503);
+        return reply(responseId);
+      }
+      if (rpc === 'enroll_study') return reply(data.participantStudy);
+      if (rpc === 'get_participant_study') return reply(data.participantStudy);
+      if (rpc === 'start_study_activity') return reply(data.activityProgress);
+      if (rpc === 'save_activity_draft') {
+        if (data.saveDelay) await new Promise((resolve) => setTimeout(resolve, data.saveDelay));
+        if (data.conflictOnDraft) return reply({ code: 'PT409', message: 'A newer saved draft exists.' }, 409);
+        data.activityProgress.draft_answers = body.p_answers;
+        data.activityProgress.revision += 1;
+        return reply(data.activityProgress.revision);
+      }
+      if (rpc === 'submit_study_activity') {
+        if (data.failSubmission) return reply({ message: 'Connection interrupted. Please try again.', code: 'NETWORK_TEST' }, 503);
+        data.participantStudy.activities[0].status = 'completed';
         return reply(responseId);
       }
       if (rpc === 'get_study_receipt') return reply({ submission_id: responseId, title: data.study.title, version_id: versionId, version_number: 1,
@@ -124,6 +141,47 @@ async function signIn(context, sessionValues = {}) {
 }
 
 try {
+  await scenario('participant portal matches the workspace and preserves private activity access', async ({ page, data }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(participantServer.url);
+    await expect(page.getByRole('heading', { name: 'Join a study.' })).toBeVisible();
+    await expect(page.getByRole('complementary', { name: 'Participant workspace' })).toBeVisible();
+    await page.screenshot({ path: path.join(output, 'participant-portal-desktop.png'), fullPage: true, animations: 'disabled' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await page.screenshot({ path: path.join(output, 'participant-portal-mobile.png'), fullPage: true, animations: 'disabled' });
+    await page.getByLabel('Study code', { exact: true }).fill(code.toLowerCase());
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(page.getByRole('heading', { name: data.study.title })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Start study', exact: true })).toBeVisible();
+    await expect(page.locator('.participant-sidebar')).not.toBeVisible();
+    await page.getByRole('link', { name: 'EduThemes home', exact: true }).click();
+    await page.getByRole('link', { name: 'My studies', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Your next activity starts here' })).toBeVisible();
+    await page.screenshot({ path: path.join(output, 'participant-saved-studies-mobile.png'), fullPage: true, animations: 'disabled' });
+    const key = 'b'.repeat(64);
+    data.participantStudy = { ...data.versions[0], version_id: versionId, participant_reference: 'STUDY-DEMO', study_status: 'open', reward_status: 'not_recorded', activities: [
+      { id: 'baseline', title: 'Classroom reflections', required: true, status: 'available', opens_at: '2026-10-28T12:00:00Z', questions: data.questions },
+      { id: 'followup', title: 'Follow-up reflection', required: true, status: 'blocked', opens_at: '2026-11-04T12:00:00Z', questions: data.questions },
+    ] };
+    data.activityProgress = { draft_answers: {}, revision: 0 };
+    await page.getByLabel('Private return link or study key').fill(`${participantServer.url}/my-studies#access=${key}`);
+    await page.getByRole('button', { name: 'Open my study', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Your study progress', exact: true })).toBeVisible();
+    assert.equal((await page.textContent('body')).includes(key), false);
+    assert.equal(page.url().includes(key), false);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await page.screenshot({ path: path.join(output, 'participant-hub-mobile.png'), fullPage: true, animations: 'disabled' });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.reload();
+    await page.getByRole('button', { name: 'Open activities', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Your study progress', exact: true })).toBeVisible();
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await page.screenshot({ path: path.join(output, 'participant-hub-desktop.png'), fullPage: true, animations: 'disabled' });
+    await page.getByRole('button', { name: 'Start activity', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Classroom reflections', exact: true })).toBeVisible();
+    await expect(page.locator('.participant-sidebar')).not.toBeVisible();
+  });
   await scenario('owner can invite collaborators, inspect published consent, and trace theme evidence', async ({ page, context, data }) => {
     await signIn(context);
     await page.goto(`${researcherServer.url}/studies/${studyId}`);
@@ -161,7 +219,7 @@ try {
     await expect(page.getByRole('button', { name: 'Publish study', exact: true })).toBeDisabled();
     await page.getByRole('button', { name: 'Edit draft' }).click();
     await page.getByLabel('Participant consent text').fill('You may choose whether to participate. Contact the team with questions.');
-    await page.getByLabel('Participant identity').selectOption('anonymous');
+    await page.getByLabel('Participant identity', { exact: true }).selectOption('anonymous');
     await page.getByRole('button', { name: 'Save draft' }).click();
     await expect(page.getByRole('button', { name: 'Publish study', exact: true })).toBeEnabled();
     const saved = data.calls.find((call) => call.rpc === 'save_study_draft').body;
@@ -186,6 +244,7 @@ try {
   });
   await scenario('participant consent is explicit, drafts recover after reload, and retries keep one ID', async ({ page, data }) => {
     await page.goto(`${participantServer.url}/join/${code}`);
+    await page.getByRole('button', { name: 'Start study' }).click();
     await expect(page.getByRole('heading', { name: 'Before you take part' })).toBeVisible();
     await expect(page.getByRole('textbox')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Agree and continue' })).toBeDisabled();
@@ -193,9 +252,11 @@ try {
     await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Agree and continue' }).click();
     await page.getByRole('textbox').fill('A clear appointment link helped.');
     await page.reload();
+    await page.getByRole('button', { name: 'Start study' }).click();
     await expect(page.getByRole('button', { name: 'Agree and continue' })).toBeDisabled();
     await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Agree and continue' }).click();
     await expect(page.getByRole('textbox')).toHaveValue('A clear appointment link helped.');
+    await page.getByRole('button', { name: 'Review answers' }).click();
     data.failSubmission = true; await page.getByRole('button', { name: 'Submit responses' }).click();
     await expect(page.getByRole('alert')).toContainText('Connection interrupted');
     data.failSubmission = false; await page.getByRole('button', { name: 'Submit responses' }).click();
@@ -206,6 +267,136 @@ try {
     assert.equal(submissions[0].body.p_version_id, versionId);
     await expect(page.getByRole('button', { name: 'Download study receipt' })).toBeVisible();
     await page.reload(); await expect(page.getByRole('heading', { name: 'Thank you for participating' })).toBeVisible();
+  });
+  await scenario('participant slides validate one answer, support keyboard navigation, and review without submitting early', async ({ page, data }) => {
+    data.loadDelay = 350; data.submitDelay = 500;
+    data.questions.push({ id: 'question-two', prompt: 'What would make that experience better?', position: 1 });
+    data.questions.push({ id: 'question-three', prompt: 'Is there anything else you would like the research team to understand about getting help and finding the information you need?', position: 2 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(`${participantServer.url}/join/${code}`);
+    await expect(page.getByRole('status')).toContainText('Loading your study');
+    await expect(page.getByRole('heading', { name: 'Study unavailable' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Start study' }).click();
+    await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Agree and continue' }).click();
+    await expect(page.getByRole('textbox')).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: data.questions[0].prompt })).toBeFocused();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('Please add your answer');
+    await page.getByRole('textbox').fill('   ');
+    await page.getByRole('textbox').press('Control+Enter');
+    await expect(page.getByRole('heading', { name: data.questions[0].prompt })).toBeVisible();
+    await page.getByRole('textbox').fill('Clear guidance');
+    await page.getByRole('textbox').press('End');
+    await page.getByRole('textbox').press('Enter');
+    await page.getByRole('textbox').pressSequentially('and a helpful advisor.');
+    await expect(page.getByRole('textbox')).toHaveValue('Clear guidance\nand a helpful advisor.');
+    await page.getByRole('textbox').press('Control+Enter');
+    await expect(page.getByRole('heading', { name: data.questions[1].prompt })).toBeFocused();
+    await expect(page.getByRole('textbox')).toHaveValue('');
+    await expect(page.getByRole('progressbar')).toHaveAttribute('value', '1');
+    await page.getByRole('textbox').fill('An easier way to book.');
+    await page.getByRole('button', { name: 'Previous question' }).click();
+    await expect(page.getByRole('textbox')).toHaveValue('Clear guidance\nand a helpful advisor.');
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+    await expect(page.getByRole('textbox')).toHaveValue('An easier way to book.');
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole('textbox').fill('Please keep the directions simple.');
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await expect(page.getByRole('button', { name: 'Review answers' })).toBeInViewport();
+    await page.screenshot({ path: path.join(output, 'participant-slide-mobile.png'), animations: 'disabled' });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(page.getByRole('button', { name: 'Review answers' })).toBeInViewport();
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await page.screenshot({ path: path.join(output, 'participant-slide-desktop.png'), animations: 'disabled' });
+    await page.getByRole('textbox').press('Meta+Enter');
+    await expect(page.getByRole('heading', { name: 'Ready when you are.' })).toBeFocused();
+    await page.getByRole('button', { name: 'Edit answer 1', exact: true }).press('Control+Enter');
+    assert.equal(data.calls.filter((call) => call.rpc === 'submit_study_version').length, 0);
+    await page.getByRole('button', { name: 'Edit answer 1', exact: true }).click();
+    await expect(page.getByRole('textbox')).toHaveCount(1);
+    await page.getByRole('textbox').fill('Updated first answer.');
+    await page.getByRole('button', { name: 'Back to review' }).click();
+    await expect(page.getByText('Updated first answer.', { exact: true })).toBeVisible();
+    await page.screenshot({ path: path.join(output, 'participant-review-desktop.png'), animations: 'disabled' });
+    await page.getByRole('button', { name: 'Submit responses' }).click();
+    await expect(page.getByRole('button', { name: 'Submitting…' })).toHaveAttribute('aria-busy', 'true');
+    await expect(page.getByText('Updated first answer.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Thank you for participating' })).toBeVisible();
+    assert.deepEqual(data.calls.find((call) => call.rpc === 'submit_study_version').body.p_answers, {
+      [questionId]: 'Updated first answer.', 'question-two': 'An easier way to book.', 'question-three': 'Please keep the directions simple.',
+    });
+  });
+  await scenario('participant multi-activity slides keep consent, drafts, retries, and completion intact', async ({ page, data }) => {
+    const activities = [
+      { id: 'baseline', title: 'Baseline reflection', required: true, status: 'available', opens_after_days: 0,
+        questions: [{ id: questionId, prompt: data.questions[0].prompt }, { id: 'followup-question', prompt: 'What could improve?' }] },
+      { id: 'followup', title: 'Follow-up', required: true, status: 'blocked', opens_after_days: 1, questions: [{ id: 'later-question', prompt: 'What changed?' }] },
+    ];
+    data.versions[0].activities = activities;
+    data.participantStudy = { ...data.versions[0], version_id: versionId, activities, participant_reference: 'STUDY-TEST', study_status: 'open', reward_status: 'not_recorded' };
+    data.activityProgress = { draft_answers: {}, revision: 0 };
+    data.saveDelay = 350;
+    await page.goto(`${participantServer.url}/join/${code}`);
+    await page.getByRole('button', { name: 'Review study consent' }).click();
+    await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Agree and continue' }).click();
+    await expect(page.getByRole('button', { name: 'Join and open my activities' })).toBeDisabled();
+    await page.getByRole('checkbox', { name: 'I agree that my responses and progress', exact: false }).check();
+    await page.getByRole('button', { name: 'Join and open my activities' }).click();
+    const enrollment = data.calls.find((call) => call.rpc === 'enroll_study').body;
+    assert.equal(enrollment.p_consent_accepted, true); assert.equal(enrollment.p_linking_accepted, true);
+    await page.getByRole('button', { name: 'Start activity' }).click();
+    await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Agree and continue' }).click();
+    await expect(page.getByRole('textbox')).toHaveCount(1);
+    await page.getByRole('textbox').fill('My baseline draft.');
+    await expect.poll(() => data.calls.filter((call) => call.rpc === 'save_activity_draft').length).toBeGreaterThan(0);
+    await expect(page.getByRole('textbox')).toBeEnabled();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+    await page.getByRole('textbox').fill('More accessible booking.');
+    await page.getByRole('button', { name: 'Back to activities', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Your study progress' })).toBeVisible();
+    assert.equal(data.activityProgress.draft_answers['followup-question'], 'More accessible booking.');
+    await page.getByRole('button', { name: 'Start activity' }).click();
+    await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Agree and continue' }).click();
+    await expect(page.getByRole('textbox')).toHaveValue('More accessible booking.');
+    await page.getByRole('button', { name: 'Review answers' }).click();
+    data.failSubmission = true; await page.getByRole('button', { name: 'Submit this activity' }).click();
+    await expect(page.getByRole('alert')).toContainText('Connection interrupted');
+    await expect(page.getByText('My baseline draft.', { exact: true })).toBeVisible();
+    data.failSubmission = false; await page.getByRole('button', { name: 'Submit this activity' }).click();
+    await expect(page.getByText('Activity submitted.', { exact: false })).toBeVisible();
+    const submissions = data.calls.filter((call) => call.rpc === 'submit_study_activity');
+    assert.equal(submissions.length, 2); assert.equal(submissions[0].body.p_request_id, submissions[1].body.p_request_id);
+    assert.deepEqual(submissions[1].body.p_answers, { [questionId]: 'My baseline draft.', 'followup-question': 'More accessible booking.' });
+  });
+  await scenario('participant slide drafts preserve older copies and block overwriting a newer server draft', async ({ page, context, data }) => {
+    const key = 'a'.repeat(64);
+    const activities = [{ id: 'conflict-activity', title: 'Draft recovery', required: true, status: 'available', questions: data.questions }];
+    data.participantStudy = { ...data.versions[0], version_id: versionId, activities, participant_reference: 'STUDY-TEST', study_status: 'open', reward_status: 'not_recorded' };
+    data.activityProgress = { draft_answers: { [questionId]: 'Latest saved answer.' }, revision: 3 };
+    await context.addInitScript(({ name, question }) => {
+      sessionStorage.setItem(name, JSON.stringify({ answers: { [question]: 'Older unsaved answer.' }, base_revision: 1 }));
+    }, { name: `eduthemes.activity-draft.${key.slice(-16)}.conflict-activity`, question: questionId });
+    await page.goto(`${participantServer.url}/my-studies#access=${key}`);
+    await page.getByRole('button', { name: 'Start activity' }).click();
+    await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Agree and continue' }).click();
+    await expect(page.getByRole('textbox')).toHaveValue('Latest saved answer.');
+    await expect(page.getByRole('textbox')).toBeDisabled();
+    const downloading = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download the older copy' }).click();
+    const download = await downloading;
+    const backup = JSON.parse(await readFile(await download.path(), 'utf8'));
+    assert.equal(backup.answers[questionId], 'Older unsaved answer.');
+    await page.getByRole('button', { name: 'Continue with the saved draft' }).click();
+    data.conflictOnDraft = true;
+    await page.getByRole('textbox').fill('Keep this local edit.');
+    await expect(page.getByRole('alert')).toContainText('A newer saved draft exists.');
+    await expect(page.getByRole('textbox')).toHaveValue('Keep this local edit.');
+    await expect(page.getByRole('button', { name: 'Review answers' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Download unfinished answers' })).toBeVisible();
+    await page.getByRole('button', { name: 'Return to saved activities', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Your study progress' })).toBeVisible();
+    assert.equal(data.activityProgress.draft_answers[questionId], 'Latest saved answer.');
   });
   await scenario('accepted coding decisions recover after a browser reload', async ({ page, context, data }) => {
     const dataset = [{ original: 'A clear appointment link helped.', submission_id: responseId, study_version_id: versionId, question_id: questionId, themes: [] }];
@@ -223,25 +414,28 @@ try {
     await expect(page.locator('.review-response-card.is-approved')).toHaveCount(1);
     assert.equal(data.analyses[0].coded_responses[0].review_decisions['Clear guidance'].action, 'approve');
   });
-  await scenario('Canvas studies cannot submit with anonymous identity', async ({ page, data }) => {
+  await scenario('participant Canvas studies cannot submit with anonymous identity', async ({ page, data }) => {
     data.study.participant_mode = 'canvas';
     await page.goto(`${participantServer.url}/join/${code}`);
+    await page.getByRole('button', { name: 'Start study' }).click();
     await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Agree and continue' }).click();
     await expect(page.getByRole('alert')).toContainText('requires verified Canvas details');
-    await expect(page.getByRole('button', { name: 'Submit responses' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Continue to questions' })).toBeDisabled();
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
   });
-  await scenario('blocked browser storage still permits anonymous submission and receipt download', async ({ page, context }) => {
+  await scenario('participant blocked browser storage still permits anonymous submission and receipt download', async ({ page, context }) => {
     await context.addInitScript(() => {
       Object.defineProperty(window, 'sessionStorage', { value: {
         getItem() { throw new Error('Storage denied'); }, setItem() { throw new Error('Storage denied'); }, removeItem() { throw new Error('Storage denied'); },
       } });
     });
     await page.goto(`${participantServer.url}/join/${code}`);
+    await page.getByRole('button', { name: 'Start study' }).click();
     await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Agree and continue' }).click();
     await expect(page.getByText('This browser cannot save your draft.', { exact: false })).toBeVisible();
     await page.getByRole('textbox').fill('My response is preserved until submission.');
+    await page.getByRole('button', { name: 'Review answers' }).click();
     await page.getByRole('button', { name: 'Submit responses' }).click();
     await expect(page.getByRole('heading', { name: 'Thank you for participating' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Download study receipt' })).toBeVisible();

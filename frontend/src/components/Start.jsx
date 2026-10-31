@@ -101,9 +101,9 @@ const Start = ({
                 )}
 
                 <header className="start-heading">
-                    <span className="start-heading__eyebrow">Workspace overview</span>
-                    <h1>Welcome to EduThemes</h1>
-                    <p>Organize responses, review themes, and export findings from one workspace.</p>
+                    <span className="start-heading__eyebrow">From responses to understanding</span>
+                    <h1>Your analysis workspace</h1>
+                    <p>Bring your response file. Discover the patterns, with your judgment at the center.</p>
                 </header>
 
                 <div className="start-dashboard">

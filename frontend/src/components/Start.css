@@ -1,8 +1,8 @@
 .start-page {
-    --start-ink: #16202b;
-    --start-muted: #4e5a68;
-    --start-green: #0a5c92;
-    --start-border: #e5dfd4;
+    --start-ink: #24262b;
+    --start-muted: #71717a;
+    --start-green: #a54f35;
+    --start-border: #e4e4e7;
     width: 100%;
     padding: 42px 28px 72px;
     color: var(--start-ink);
@@ -20,7 +20,7 @@
 .start-heading__eyebrow,
 .start-card__eyebrow {
     display: block;
-    color: #0a5c92;
+    color: #a54f35;
     font-family: var(--font-mono);
     font-size: 0.7rem;
     font-weight: 700;
@@ -65,22 +65,22 @@
     padding: 28px 30px;
     border: 1px solid var(--start-border);
     border-radius: 16px;
-    background: #fffefa;
+    background: #ffffff;
 }
 
 .start-card--new {
-    border-color: #c4d9e8;
-    background: #edf4f8;
+    border-color: #ead8cf;
+    background: #faf0eb;
 }
 
 .start-card--resume {
-    border-color: #c4d9e8;
-    background: #edf4f8;
+    border-color: #ead8cf;
+    background: #faf0eb;
 }
 
 .start-card--secondary {
     border-color: var(--start-border);
-    background: #fffefa;
+    background: #ffffff;
 }
 
 .start-card__topline {
@@ -92,10 +92,10 @@
 
 .start-card__status {
     padding: 5px 9px;
-    border: 1px solid #c4d9e8;
+    border: 1px solid #ead8cf;
     border-radius: 999px;
-    background: #fffefa;
-    color: #0a5c92;
+    background: #ffffff;
+    color: #a54f35;
     font-size: 0.72rem;
     font-weight: 600;
     white-space: nowrap;
@@ -119,7 +119,7 @@
 .start-card p {
     max-width: 490px;
     margin: 0;
-    color: #4e5a68;
+    color: #71717a;
     font-size: 0.91rem;
     line-height: 1.55;
 }
@@ -153,8 +153,8 @@
 .start-primary-button.btn:focus-visible,
 .start-resume-button.btn:hover,
 .start-resume-button.btn:focus-visible {
-    border-color: #0a5c92;
-    background: #0a5c92;
+    border-color: #a54f35;
+    background: #a54f35;
     box-shadow: none;
     color: #fff;
 }
@@ -162,19 +162,19 @@
 .start-primary-button.btn:focus-visible,
 .start-resume-button.btn:focus-visible,
 .start-example-link:focus-visible {
-    outline: 3px solid rgba(11, 126, 197, 0.25);
+    outline: 3px solid rgba(183, 96, 67, 0.25);
     outline-offset: 3px;
 }
 
 .start-card--secondary .start-primary-button.btn {
-    background: #fffefa;
+    background: #ffffff;
     color: var(--start-green);
 }
 
 .start-card--secondary .start-primary-button.btn:hover,
 .start-card--secondary .start-primary-button.btn:focus-visible {
-    background: #edf4f8;
-    color: #0a5c92;
+    background: #faf0eb;
+    color: #a54f35;
 }
 
 .start-primary-button svg,
@@ -202,7 +202,7 @@
 .start-prep-list li {
     position: relative;
     padding-left: 23px;
-    color: #4e5a68;
+    color: #71717a;
     font-size: 0.9rem;
     line-height: 1.45;
 }
@@ -231,7 +231,7 @@
 }
 
 .start-example-link:hover {
-    color: #0a5c92;
+    color: #a54f35;
     text-decoration: underline;
 }
 
@@ -294,7 +294,7 @@
     padding: 18px;
     border: 1px solid var(--start-border);
     border-radius: 12px;
-    background: #fffefa;
+    background: #ffffff;
 }
 
 .start-step__icon {
@@ -303,7 +303,7 @@
     height: 32px;
     place-items: center;
     border-radius: 8px;
-    background: #f2eee6;
+    background: #f4f4f5;
     color: var(--start-green);
     font-size: 0.82rem;
 }
@@ -312,7 +312,7 @@
     position: absolute;
     top: 22px;
     right: 19px;
-    color: #4e5a68;
+    color: #71717a;
     font-family: var(--font-mono);
     font-size: 0.7rem;
 }

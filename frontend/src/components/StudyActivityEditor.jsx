@@ -1,7 +1,7 @@
 import React from 'react';
 import { activityKinds, newActivity } from '../utils/studyActivities';
 
-export default function StudyActivityEditor({ activities, onChange, disabled }) {
+export default function StudyActivityEditor({ activities, onChange, disabled, multipleAllowed = true }) {
   const change = (index, field, value) => onChange(activities.map((activity, position) => position === index ? { ...activity, [field]: value } : activity));
   const move = (index, direction) => {
     const next = [...activities];
@@ -38,6 +38,6 @@ export default function StudyActivityEditor({ activities, onChange, disabled }) 
       </div>)}
       {activity.questions.length < 12 && <button type="button" className="study-secondary" onClick={() => change(index, 'questions', [...activity.questions, ''])}>+ Add question</button>}
     </fieldset>)}
-    {activities.length < 12 && <button type="button" className="study-secondary" onClick={() => onChange([...activities, newActivity(activities.length)])}>+ Add activity</button>}
+    {activities.length < 12 && <button type="button" className="study-secondary" disabled={!multipleAllowed} onClick={() => onChange([...activities, newActivity(activities.length)])}>+ Add activity</button>}
   </fieldset>;
 }

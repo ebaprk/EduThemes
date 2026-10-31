@@ -30,6 +30,7 @@ function ResponseLayout({ rows }) {
 }
 
 export default function LoadingSkeleton({ variant = 'text', label = 'Loading…', rows = 3, className = '' }) {
+  if (variant === 'count') return <span className={`edu-loading edu-loading--count ${className}`} role="status" aria-label={label}><Skeleton className="edu-skeleton--number" /></span>;
   if (variant === 'inline') return <span className={`edu-loading edu-loading--inline ${className}`} role="status">
     <span>{label}</span><span className="edu-loading__inline-bars" aria-hidden="true"><Skeleton /><Skeleton /><Skeleton /></span>
   </span>;
