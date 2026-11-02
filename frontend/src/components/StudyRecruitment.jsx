@@ -34,7 +34,7 @@ export default function StudyRecruitment({ study, role, onRefreshed }) {
     finally { setBusy(false); }
   };
   const latest=selected && data?.applicants.find(a=>a.id===selected.id);
-  const stale=latest && (latest.revision !== selected.revision || ['enrolled','completed'].includes(latest.status));
+  const stale=latest && (latest.revision !== selected.revision || latest.status !== selected.status);
   const counts=data ? recruitmentCounts(data.applicants) : {};
   const filtered=data?.applicants.filter(a=>filter==='all'||a.status===filter) || [];
   return <section className="study-recruitment" aria-labelledby="recruitment-heading">
