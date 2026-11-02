@@ -4,6 +4,7 @@ import os
 import threading
 import httpx
 from src.llm.serve_llm import serve_llm
+from src.llm.openai_analysis import NavigatorError
 
 log = logging.getLogger(__name__)
 _started = False
@@ -56,11 +57,24 @@ def execute(job):
         thread.join()
         if not lost.is_set():
             update('completed', p_result=result)
-    except Exception:
+    except Exception as exc:
+        code = exc.code if isinstance(exc, NavigatorError) else type(exc).__name__
+        log.warning('Saved analysis failed (%s).', code)
+        reasons = {
+            'NAVIGATOR_AUTH_FAILED': 'The model service rejected its saved credentials. Contact the study owner before retrying.',
+            'NAVIGATOR_ACCESS_DENIED': 'The model service cannot access the selected model. Contact the study owner before retrying.',
+            'NAVIGATOR_API_ERROR': 'The model service could not process the request. Please retry.',
+            'NAVIGATOR_RATE_LIMITED': 'The model service is busy. Wait a moment, then retry.',
+            'NAVIGATOR_INVALID_OUTPUT': 'The model returned incomplete results. Retry this saved analysis.',
+            'NAVIGATOR_OUTPUT_TRUNCATED': 'The model response was too long. Retry this saved analysis.',
+            'NAVIGATOR_TIMEOUT': 'The model service took too long to respond. Retry this saved analysis.',
+            'NAVIGATOR_NOT_CONFIGURED': 'The model service is not configured. Contact the study owner before retrying.',
+        }
+        message = reasons.get(code, 'Analysis could not finish. Retry this job to continue.')
         stop.set()
         thread.join()
         if not lost.is_set():
-            update('failed', p_error='Analysis could not finish. Your submitted responses and themes are saved. Retry this job to continue.')
+            update('failed', p_error=message + ' Your submitted responses and themes are saved.')
     finally:
         stop.set()
 

@@ -32,3 +32,10 @@ class AnalysisJobTests(unittest.TestCase):
             analysis_jobs.execute(self.job())
         body=rpc.call_args.args[1]
         self.assertEqual(body['p_status'],'failed');self.assertNotIn('secret',body['p_error'])
+
+    def test_provider_errors_offer_safe_specific_guidance(self):
+        from src.llm.openai_analysis import NavigatorError
+        with patch.object(analysis_jobs,'process',side_effect=NavigatorError('secret key','NAVIGATOR_AUTH_FAILED')),patch.object(analysis_jobs,'rpc',return_value=True) as rpc:
+            analysis_jobs.execute(self.job())
+        self.assertIn('rejected its saved credentials',rpc.call_args.args[1]['p_error'])
+        self.assertNotIn('secret key',rpc.call_args.args[1]['p_error'])

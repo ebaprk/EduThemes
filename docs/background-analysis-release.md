@@ -83,4 +83,9 @@ Local verification completed: classification and findings were each queued throu
 an actual built researcher UI; the tab was closed, a separate queue worker processed
 against the real disposable PostgreSQL RPCs using a synthetic model, and a new tab
 recovered the completed job. No production model call or record was used. Production
-activation still requires the Supabase migration and Render environment switch.
+activation completed on November 2, 2026: the migration is applied and the existing
+Render API has ANALYSIS_JOBS_ENABLED=true. The researcher app is deployed.
+Before activation, all original fields across eight backed-up tables were compared
+with the protected pre-release export and were unchanged. Live access checks confirm
+row-level security, denied direct browser/anonymous reads, denied browser claims, and
+service-role-only worker access.

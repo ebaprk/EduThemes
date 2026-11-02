@@ -15,9 +15,9 @@ services:
         value: https://eduthemes-abepark.web.app,https://eduthemes-abepark.firebaseapp.com,https://eduthemes-participant-abepark.web.app,https://eduthemes-participant-abepark.firebaseapp.com
       - key: PORT
         value: 10000
-      # Enable only after applying the analysis_jobs migration.
+      # Enabled after applying the analysis_jobs migration on November 2, 2026.
       - key: ANALYSIS_JOBS_ENABLED
-        value: "false"
+        value: "true"
       - key: WEB_CONCURRENCY
         value: 1
       - key: GUNICORN_THREADS
