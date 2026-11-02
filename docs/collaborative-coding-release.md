@@ -80,6 +80,24 @@ Migration: `supabase/migrations/202611020004_collaborative_coding.sql`.
 Adds four private coding tables and scoped RPCs, and augments saved-run review
 provenance. No participant or backend application change is required.
 
-Production migration and hosting publication are pending until the existing
-Supabase publishing window is available for backup, application, and verification.
-No production study or analysis has been changed by this phase so far.
+## Production rollout
+
+Published November 2, 2026, from implementation commit `8dd9a2a`.
+
+- Saved private before/after backups and applied migration `202611020004` to the
+  existing EduThemes Supabase project. Every row and field in all 14 existing
+  application tables matched after the update.
+- Confirmed all four coding tables exist with RLS enabled, direct access is
+  blocked for both browser roles, all seven scoped RPCs are available only to
+  authenticated users, and the theme-validation helper remains private. The
+  new coding tables contain no production rounds.
+- Published the researcher site to `https://eduthemes-abepark.web.app`.
+  All 24 public files matched the tested production build byte for byte.
+- Checked the live Team coding screen and owner assignment setup on the existing
+  closed synthetic study. Its round list loaded successfully. Existing findings,
+  saved review notes, and draft review status also loaded after the migration.
+- No production study, submission, analysis, review, or coding round was changed
+  during the live checks. The full two-account coding/adjudication walkthrough
+  was performed locally with fabricated data, as described above.
+
+Participant and backend applications required no deployment for this phase.
