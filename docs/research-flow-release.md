@@ -63,4 +63,17 @@ needed. Existing studies are not revised or republished by this update.
 Browser control was disabled in Work settings during the local walkthrough.
 The remaining publication/version/findings/download interactions and participant/mobile
 visual checks could not be completed in this session. Production build-file checks
-will verify the served release separately; they do not substitute for those UI checks.
+verify the served release separately; they do not substitute for those UI checks.
+
+## Published release
+
+Both Firebase sites were published on November 2, 2026. The researcher release is
+commit `83cc538`; the participant spacing release is `1bbb05c`. All 23 public
+researcher build files and all 12 participant build files match the deployed files.
+The existing backend and database were unchanged. No production study was created,
+edited, published, or closed during this update. The local disposable walkthrough
+server was stopped afterward.
+
+The 30 researcher and 16 participant tests passed, and both production builds passed.
+The remaining interactive checks above are explicitly outstanding because browser
+control was disabled, rather than being represented as successful live UI validation.
