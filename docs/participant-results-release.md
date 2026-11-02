@@ -76,5 +76,23 @@ is used by that walkthrough.
 
 ## Rollout
 
-Production migration and publication are pending. No production results have been
-drafted or released by this phase. The backend application requires no changes.
+Published November 2, 2026:
+
+- Researcher implementation: `77348f4`; participant implementation: `7eac721`.
+  Both repositories were pushed to their existing GitHub `main` branches.
+- Saved private before/after backups, applied migration `202611020005` to the
+  existing Supabase project, and compared every row and field across all 18
+  pre-existing application tables. They matched exactly.
+- Live checks confirmed both new tables exist with RLS enabled, direct browser-role
+  access is blocked, the four team RPCs reject anonymous access, and the credential-
+  checked participant RPC is available. New draft and release counts remain zero.
+- Published both Firebase sites. All 26 public researcher files and all 12 public
+  participant files match their tested builds byte for byte.
+- Read-only live walkthrough confirmed the researcher summary/source-review panel
+  on the existing closed synthetic study and the participant private-link entry page.
+  A fabricated invalid results credential was rejected without exposing data, and
+  its saved session credential was removed afterward.
+
+The full release/withdrawal walkthrough used local fabricated data. No production
+study, submission, analysis, review, results draft, or results release was changed
+by the live checks. The backend application required no deployment.
