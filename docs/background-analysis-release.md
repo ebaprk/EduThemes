@@ -90,7 +90,7 @@ with the protected pre-release export and were unchanged. Live access checks con
 row-level security, denied direct browser/anonymous reads, denied browser claims, and
 service-role-only worker access.
 
-### Live verification and external blocker
+### Live verification and provider credential replacement
 
 The live worker deployed successfully (Render commit 8222894), and `/models` returns
 `background_analysis: true`. All 21 published researcher files match the tested build.
@@ -99,15 +99,32 @@ A clearly labeled synthetic study was created for the production walkthrough:
 participant, and no invitation/contact action. Its classification job survived closing
 and reopening the browser, and explicit retry preserved the frozen inputs.
 
-Live AI completion remains blocked by NaviGator: on November 2, 2026 its `/v1/models`
-response listed `nemotron-3-super-120b-a12b`, while `/v1/chat/completions` rejected that
-same model with HTTP 400 and “Invalid model name passed”. A minimal direct request
-with only a synthetic connectivity prompt reproduced the error, independently of the
-queue, structured-output options, and application sessions. The same failure occurred
-with the existing local provider configuration. No provider/key/model substitution was
-made. Successful live classification/findings recovery cannot be claimed until UF
-restores routing/access for the configured model. The synthetic local end-to-end
-recovery checks passed; they used a mock model and are distinct from this live blocker.
+The original NaviGator credential listed `nemotron-3-super-120b-a12b` in `/v1/models`
+but rejected it from `/v1/chat/completions` with HTTP 400. On November 2, a user-approved
+replacement, `eduthemes-background-analysis-v2`, was created in the `navigator-toolkit`
+team with access to that model only and AI API routes only. A fabricated prompt passed
+at the existing UF endpoint with HTTP 200. Only after that test was its secret saved
+to Render's server-side NAVIGATOR_API_KEY. The exact saved value was verified privately,
+and deployment `dep-dbke7q56e07s73ctie30` succeeded at commit bb64299. The provider,
+model name, local .env and hosting plan were not changed. Secrets remain outside Git.
+
+Toolkit did not honor its “Never resets” selection during creation: the saved key
+showed a monthly reset. Editing it to “Never resets” failed with “Invalid duration
+format.” To keep usable spending within a single $5 budget, the key expires on
+**November 29, 2026 at 2:24 PM Eastern**, before the first scheduled reset on
+November 30 at 7 PM. Auto-rotation is disabled. This is a time-bounded workaround,
+not a claim that Toolkit's reset setting was fixed. Do not extend or renew this key
+without revisiting the total-spend limit. The inaccessible earlier EduThemes key was
+expired before creating the replacement; the unrelated blocked key was unchanged.
+
+The failed synthetic classification was explicitly retried after deployment, its tab
+was closed while queued, and a fresh tab recovered the completed live classification.
+Its one assignment was reviewed and accepted. Findings were then queued, that tab was
+closed, and a fresh tab showed “Open completed analysis.” Opening it restored the
+live generated summary, one coded response, zero unclassified responses, and the
+accepted theme's source-response/consent link. Both live recovery flows now pass using
+the real Nemotron service and fabricated data. This confirms operation and recovery,
+not the scientific validity of findings from a single fabricated response.
 
 The worker now stores safe, specific guidance for recognized model errors and logs
 only the controlled error code/class, never credentials or response content. The
@@ -115,5 +132,5 @@ latest backend suite passes 36 tests; researcher and database suites passed 19 a
 40 respectively (95 total). The existing free hosting plan is unchanged.
 
 The synthetic live verification study was closed to new responses after the check.
-Its failed job and fabricated answer remain available for inspection/retry when the
-provider issue is resolved. No original study was edited or closed.
+Its fabricated answer and saved analysis remain available for inspection. No original
+study was edited or closed.
