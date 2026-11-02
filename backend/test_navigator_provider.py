@@ -104,6 +104,29 @@ class NavigatorProviderTests(unittest.TestCase):
         self.assertEqual(error.exception.code, 'NAVIGATOR_INVALID_OUTPUT')
         self.assertEqual(completion.call_count, 2)
 
+    def test_summary_preserves_complete_long_paragraphs_without_clipping(self):
+        summary = ('A participant described clear planning and its limits. ' * 30) + '\n\nThis single-response sample does not support generalization.'
+        with patch('src.llm.openai_analysis._create_client'), patch('src.llm.openai_analysis._chat_completion', return_value=summary) as completion:
+            self.assertEqual(navigator_llm.generate_summary(['Example'], [{'name':'Planning','description':'Guidance'}], {'Planning':[0]}), summary)
+        self.assertEqual(completion.call_count, 1)
+
+    def test_summary_retries_fragments_even_when_the_provider_reports_completion(self):
+        with patch('src.llm.openai_analysis._create_client'), patch('src.llm.openai_analysis._chat_completion', side_effect=['An unfinished finding about plann', 'One participant described planning. The sample is limited.']) as completion:
+            result = navigator_llm.generate_summary(['Example'], [], {})
+        self.assertTrue(result.endswith('limited.'))
+        self.assertEqual(completion.call_count, 2)
+
+    def test_summary_rejects_persistently_unfinished_output(self):
+        with patch('src.llm.openai_analysis._create_client'), patch('src.llm.openai_analysis._chat_completion', return_value='A complete sentence.\n\nA clipped conclus'):
+            with self.assertRaises(NavigatorError) as error:
+                navigator_llm.generate_summary(['Example'], [], {})
+        self.assertEqual(error.exception.code, 'NAVIGATOR_INVALID_OUTPUT')
+
+    def test_summary_retries_output_budget_exhaustion_with_a_shorter_request(self):
+        with patch('src.llm.openai_analysis._create_client'), patch('src.llm.openai_analysis._chat_completion', side_effect=[NavigatorError('Too long','NAVIGATOR_OUTPUT_TRUNCATED'), 'A complete finding.']) as completion:
+            self.assertEqual(navigator_llm.generate_summary(['Example'], [], {}), 'A complete finding.')
+        self.assertIn('shorter summary',completion.call_args.args[1])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -3,7 +3,7 @@ import { supabase } from '../supabase';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import { completionHandoffCsv, enrollmentComplete, operationsMetrics, rewardStatuses } from '../utils/studyActivities';
 
-export default function StudyOperations({ study, role }) {
+export default function StudyOperations({ study, role, refreshSignal = 0 }) {
   const [data, setData] = useState(null);
   const [settings, setSettings] = useState({ target: 0, notes: '', revision: 0 });
   const [refreshing, setRefreshing] = useState(false);
@@ -11,6 +11,7 @@ export default function StudyOperations({ study, role }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const generation = useRef(0);
+  const lastRefresh = useRef(refreshSignal);
   const canEdit = role === 'owner' || role === 'researcher';
   const load = useCallback(async (initialize = false) => {
     const request = ++generation.current;
@@ -25,6 +26,7 @@ export default function StudyOperations({ study, role }) {
     finally { if (request === generation.current) setRefreshing(false); }
   }, [study.id]);
   useEffect(() => { setData(null); setError(''); load(true); return () => { generation.current += 1; }; }, [load]);
+  useEffect(() => { if (lastRefresh.current !== refreshSignal) { lastRefresh.current = refreshSignal; load(); } }, [refreshSignal, load]);
 
   const save = async (event) => {
     event.preventDefault(); setBusy('settings'); setError(''); setNotice('');
@@ -80,7 +82,7 @@ export default function StudyOperations({ study, role }) {
             {canEdit ? <select aria-label={`Handoff status for ${participant.participant_reference}`} disabled={Boolean(busy)} value={participant.reward_status} onChange={(event) => recordReward(participant, event.target.value)}>{Object.entries(rewardStatuses).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select> : rewardStatuses[participant.reward_status]}
             {participant.reward_updated_at && <small>Recorded {new Date(participant.reward_updated_at).toLocaleString()}</small>}
           </td></tr>)}
-        </tbody></table></div> : <div className="study-operations-empty"><h4>Ready for the first enrollment</h4><p>A study with multiple activities gives participants a private return link. Their progress will appear here after they consent and join.</p></div>}
+        </tbody></table></div> : <div className="study-operations-empty"><h4>Ready for the first enrollment</h4><p>Participants who join through screening or a multi-activity plan receive a private return link. Progress appears here after they consent and join.</p></div>}
       </div>
     </>}
   </section>;

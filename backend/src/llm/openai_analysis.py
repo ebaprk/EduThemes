@@ -1,6 +1,7 @@
 import os
 import json
 import random
+import re
 import openai
 
 NAVIGATOR_BASE_URL = os.getenv('NAVIGATOR_BASE_URL', 'https://api.ai.it.ufl.edu/v1')
@@ -286,16 +287,33 @@ class navigator_llm:
         {stats_text}
         
         Based on this data, please provide:
-        1. An summary of the key findings (1-2 paragraphs)
+        1. A summary of the key findings (1-2 paragraphs)
         2. Analysis of each theme, including its significance and patterns
         3. Relationships or correlations between themes, if any are apparent
         4. Insights that emerge from the data
         5. Recommendations for instructors or researchers based on these findings
         
-        Format your summary in a clear, easy to print out summary in an academic context, dont use lists or numbers, just a paragraph.
+        Write a concise academic summary of at most 500 words, using short paragraphs
+        and complete sentences. Never cut a paragraph or word short to meet the limit.
+        Finish every paragraph with sentence-ending punctuation. State the sample size
+        and limitations. Do not infer causation, statistical significance, representativeness,
+        or correlations from theme counts alone. Distinguish participant statements
+        from your interpretation, and do not invent evidence or quotations.
         """
-        
-        return _chat_completion(client, prompt, max_tokens=3072)
+        for attempt in range(2):
+            try:
+                summary = _chat_completion(client, prompt, max_tokens=4096)
+            except NavigatorError as error:
+                if error.code != 'NAVIGATOR_OUTPUT_TRUNCATED' or attempt:
+                    raise
+            else:
+                paragraphs = [part.strip() for part in re.split(r'\n\s*\n', summary) if part.strip()]
+                # A provider can report "stop" despite returning cut-off prose.
+                # Preserve complete output verbatim; never silently trim saved findings.
+                if paragraphs and all(part.startswith('#') or re.search(r'[.!?。！？][\s\"”’\')\]*_]*$', part) for part in paragraphs):
+                    return summary
+            prompt += '\nReturn a shorter summary in complete sentences. Finish each paragraph with a full stop; do not return fragments.'
+        raise NavigatorError('NaviGator returned unfinished summary text. Please retry.', 'NAVIGATOR_INVALID_OUTPUT')
 
     @staticmethod
     def process_chat_query(query, responses, themes, classifications, research_question="", project_description="", api_key=None):

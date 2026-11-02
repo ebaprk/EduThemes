@@ -138,7 +138,9 @@ Release sequence:
 5. Compare the live files with the tested builds and check the live participant
    hub and protected API boundaries.
 
-Backend analysis requests still use temporary sessions/files. Durable background
-analysis jobs, account-based participant hubs, recruitment screeners, appointment
-scheduling, automatic reminders, and repeating diary schedules are subsequent
-increments.
+Study classification and findings now use recoverable background jobs; see
+[the background analysis release](background-analysis-release.md). Recruitment
+screeners and reviewed invitation pipelines are covered in
+[the recruitment release](recruitment-release.md). Account-based participant hubs,
+appointment scheduling, automatic reminders, and repeating diary schedules remain
+subsequent increments.

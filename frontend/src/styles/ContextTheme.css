@@ -514,3 +514,28 @@ button.review-theme-list__item:focus-visible { outline:2px solid #995a40; }
 .study-analysis-banner > span:first-child { white-space:normal; overflow:visible; text-overflow:clip; max-width:none; flex:1; min-width:220px; }
 @media(max-width:900px) { .study-analysis-banner { top:56px; } }
 @media(max-width:600px) { .analysis-page .analysis-metrics { grid-template-columns:1fr; } }
+
+/* Recruitment uses the same compact workbench as study design and analysis. */
+.screening-question { border:1px solid #e5e5e8; border-radius:8px; padding:18px; margin:18px 0; }
+.screening-question legend { float:none; width:auto; padding:0 6px; font-size:14px; font-weight:600; }
+.screening-option { display:flex; align-items:center; gap:16px; margin:12px 0; }
+.screening-option .study-field { flex:1; margin:0; }
+.screening-option .study-check-choice { white-space:nowrap; }
+.recruitment-funnel { display:grid; grid-template-columns:repeat(7,minmax(90px,1fr)); border:1px solid #e5e5e8; border-radius:8px; overflow:hidden; margin:20px 0 12px; }
+.recruitment-funnel button { display:flex; flex-direction:column; gap:8px; padding:18px 12px; background:#fff; border:0; border-right:1px solid #e5e5e8; text-align:left; color:#71717a; font-size:12px; }
+.recruitment-funnel button:last-child { border-right:0; }
+.recruitment-funnel strong { font-size:24px; color:#24262b; }
+.recruitment-funnel button[aria-pressed=true] { background:#f5eee9; color:#99472f; }
+.recruitment-workspace { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(300px,1fr); gap:20px; align-items:start; }
+.recruitment-workspace .study-section-heading label { display:flex; gap:8px; align-items:center; font-size:12px; }
+.recruitment-workspace select { max-width:100%; padding:8px; border:1px solid #e5e5e8; border-radius:6px; background:#fff; }
+.recruitment-table { width:100%; font-size:13px; border-collapse:collapse; }
+.recruitment-table th,.recruitment-table td { padding:12px 8px; border-bottom:1px solid #e5e5e8; text-align:left; vertical-align:top; }
+.recruitment-table small { display:block; color:#71717a; margin-top:5px; }
+.screening-answer-list > div { border-top:1px solid #e5e5e8; padding:12px 0; }
+.screening-answer-list dt { font-weight:500; margin-bottom:6px; }
+.screening-answer-list dd { margin:0; }
+.recruitment-review .study-primary { margin-top:8px; }
+.recruitment-review details { margin-top:18px; }
+@media(max-width:1100px) { .recruitment-funnel { grid-template-columns:repeat(4,minmax(90px,1fr)); } .recruitment-workspace { grid-template-columns:1fr; } }
+@media(max-width:600px) { .screening-option { flex-wrap:wrap; gap:8px; } .screening-option .study-field { flex-basis:100%; } .recruitment-funnel { grid-template-columns:repeat(2,minmax(90px,1fr)); } }

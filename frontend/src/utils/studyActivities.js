@@ -25,7 +25,8 @@ export function studyDraftPayload(form) {
   }));
   const fields = ['title', 'description', 'research_question', 'additional_context', 'consent_text', 'participant_mode', 'compensation_details', 'contact_info'];
   return { ...Object.fromEntries(fields.map((key) => [key, (form[key] || '').trim()])),
-    activities, questions: activities.flatMap((activity) => activity.questions) };
+    activities, questions: activities.flatMap((activity) => activity.questions),
+    ...(form.recruitment ? { recruitment: { ...form.recruitment, estimated_minutes: Number(form.recruitment.estimated_minutes) } } : {}) };
 }
 
 export function enrollmentComplete(participant) {

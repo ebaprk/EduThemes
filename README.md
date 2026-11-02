@@ -53,6 +53,14 @@ deploying either updated frontend. Existing single-activity and Canvas flows
 remain compatible. See [the release guide](docs/phase2-activities-release.md)
 for current deployment status, access rules, local walkthroughs, and pilot limits.
 
+### Recruitment and screening
+
+Study drafts can add a versioned preview and branching screener. Researchers review
+eligibility, manage a waitlist, and invite volunteers through the Recruit pipeline.
+Participants check status through private return links, then separately consent and
+join the existing activity hub. Screening is kept outside research analysis.
+See [the release guide](docs/recruitment-release.md) for deployment and access details.
+
 ### Supabase setup
 
 The [EduThemes Supabase project](https://supabase.com/dashboard/project/ihocmfxrhbiyilnzdptu)
