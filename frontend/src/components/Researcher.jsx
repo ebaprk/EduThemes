@@ -198,7 +198,7 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
     setError(''); setSaving(true); setStartingQuestionId(question.id);
     try {
       const previous = versionAnalyses.find((entry) => entry.question_id === question.id);
-      await onAnalyze({ ...study, ...selectedVersion, id: study.id, owner_id: study.owner_id, current_version_id: selectedVersion.id }, question, Object.assign([...responses], { savedAnalysis: previous }), analysis, previous?.revision || 0);
+      await onAnalyze({ ...study, ...selectedVersion, id: study.id, owner_id: study.owner_id, current_version_id: selectedVersion.id }, question, Object.assign([...responses], { savedAnalysis: previous }), analysis, analysis?.revision || previous?.revision || 0);
     } catch (failure) { setError(failure.message || 'Could not start coding.'); }
     finally { setSaving(false); setStartingQuestionId(null); }
   };

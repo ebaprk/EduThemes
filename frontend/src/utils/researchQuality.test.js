@@ -22,3 +22,9 @@ test('brief includes only selected quotes, frozen consent, codebook and honest r
  const brief=researchBrief(snapshot,{prompt:'Why?'},run,state);for(const value of ['Original consent','Selected quote','Explicit plan','Reviewed by Researcher'])assert.ok(brief.includes(value));for(const value of ['private@example.invalid','Do not include','Private flag'])assert.equal(brief.includes(value),false);
  assert.ok(researchBrief(snapshot,{prompt:'Why?'},run,{...state,current:false}).includes('DRAFT'));
 });
+test('brief reports actual collaborative coding process without copying round notes or unselected responses',()=>{
+ const collaboration={round:{state:'finalized',responses:[{id:'r',original:'Private round answer'}],codebook:[{name:'A'}]},assignments:[{coder_id:'c1',response_ids:['r'],submitted_at:'now',ballot:{r:{themes:['A'],note:'Private coder note'}}},{coder_id:'c2',response_ids:['r'],submitted_at:'now',ballot:{r:{themes:[]}}}],decisions:[{response_id:'r',themes:['A'],rationale:'Private adjudication rationale'}]};
+ const text=researchBrief({title:'Study'},{prompt:'Why?'},{labels:[],coded_responses:[],results:{}},{review:emptyReview(),collaboration});
+ assert.ok(text.includes('0/1 coder-pair comparisons (0.0%)'));assert.ok(text.includes('1/1 disagreements have a recorded adjudication'));
+ for(const value of ['Private round answer','Private coder note','Private adjudication rationale'])assert.equal(text.includes(value),false);
+});

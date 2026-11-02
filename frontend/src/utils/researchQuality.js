@@ -1,3 +1,4 @@
+import {codingMethods} from './collaborativeCoding.js';
 export const codebookFields = [
   ['description', 'Definition', 200], ['include_when', 'Include when', 1000],
   ['exclude_when', 'Exclude when', 1000], ['example', 'Example (use fabricated text)', 1000],
@@ -44,6 +45,7 @@ export function researchBrief(snapshot,question,run,reviewState) {
     '### Theme counts',...(run.results?.themes || []).map(theme=>`${md(theme.name)}: ${theme.frequency || 0}`),
     'A response can belong to multiple themes. Counts do not establish causation or representativeness.',
     '## Selected supporting quotes',...(review.quotes?.length ? review.quotes.filter(index=>Number.isInteger(index)&&rows[index]).map(index=>`> ${String(rows[index].original || '').split('\n').map(md).join('\n> ')}\n\nResponse ${index+1} in this saved run.`) : ['No quotes selected.']),
+    ...(reviewState?.collaboration ? ['## Collaborative coding and reconciliation',codingMethods(reviewState.collaboration),'This analysis began from the finalized consensus of that round. Subsequent analysis edits may differ from the original consensus and are recorded separately.'] : []),
     '## Limitations',md(review.limitations || 'Not documented.'),
     '## AI assistance and human review',md(review.ai_disclosure || 'Not documented; do not assume a model or review process.'),
     '## Codebook appendix',...labels.filter(label=>label.name!=='Unclassified').flatMap(label=>[

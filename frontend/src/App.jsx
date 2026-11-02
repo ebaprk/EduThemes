@@ -20,6 +20,7 @@ import "./components/Workflow.css";
 import "./styles/ContextTheme.css";
 import "./styles/ResearchFlow.css";
 import "./styles/ResearchQuality.css";
+import "./styles/CollaborativeCoding.css";
 
 const Review = lazy(() => import('./components/Review'));
 const Analyze = lazy(() => import('./components/Analyze'));
