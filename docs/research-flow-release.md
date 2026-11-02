@@ -60,10 +60,31 @@ needed. Existing studies are not revised or republished by this update.
   consent/activity preview, preview of unsaved introduction, save draft, and exact
   database comparison confirming preview made no changes.
 
-Browser control was disabled in Work settings during the local walkthrough.
-The remaining publication/version/findings/download interactions and participant/mobile
-visual checks could not be completed in this session. Production build-file checks
-verify the served release separately; they do not substitute for those UI checks.
+After browser control was re-enabled, the remaining browser checks passed against
+the disposable database:
+
+- Publishing from a `version=draft` URL opened Responses and selected published
+  version 1. Closing collection and preparing the next version opened the draft
+  editor while preserving the published plan.
+- Two researcher tabs verified competing edits: after one saved a newer draft,
+  publication from the outdated tab was rejected with a refresh/review message.
+- The published version retained its original title, questions, and two completed
+  runs alongside a newer draft. The earlier-run evidence link opened its original
+  summary. The downloaded Markdown report contained both selected runs and their
+  theme counts, with the original published study details.
+- A fabricated participant completed conditional screening, researcher eligibility
+  review and invitation, separate participation/linking consent, baseline, and
+  follow-up. Follow-up unlocked only after baseline submission. Both activities
+  reached completion, and recruitment showed the application as Completed.
+- Screenshots confirmed readable 390px findings, preview, consent, private status,
+  and activity layouts. Measured document widths matched their viewports. The
+  live participant saved-study page also fit a 320px viewport.
+- Read-only checks of the published apps confirmed the existing closed synthetic
+  study's findings library, preview, saved evidence navigation, and report download,
+  plus the participant landing and saved-study pages. No new model job was run.
+
+These were targeted workflow and responsive checks, not an exhaustive device or
+accessibility audit. No additional product changes were required.
 
 ## Published release
 
@@ -75,5 +96,6 @@ edited, published, or closed during this update. The local disposable walkthroug
 server was stopped afterward.
 
 The 30 researcher and 16 participant tests passed, and both production builds passed.
-The remaining interactive checks above are explicitly outstanding because browser
-control was disabled, rather than being represented as successful live UI validation.
+The initially interrupted interactive checks were completed after browser control
+was restored. Verification screenshots are stored under the ignored local
+`frontend/test-results/research-flow/` directory.
