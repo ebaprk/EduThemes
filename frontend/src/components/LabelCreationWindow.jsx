@@ -5,6 +5,7 @@ import Form from 'react-bootstrap/Form';
 import ListGroup from 'react-bootstrap/ListGroup';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import {codebookFields} from '../utils/researchQuality';
 
 const DEFAULT_THEME_COLOR = '#176b52';
 const THEME_COLORS = ['#176b52', '#ff7856', '#d0a72d', '#7a5c99', '#3f7d9d', '#8a6a2f', '#556b5d', '#9a4f61'];
@@ -12,6 +13,7 @@ const THEME_COLORS = ['#176b52', '#ff7856', '#d0a72d', '#7a5c99', '#3f7d9d', '#8
 const LabelCreationWindow = ({ labels = [], setLabels, deleteLabels, buttonBool=true, addOnly=false }) => {
     const [newLabel, setNewLabel] = useState('');
     const [labelDescription, setLabelDescription] = useState('');
+    const [rules,setRules]=useState({include_when:'',exclude_when:'',example:''});
     const [selectedColor, setSelectedColor] = useState(DEFAULT_THEME_COLOR);
     const [show, setShow] = useState(false);
     const [editIndex, setEditIndex] = useState(null);
@@ -34,12 +36,14 @@ const LabelCreationWindow = ({ labels = [], setLabels, deleteLabels, buttonBool=
 
         setLabels({ 
             name: newLabel, 
-            description: labelDescription, 
+            description: labelDescription,
+            ...rules,
             color: selectedColor 
         });
         
         setNewLabel('');
         setLabelDescription('');
+        setRules({include_when:'',exclude_when:'',example:''});
         setSelectedColor(DEFAULT_THEME_COLOR);
     };
 
@@ -64,6 +68,7 @@ const LabelCreationWindow = ({ labels = [], setLabels, deleteLabels, buttonBool=
         updatedLabels[editIndex] = {
             name: newLabel,
             description: labelDescription,
+            ...rules,
             color: selectedColor
         };
         
@@ -71,6 +76,7 @@ const LabelCreationWindow = ({ labels = [], setLabels, deleteLabels, buttonBool=
         
         setNewLabel('');
         setLabelDescription('');
+        setRules({include_when:'',exclude_when:'',example:''});
         setSelectedColor(DEFAULT_THEME_COLOR);
         setEditIndex(null);
         setFormMode('add');
@@ -79,6 +85,7 @@ const LabelCreationWindow = ({ labels = [], setLabels, deleteLabels, buttonBool=
     const cancelEdit = () => {
         setNewLabel('');
         setLabelDescription('');
+        setRules({include_when:'',exclude_when:'',example:''});
         setSelectedColor(DEFAULT_THEME_COLOR);
         setEditIndex(null);
         setFormMode('add');
@@ -185,7 +192,7 @@ const LabelCreationWindow = ({ labels = [], setLabels, deleteLabels, buttonBool=
                         </Form.Group>
                         
                         <Form.Group className="mb-3">
-                            <Form.Label>Description</Form.Label>
+                            <Form.Label>Definition</Form.Label>
                             <Form.Control
                                 as="textarea"
                                 rows={2}
@@ -196,6 +203,7 @@ const LabelCreationWindow = ({ labels = [], setLabels, deleteLabels, buttonBool=
                             />
                         </Form.Group>
                         
+                        {codebookFields.filter(([key])=>key!=='description').map(([key,title,limit])=><Form.Group className="mb-3" controlId={`new-codebook-${key}`} key={key}><Form.Label>{title}</Form.Label><Form.Control as="textarea" rows={2} value={rules[key]} maxLength={limit} onChange={event=>setRules(previous=>({...previous,[key]:event.target.value}))}/></Form.Group>)}
                         <div className="theme-editor-actions">
                             <Form.Label>Theme color</Form.Label>
                             <Form.Control

@@ -12,6 +12,7 @@ import StudyEvidence from './StudyEvidence';
 import WorkflowHeader from './WorkflowHeader';
 import WorkflowAlert from './WorkflowAlert';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
+import RunReview from './RunReview';
 
 ChartJS.register(
   ChartTooltip,
@@ -23,7 +24,7 @@ ChartJS.register(
   Title
 );
 
-const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0, analysisSource, dataset = [] }) => {
+const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0, analysisSource, dataset = [], beforeSave }) => {
   const [summary, setSummary] = useState(results?.summary || "");
   const [error, setError] = useState(null);
   const [isSummaryLoading, setIsSummaryLoading] = useState(!results?.summary);
@@ -116,6 +117,7 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0,
       </div>
 
       <div className="study-actions findings-exports"><button className="study-secondary" onClick={handleDownloadSummary}>Download summary</button><button className="study-secondary" onClick={downloadCsv}>Download coded CSV</button><button className="study-secondary" onClick={handleDownloadJSON}>Download full analysis</button></div>
+      {analysisSource && <RunReview key={`${analysisSource.runId}:${analysisSource.viewRun}`} source={analysisSource} beforeSave={beforeSave} snapshot={analysisSource.studySnapshot || {title:analysisSource.title,version_number:analysisSource.versionNumber}} question={{prompt:analysisSource.prompt}} run={{labels,coded_responses:dataset,response_count:responseCount,results:{...results,_run_id:results?._run_id || analysisSource.savedRunKey || analysisSource.runId}}}/>}
       <Tabs defaultActiveKey="summary" className="analysis-tabs">
         <Tab eventKey="summary" title="Summary">
           <Card className="workflow-panel analysis-panel">

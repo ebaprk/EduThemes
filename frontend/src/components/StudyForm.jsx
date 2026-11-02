@@ -4,6 +4,7 @@ import { Skeleton } from './LoadingSkeleton';
 import StudyActivityEditor from './StudyActivityEditor';
 import ScreeningEditor from './ScreeningEditor';
 import StudyPreview from './StudyPreview';
+import StudyTemplates from './StudyTemplates';
 import { draftPreview } from '../utils/studyWorkflow';
 import { recruitmentDraft } from '../utils/recruitment';
 import { activityDrafts, studyDraftPayload } from '../utils/studyActivities';
@@ -72,6 +73,7 @@ export default function StudyForm({ initial = emptyForm, onSave, onCancel, savin
       <a href={`#${id}-activities`}><LuMessageSquare aria-hidden="true" />Activities & questions</a>
     </nav>
     {validation && <p className="study-error study-form-validation" role="alert">{validation}</p>}
+    <StudyTemplates form={form} onApply={value=>{setForm(value);setValidation('');}} disabled={saving} isNew={!initial.id}/>
     <fieldset className="study-form-fields" disabled={saving}>
       <legend className="visually-hidden">Study settings</legend>
       <section id={`${id}-design`} ref={(element) => { sectionRefs.current.design = element; }} className="study-editor-section" aria-labelledby={`${id}-design-heading`}>

@@ -12,13 +12,14 @@ import NotFound from "./components/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Researcher from "./components/Researcher";
 import LoadingSkeleton from './components/LoadingSkeleton';
-import { completedRuns, retainedRuns, resultsSnapshot, findRun } from './utils/analysisHistory';
+import { runKey, completedRuns, retainedRuns, resultsSnapshot, findRun } from './utils/analysisHistory';
 import { API_URL } from "./api";
 import { supabase } from './supabase';
 import { attachResponseSources, responseRecordsForQuestion, responsesForQuestion, responsesToCsv } from './utils/studyResponses';
 import "./components/Workflow.css";
 import "./styles/ContextTheme.css";
 import "./styles/ResearchFlow.css";
+import "./styles/ResearchQuality.css";
 
 const Review = lazy(() => import('./components/Review'));
 const Analyze = lazy(() => import('./components/Analyze'));
@@ -189,6 +190,8 @@ function App() {
     const original = savedAnalysis || submissions.savedAnalysis;
     const source = { studyId: study.id, versionId: study.current_version_id, questionId: question.id, ownerId: study.owner_id,
       actorId: auth.session.user.id, runId: savedAnalysis?.stage !== 'results' && savedAnalysis?.results?._run_id || newSessionId, revision: savedRevision || savedAnalysis?.revision || 0,
+      studySnapshot: {title:study.title,research_question:study.research_question,description:study.description,participant_mode:study.participant_mode,consent_required:study.consent_required,consent_text:study.consent_text,version_number:study.version_number},
+      savedRunKey:savedAnalysis?.stage === 'results' ? runKey(savedAnalysis) : null,
       title: study.title, prompt: question.prompt, versionNumber: study.version_number, viewRun: new URLSearchParams(location.search).get('run') || 'latest',
       retained: retainedRuns(original), readOnly: savedAnalysis?.stage === 'results' };
     analysisRuns.current.set(source.runId, {revision:source.revision,blocked:false});
@@ -478,6 +481,7 @@ function App() {
             path="/results"
             element={sessionId && results ? <ResearcherGate>
               <Analyze
+                beforeSave={async()=>{await saveQueue.current;if(analysisRuns.current.get(analysisSource?.runId)?.blocked)throw new Error('Save analysis progress before reviewing findings.');}}
                 labels={labels}
                 results={results}
                 responseCount={dataset?.length || 0}

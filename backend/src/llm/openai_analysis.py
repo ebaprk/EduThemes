@@ -8,6 +8,15 @@ NAVIGATOR_BASE_URL = os.getenv('NAVIGATOR_BASE_URL', 'https://api.ai.it.ufl.edu/
 NAVIGATOR_MODEL = os.getenv('NAVIGATOR_MODEL', 'nemotron-3-super-120b-a12b')
 
 
+def theme_definition(theme):
+    """Carry researcher codebook rules into model instructions without changing names."""
+    parts = [str(theme.get('description', ''))]
+    for key, title in [('include_when', 'Include when'), ('exclude_when', 'Exclude when'), ('example', 'Illustrative example (not participant data)')]:
+        if theme.get(key):
+            parts.append(f"{title}: {theme[key]}")
+    return '\n'.join(parts)
+
+
 class NavigatorError(RuntimeError):
     def __init__(self, message, code='NAVIGATOR_FAILED', status=502, retryable=True):
         super().__init__(message)
@@ -154,7 +163,7 @@ class navigator_llm:
         for i in range(0, len(responses), batch_size):
             batch = responses[i:i+batch_size]
             theme_text = "\n".join(
-                f"- {theme['name']}: {theme.get('description', '')}" for theme in themes
+                f"- {theme['name']}: {theme_definition(theme)}" for theme in themes
             )
             response_lines = []
             for j, resp in enumerate(batch):
@@ -238,7 +247,7 @@ class navigator_llm:
             count = len(response_indices)
             percentage = (count / total_responses) * 100 if total_responses > 0 else 0
             
-            description = next((theme['description'] for theme in themes if theme['name'] == theme_name), f"Theme: {theme_name}")
+            description = next((theme_definition(theme) for theme in themes if theme['name'] == theme_name), f"Theme: {theme_name}")
             
             theme_stats[theme_name] = {
                 'count': count,

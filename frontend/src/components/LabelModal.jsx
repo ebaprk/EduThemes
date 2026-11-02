@@ -5,13 +5,16 @@ import Form from 'react-bootstrap/Form';
 import ListGroup from 'react-bootstrap/ListGroup';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import CodebookLibrary from './CodebookLibrary';
+import {codebookFields,cleanCodebook} from '../utils/researchQuality';
 
 const DEFAULT_THEME_COLOR = '#176b52';
 const THEME_COLORS = ['#176b52', '#ff7856', '#d0a72d', '#7a5c99', '#3f7d9d', '#8a6a2f', '#556b5d', '#9a4f61'];
 
-const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) => {
+const LabelModal = ({ labels = [], setLabels, onDeleteLabel, onUpdateLabel, buttonBool=true }) => {
     const [newLabel, setNewLabel] = useState('');
     const [labelDescription, setLabelDescription] = useState('');
+    const [rules,setRules] = useState({include_when:'',exclude_when:'',example:''});
     const [selectedColor, setSelectedColor] = useState(DEFAULT_THEME_COLOR);
     const [show, setShow] = useState(false);
     const [editIndex, setEditIndex] = useState(null);
@@ -29,6 +32,7 @@ const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) 
     const addLabel = () => {
         const trimmedName = newLabel.trim();
         if (!trimmedName) return;
+        if(trimmedName.toLowerCase()==='unclassified'){setFormError('Unclassified is reserved for responses without a theme.');return;}
         if (labels.some(label => label.name.toLowerCase() === trimmedName.toLowerCase())) {
             setFormError('Theme names must be unique.');
             return;
@@ -41,11 +45,13 @@ const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) 
         setLabels([...labels, { 
             name: trimmedName,
             description: labelDescription.trim(),
+            ...rules,
             color: selectedColor 
         }]);
         
         setNewLabel('');
         setLabelDescription('');
+        setRules({include_when:'',exclude_when:'',example:''});
         setSelectedColor(DEFAULT_THEME_COLOR);
         setFormError('');
     };
@@ -54,6 +60,7 @@ const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) 
         const label = labels[index];
         setNewLabel(label.name);
         setLabelDescription(label.description || '');
+        setRules({include_when:label.include_when || '',exclude_when:label.exclude_when || '',example:label.example || ''});
         setSelectedColor(label.color);
         setEditIndex(index);
         setFormMode('edit');
@@ -61,6 +68,7 @@ const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) 
 
     const updateLabel = () => {
         if (editIndex === null || newLabel.trim() === '') return;
+        if(newLabel.trim().toLowerCase()==='unclassified'){setFormError('Unclassified is reserved.');return;}
         
         if (labels.some((label, idx) => 
             idx !== editIndex && 
@@ -72,15 +80,19 @@ const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) 
 
         const updatedLabels = [...labels];
         updatedLabels[editIndex] = {
+            ...updatedLabels[editIndex],
             name: newLabel.trim(),
             description: labelDescription.trim(),
+            ...rules,
             color: selectedColor
         };
         
         setLabels(updatedLabels);
+        onUpdateLabel?.(labels[editIndex].name,updatedLabels[editIndex]);
         
         setNewLabel('');
         setLabelDescription('');
+        setRules({include_when:'',exclude_when:'',example:''});
         setSelectedColor(DEFAULT_THEME_COLOR);
         setEditIndex(null);
         setFormMode('add');
@@ -90,6 +102,7 @@ const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) 
     const cancelEdit = () => {
         setNewLabel('');
         setLabelDescription('');
+        setRules({include_when:'',exclude_when:'',example:''});
         setSelectedColor(DEFAULT_THEME_COLOR);
         setEditIndex(null);
         setFormMode('add');
@@ -109,6 +122,7 @@ const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) 
     const fileLabel = (event) => {
         const file = event.target.files[0];
         if (!file) return;
+        if(file.size>100000){setFormError('Choose a theme file smaller than 100 KB.');return;}
 
         const reader = new FileReader();
         reader.onerror = () => setFormError('The theme file could not be read.');
@@ -126,7 +140,7 @@ const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) 
                 const description = row.substring(firstCommaIndex + 1).trim();
                 
                 if (name && name !== '') {
-                    const existingLabelIndex = labels.findIndex(
+                    const existingLabelIndex = newLabels.findIndex(
                         label => label.name.toLowerCase() === name.toLowerCase()
                     );
 
@@ -149,12 +163,14 @@ const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) 
                 }
             });
 
-            if (newLabels.length === labels.length) {
+            try {
+            if (JSON.stringify(newLabels) === JSON.stringify(labels)) {
                 setFormError('No new themes were found. Use “Theme name, description” on each line.');
             } else {
-                setLabels(newLabels);
+                setLabels(cleanCodebook(newLabels));
                 setFormError('');
             }
+            } catch(error) { setFormError(error.message); }
         };
     };
 
@@ -169,16 +185,17 @@ const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) 
 
     return (
         <>
-            <Button variant="primary" onClick={toggleShow}>Edit themes</Button>
+            <Button variant="primary" onClick={toggleShow}>Edit codebook</Button>
 
             <Modal show={show} onHide={toggleShow} centered size="lg" scrollable>
                 <Modal.Header closeButton>
-                    <Modal.Title>Manage themes</Modal.Title>
+                    <Modal.Title>Manage codebook</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
+                    <CodebookLibrary labels={labels} onImport={setLabels}/>
                     <Form onSubmit={handleSubmit}>
                         {formError && <div className="theme-form-error" role="alert">{formError}</div>}
-                        <Form.Group className="mb-3">
+                        <Form.Group className="mb-3" controlId="codebook-name">
                             <Form.Label>Theme name</Form.Label>
                             <Form.Control
                                 type="text"
@@ -190,8 +207,8 @@ const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) 
                             />
                         </Form.Group>
                         
-                        <Form.Group className="mb-3">
-                            <Form.Label>Description</Form.Label>
+                        <Form.Group className="mb-3" controlId="codebook-definition">
+                            <Form.Label>Definition</Form.Label>
                             <Form.Control
                                 as="textarea"
                                 rows={2}
@@ -202,6 +219,7 @@ const LabelModal = ({ labels = [], setLabels, onDeleteLabel, buttonBool=true }) 
                             />
                         </Form.Group>
                         
+                        {codebookFields.filter(([key])=>key!=='description').map(([key,title,limit])=><Form.Group className="mb-3" controlId={`codebook-${key}`} key={key}><Form.Label>{title}</Form.Label><Form.Control as="textarea" rows={2} value={rules[key]} maxLength={limit} onChange={event=>setRules(previous=>({...previous,[key]:event.target.value}))}/></Form.Group>)}
                         <div className="theme-editor-actions">
                             <Form.Label>Theme color</Form.Label>
                             <Form.Control

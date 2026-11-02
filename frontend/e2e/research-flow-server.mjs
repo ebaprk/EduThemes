@@ -21,7 +21,7 @@ await db.exec(`create role anon; create role authenticated; create role service_
   create schema auth; create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz);
   create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
   grant usage on schema public,auth to anon,authenticated,service_role; grant execute on function auth.uid() to authenticated;`);
-for (const migration of ['202610090001_studies.sql','202610240001_canvas_lti.sql','202610280001_teams_versions_consent.sql','202610280002_study_operations_activities.sql','202611020001_analysis_jobs.sql','202611020002_recruitment_screeners.sql']) {
+for (const migration of ['202610090001_studies.sql','202610240001_canvas_lti.sql','202610280001_teams_versions_consent.sql','202610280002_study_operations_activities.sql','202611020001_analysis_jobs.sql','202611020002_recruitment_screeners.sql','202611020003_research_quality.sql']) {
   await db.exec(await readFile(path.join(root,'supabase/migrations',migration),'utf8'));
 }
 await db.query('insert into auth.users values ($1,$2,now())',[owner,'owner@example.invalid']);
@@ -67,7 +67,7 @@ const user = {id:owner,email:'owner@example.invalid',aud:'authenticated',role:'a
 const token = `${Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url')}.${Buffer.from(JSON.stringify({sub:owner,role:'authenticated',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')}.c3ludGhldGlj`;
 const tables = new Set(['studies','study_questions','study_submissions','study_analyses','study_versions','study_members']);
 const functions = new Set(['study_role','pending_study_invitations','invite_study_member','accept_study_invitation','remove_study_member',
-  'save_study_draft','get_public_study','submit_study_version','get_study_receipt','save_study_analysis',
+  'list_study_codebooks','get_study_run_review','save_study_run_review','save_study_draft','get_public_study','submit_study_version','get_study_receipt','save_study_analysis',
   'get_study_operations','save_study_operations','update_participation_reward','get_participant_study','enroll_study',
   'start_study_activity','save_activity_draft','submit_study_activity','get_participant_portal','submit_study_screener','get_study_recruitment','review_study_applicant','enroll_recruited_study']);
 const identifier = (value) => { if(!/^[a-z_][a-z0-9_]*$/.test(value)) throw new Error('Unsupported test identifier'); return `"${value}"`; };

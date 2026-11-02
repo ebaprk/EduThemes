@@ -208,7 +208,7 @@ const Preview = ({
                                     ))}
                                 </>
                             ) : (
-                                <p className="text-muted small mb-0">No themes yet. Use “Edit Themes” or generate suggestions to get started.</p>
+                                <p className="text-muted small mb-0">No themes yet. Use “Edit codebook” or generate suggestions to get started.</p>
                             )}
                             </div>
                         </Card.Body>
@@ -247,6 +247,7 @@ const Preview = ({
                                 <LabelModal
                                     labels={labels || []}
                                     setLabels={setLabels}
+                                    onUpdateLabel={(name,label)=>setDataset(previous=>previous.map(entry=>({...entry,themes:(entry.themes || []).map(theme=>theme.name===name?label:theme)})))}
                                     onDeleteLabel={(themeName) => setDataset(dataset.map((entry) => ({
                                         ...entry,
                                         themes: (entry.themes || []).filter((theme) => theme.name !== themeName),
