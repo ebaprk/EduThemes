@@ -10,9 +10,10 @@ import { FaArrowRight, FaTags } from 'react-icons/fa';
 import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowHeader from './WorkflowHeader';
 import WorkflowAlert from './WorkflowAlert';
+import useAnalysisJob from '../hooks/useAnalysisJob';
 
 const Preview = ({
-  sessionId, ensureSession,
+  sessionId, ensureSession, analysisSource, beforeJob,
   dataset,
   setDataset,
   labels,
@@ -29,7 +30,12 @@ const Preview = ({
     const [selectedIndex, setSelectedIndex] = useState(0); const selectedEntry = dataset?.[selectedIndex] || null;
     const active = useRef(true);
     useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-    const [isLoading, setIsLoading] = useState(false);
+    const [requestLoading, setIsLoading] = useState(false);
+    const job = useAnalysisJob(analysisSource, 'classify', saved => {
+        setDataset(saved.payload.dataset); setLabels(saved.payload.labels);
+        setClaudeData(saved.result.claude_data); setSvmData(saved.result.svm_data || {}); onAdvanceStage();
+    }, beforeJob);
+    const isLoading = requestLoading || job.busy;
     const [suggestedThemes, setSuggestedThemes] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -110,6 +116,10 @@ const Preview = ({
         setError(null);
         setIsLoading(true);
         try {
+            if (job.enabled) {
+                await job.start({dataset, labels, ...projectMetadata});
+                return;
+            }
             const manualCodings = dataset
                 .map((entry, index) => ({
                     index,
@@ -160,7 +170,8 @@ const Preview = ({
                 </div>
             )}
 
-            {isLoading && <LoadingSkeleton variant="inline" label="Classifying responses…" />}
+            {job.panel}
+            {requestLoading && !job.enabled && <LoadingSkeleton variant="inline" label="Classifying responses…" />}
             {(
             <fieldset disabled={isLoading} className="study-unframed-fieldset"><Row className="g-4 align-items-stretch">
                 <Col lg={4} xl={3} className="preview-sidebar">

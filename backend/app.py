@@ -3,6 +3,7 @@ from flask import Flask
 from flask_cors import CORS
 from routes import routes_bp, init_db
 from lti import lti_bp
+from analysis_jobs import start_worker
 
 
 def create_app():
@@ -20,6 +21,7 @@ def create_app():
     init_db()
     app.register_blueprint(routes_bp)
     app.register_blueprint(lti_bp)
+    start_worker()
 
     @app.get('/health')
     def health():
@@ -28,6 +30,7 @@ def create_app():
     @app.get('/models')
     def models():
         return {
+            'background_analysis': os.getenv('ANALYSIS_JOBS_ENABLED') == 'true',
             'models': {
                 'navigator': bool(os.getenv('NAVIGATOR_API_KEY')),
             }

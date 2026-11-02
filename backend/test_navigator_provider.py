@@ -33,7 +33,7 @@ class NavigatorProviderTests(unittest.TestCase):
             response = app.test_client().get('/models')
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json(), {'models': {'navigator': True}})
+        self.assertEqual(response.get_json(), {'models': {'navigator': True}, 'background_analysis': False})
 
     def test_nemotron_disables_reasoning_and_detects_truncated_output(self):
         client = Mock()

@@ -7,6 +7,7 @@ import LabelCreationWindow from './LabelCreationWindow';
 import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowHeader from './WorkflowHeader';
 import WorkflowAlert from './WorkflowAlert';
+import useAnalysisJob from '../hooks/useAnalysisJob';
 import { addThemeAssignment, rejectThemeAssignments, removeThemeAssignment } from '../utils/themeAssignments';
 import { recordReviewDecision } from '../utils/reviewDecisions';
 //import ReviewModal from './ReviewModal';
@@ -18,13 +19,18 @@ const getReadableTextColor = (color = '#000000') => {
     return ((red * 299 + green * 587 + blue * 114) / 1000) > 150 ? '#172b4d' : '#ffffff';
 };
 
-const Review = ({ sessionId, ensureSession, labels, setLabels, setResults, dataset, setDataset, claudeData, setClaudeData, onAdvanceStage, projectMetadata }) => {
+const Review = ({ sessionId, ensureSession, analysisSource, beforeJob, labels, setLabels, setResults, dataset, setDataset, claudeData, setClaudeData, onAdvanceStage, projectMetadata }) => {
     const [currentThemeIndex, setCurrentThemeIndex] = useState(() => Math.min(Number(sessionStorage.getItem(`review-position:${sessionId}`)) || 0, Math.max(labels.length-1,0)));
     useEffect(() => { sessionStorage.setItem(`review-position:${sessionId}`, String(currentThemeIndex)); }, [currentThemeIndex, sessionId]);
     const [responseActions, setResponseActions] = useState({});
     const active = useRef(true);
     useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-    const [isLoading, setIsLoading] = useState(false);
+    const [requestLoading, setIsLoading] = useState(false);
+    const job = useAnalysisJob(analysisSource, 'findings', saved => {
+        setDataset(saved.payload.dataset); setLabels(saved.payload.labels);
+        setResults(saved.result); onAdvanceStage();
+    }, beforeJob);
+    const isLoading = requestLoading || job.busy;
     const [error, setError] = useState(null);
     const [showReassignModal, setShowReassignModal] = useState(false);
     const [rejectedEntries, setRejectedEntries] = useState([]);
@@ -320,6 +326,10 @@ const Review = ({ sessionId, ensureSession, labels, setLabels, setResults, datas
             });
 
             setDataset(updatedDataset);
+            if (job.enabled) {
+                await job.start({dataset:updatedDataset, labels:allThemes, ...projectMetadata});
+                return;
+            }
 
             const activeSession = ensureSession ? await ensureSession() : sessionId;
             const response = await axios.post(
@@ -376,7 +386,8 @@ const Review = ({ sessionId, ensureSession, labels, setLabels, setResults, datas
 
             <WorkflowAlert message={error} onClose={() => setError(null)} />
 
-            {isLoading && <LoadingSkeleton variant="inline" label="Preparing findings…" />}
+            {job.panel}
+            {requestLoading && !job.enabled && <LoadingSkeleton variant="inline" label="Preparing findings…" />}
             {(
             <fieldset disabled={isLoading} className="study-unframed-fieldset"><Row className="g-4 align-items-stretch">
                 <Col lg={4} xl={3} className="review-sidebar">

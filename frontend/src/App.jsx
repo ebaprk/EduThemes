@@ -434,6 +434,8 @@ function App() {
             path="/code"
             element={sessionId && dataset ? <ResearcherGate>
               <Preview
+                analysisSource={analysisSource}
+                beforeJob={async () => { await saveQueue.current; if (analysisRuns.current.get(analysisSource?.runId)?.blocked) throw new Error('Save study progress before starting analysis'); }}
                 sessionId={sessionId}
                 ensureSession={ensureAnalysisSession}
                 dataset={dataset}
@@ -454,6 +456,8 @@ function App() {
             path="/review"
             element={sessionId && dataset && claudeData ? <ResearcherGate>
               <Review
+                analysisSource={analysisSource}
+                beforeJob={async () => { await saveQueue.current; if (analysisRuns.current.get(analysisSource?.runId)?.blocked) throw new Error('Save study progress before starting analysis'); }}
                 sessionId={sessionId}
                 ensureSession={ensureAnalysisSession}
                 visualization={visualization}

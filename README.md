@@ -37,6 +37,12 @@ See [the Phase 1 release guide](docs/phase1-release.md) for the roles, migration
 verification commands, and release order. The companion participant project is
 updated separately; this repository does not deploy it.
 
+### Recoverable background analysis
+
+Study classification and findings now support saved background jobs, input snapshots,
+interruption recovery, and explicit retry. Production activation requires the additive
+migration and API feature switch in [the deployment guide](docs/background-analysis-release.md).
+
 ### Phase 2.1: operations and multiple activities
 
 Study operations include dashboards, recruitment targets,
