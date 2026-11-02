@@ -78,9 +78,14 @@ The combined downloaded report correctly marked itself as draft, included the
 saved report sections, and excluded the private flag and unselected response.
 The live review panel fit a measured 390px viewport without document overflow.
 
-Backend deployment is pending: the existing Render dashboard became blank after
-refresh and could not expose deployment controls. The codebook instruction update
-is committed and tested, but is not yet confirmed running on Render. Existing
-classification remains available with its prior definition-only instructions.
-The database review/report features are already live and independently verified.
-Print preview was exercised; a final exported PDF was not visually checked.
+Backend deployment completed after dashboard access was restored. Render deployment
+`dep-dbkg84u7bikc73c9dedg` is **Live**, running commit `1e97cdb` (which includes
+implementation `967cc0a`). The codebook inclusion/exclusion rules and examples now
+reach the classification and summary instructions. The live `/models` endpoint
+returned HTTP 200 with NaviGator and background analysis enabled. Verification did
+not make another model request or alter research responses.
+
+All 23 public researcher build files matched the published site. The database,
+researcher app, and backend portions of this release are now published.
+The report preview was exercised; the browser print dialog and a final exported
+PDF were not visually checked.
