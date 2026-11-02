@@ -1,14 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { LuArchive, LuArrowUpRight, LuChevronRight, LuCircleHelp, LuFlaskConical, LuFolder, LuFolderOpen, LuImport, LuMenu, LuPanelLeftClose, LuPanelLeftOpen, LuX } from 'react-icons/lu';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { LuArchive, LuArrowUpRight, LuChevronRight, LuCircleHelp, LuFlaskConical, LuFolder, LuFolderOpen, LuImport, LuLogOut, LuMenu, LuPanelLeftClose, LuPanelLeftOpen, LuX } from 'react-icons/lu';
 import { supabase } from '../supabase';
-import LoadingSkeleton from './LoadingSkeleton';
+import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import './Header.css';
 
 const Brand = () => <Link className="site-brand" to="/" aria-label="EduThemes home"><img src="/eduthemes-mark.svg" alt="" width="30" height="30" /><span>EduThemes<span className="brand-period">.</span></span></Link>;
 
 export default function Header({ hasActiveAnalysis = false, analysisSource }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState('');
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(Boolean(supabase));
   const [collapsed, setCollapsed] = useState(false);
@@ -56,6 +59,17 @@ export default function Header({ hasActiveAnalysis = false, analysisSource }) {
     return () => { document.body.style.overflow = previousOverflow; background.forEach((element) => { element.inert = false; }); document.removeEventListener('keydown', onKey); menuButton.current?.focus({ preventScroll: true }); };
   }, [mobileOpen]);
 
+  const signOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true); setSignOutError('');
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigate('/');
+    } catch { setSignOutError('Could not sign out. Please try again.'); }
+    finally { setSigningOut(false); }
+  };
+
   if (!user) return <header className="public-header"><Brand /><span className="public-header__label">A workspace for educational research</span>{checking ? <LoadingSkeleton className="header-auth-check" label="Checking account…" rows={1} /> : <a className="header-help" href="https://github.com/ebaprk/EduThemes#research-studies-and-participant-responses" target="_blank" rel="noreferrer">About EduThemes <LuArrowUpRight aria-hidden="true" /></a>}</header>;
 
   const links = [{href:'/',label:'Studies',icon:LuFolder,active:!inAnalysis || studyAnalysis}];
@@ -69,7 +83,7 @@ export default function Header({ hasActiveAnalysis = false, analysisSource }) {
       <nav aria-label="Main navigation"><span className="sidebar-label">WORKSPACE</span>{links.map(({ href, label, icon: Icon, active }) => <Link key={href} to={href} className={`sidebar-link${active ? ' is-active' : ''}`} aria-current={active ? 'page' : undefined} title={collapsed ? label : undefined}><Icon aria-hidden="true" /><span>{label}</span>{active && <span className="sidebar-active-dot" aria-hidden="true" />}</Link>)}
         <span className="sidebar-label sidebar-label--second">ANALYSIS</span><Link to="/analysis" className={`sidebar-link${inAnalysis && !studyAnalysis ? ' is-active' : ''}`} aria-current={inAnalysis && !studyAnalysis ? 'page' : undefined} title={collapsed ? 'Import responses' : undefined}><LuImport aria-hidden="true" /><span>Import responses</span>{hasActiveAnalysis && !studyAnalysis && <span className="analysis-live-dot" aria-label="Analysis in progress" />}</Link>
       </nav>
-      <div className="sidebar-bottom"><a className="sidebar-link" href="https://github.com/ebaprk/EduThemes#research-studies-and-participant-responses" target="_blank" rel="noreferrer" title={collapsed ? 'Help and documentation' : undefined}><LuCircleHelp aria-hidden="true" /><span>Help & documentation</span><LuArrowUpRight className="sidebar-external" aria-hidden="true" /></a><div className="sidebar-profile"><span className="profile-avatar" aria-hidden="true">{name.slice(0, 2).toUpperCase()}</span><div><strong>{name}</strong><span title={user.email}>{user.email}</span></div><button type="button" className="icon-button sidebar-collapse" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={() => setCollapsed(!collapsed)}>{collapsed ? <LuPanelLeftOpen /> : <LuPanelLeftClose />}</button></div></div>
+      <div className="sidebar-bottom"><a className="sidebar-link" href="https://github.com/ebaprk/EduThemes#research-studies-and-participant-responses" target="_blank" rel="noreferrer" title={collapsed ? 'Help and documentation' : undefined}><LuCircleHelp aria-hidden="true" /><span>Help & documentation</span><LuArrowUpRight className="sidebar-external" aria-hidden="true" /></a><div className="sidebar-profile"><span className="profile-avatar" aria-hidden="true">{name.slice(0, 2).toUpperCase()}</span><div><strong>{name}</strong><span title={user.email}>{user.email}</span></div><button type="button" className="icon-button sidebar-collapse" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={() => setCollapsed(!collapsed)}>{collapsed ? <LuPanelLeftOpen /> : <LuPanelLeftClose />}</button></div><button type="button" className="sidebar-link sidebar-sign-out" onClick={signOut} disabled={signingOut} aria-busy={signingOut} aria-label={signingOut ? 'Signing out…' : 'Sign out'} title={collapsed ? 'Sign out' : undefined}>{signingOut ? <Skeleton className="edu-skeleton--button" /> : <LuLogOut aria-hidden="true" />}<span>{signingOut ? 'Signing out…' : 'Sign out'}</span></button>{signOutError && <p className="sidebar-account-error" role="alert">{signOutError}</p>}</div>
     </aside>
     <header className="workspace-header"><div className="workspace-breadcrumb"><button ref={menuButton} type="button" className="icon-button mobile-menu" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}><LuMenu /></button><LuFolder className="breadcrumb-icon" aria-hidden="true" /><Link to="/">Workspace</Link><LuChevronRight aria-hidden="true" /><span>{studyAnalysis ? <Link to={`/studies/${analysisSource.studyId}?section=analysis`}>{analysisSource.title}</Link> : inStudy ? location.pathname === '/studies/new' ? 'Create study' : 'Study' : inAnalysis ? 'Import responses' : 'Studies'}</span>{(stageName || location.pathname.includes('/questions/')) && <><LuChevronRight aria-hidden="true" /><span>{stageName || ({code:'Code',review:'Review',results:'Findings'})[location.pathname.split('/').at(-1)]}</span></>}</div></header>
   </>;

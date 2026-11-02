@@ -10,7 +10,7 @@ import StudyEvidence from './StudyEvidence';
 import StudyOperations from './StudyOperations';
 import StudySectionNav from './StudySectionNav';
 import ResearchDashboard, { StudyStatus } from './ResearchDashboard';
-import { LuArrowRight, LuCheck, LuFlaskConical, LuLogOut, LuMessageSquare, LuShieldCheck, LuSparkles } from 'react-icons/lu';
+import { LuArrowRight, LuCheck, LuFlaskConical, LuMessageSquare, LuShieldCheck, LuSparkles } from 'react-icons/lu';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import './Studies.css';
 
@@ -81,7 +81,6 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
   const [startingQuestionId, setStartingQuestionId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editingSection, setEditingSection] = useState('design');
@@ -199,16 +198,7 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
     } catch (failure) { setError(failure.message || 'Could not start coding.'); }
     finally { setSaving(false); setStartingQuestionId(null); }
   };
-  const signOut = async () => {
-    if (signingOut) return;
-    setSigningOut(true);
-    try {
-      const { error: signOutError } = await supabase.auth.signOut();
-      if (signOutError) throw signOutError;
-      navigate('/');
-    } catch (failure) { setError(failure.message || 'Could not sign out. Please try again.'); }
-    finally { setSigningOut(false); }
-  };
+
 
   if (!supabaseConfigured) return <main className="study-shell"><h1>Connect Supabase to EduThemes</h1><p>Follow the setup steps in the README to connect the workspace.</p></main>;
   if (authLoading) return <main className="study-shell"><LoadingSkeleton variant={studyId ? 'study' : 'workspace'} label="Loading researcher workspace…" /></main>;
@@ -216,7 +206,6 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
   const loadingData = loading || loadedKey !== `${user.id}:${studyId || 'list'}`;
 
   return <main className="study-shell researcher-shell">
-    <div className="study-topbar"><span className="study-eyebrow">{''}</span><button type="button" className="study-text-button sign-out-button" onClick={signOut} disabled={signingOut} aria-busy={signingOut}>{signingOut ? <><Skeleton className="edu-skeleton--button" />Signing out…</> : <><LuLogOut aria-hidden="true" />Sign out</>}</button></div>
     {error && <p className="study-error" role="alert">{error}</p>}{notice && <p className="study-note" role="status">{notice}</p>}
     {(saving || (loadingData && studyId && study?.id === studyId)) && <LoadingSkeleton variant="inline" label={startingQuestionId ? 'Preparing coding workspace…' : saving ? 'Saving study changes…' : 'Refreshing study…'} />}
     {!studyId ? <>

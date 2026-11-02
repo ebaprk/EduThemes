@@ -71,3 +71,8 @@
   .workspace-breadcrumb { gap: 8px; }
   .icon-button { min-width: 40px; min-height: 40px; }
 }
+
+.sidebar-sign-out { width:100%; background:transparent; text-align:left; margin-bottom:14px; cursor:pointer; }
+.sidebar-sign-out:disabled { cursor:wait; opacity:.7; }
+.sidebar-sign-out:focus-visible { outline:2px solid var(--edu-accent); outline-offset:2px; }
+.sidebar-account-error { font-size:.75rem; color:#a32727; margin:0 3px 14px; overflow-wrap:anywhere; }
