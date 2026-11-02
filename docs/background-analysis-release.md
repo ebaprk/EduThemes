@@ -89,3 +89,31 @@ Before activation, all original fields across eight backed-up tables were compar
 with the protected pre-release export and were unchanged. Live access checks confirm
 row-level security, denied direct browser/anonymous reads, denied browser claims, and
 service-role-only worker access.
+
+### Live verification and external blocker
+
+The live worker deployed successfully (Render commit 8222894), and `/models` returns
+`background_analysis: true`. All 21 published researcher files match the tested build.
+A clearly labeled synthetic study was created for the production walkthrough:
+`fb66d566-0319-45d6-8a5b-00b7a92f8278`. It contains one fabricated response, no real
+participant, and no invitation/contact action. Its classification job survived closing
+and reopening the browser, and explicit retry preserved the frozen inputs.
+
+Live AI completion remains blocked by NaviGator: on November 2, 2026 its `/v1/models`
+response listed `nemotron-3-super-120b-a12b`, while `/v1/chat/completions` rejected that
+same model with HTTP 400 and “Invalid model name passed”. A minimal direct request
+with only a synthetic connectivity prompt reproduced the error, independently of the
+queue, structured-output options, and application sessions. The same failure occurred
+with the existing local provider configuration. No provider/key/model substitution was
+made. Successful live classification/findings recovery cannot be claimed until UF
+restores routing/access for the configured model. The synthetic local end-to-end
+recovery checks passed; they used a mock model and are distinct from this live blocker.
+
+The worker now stores safe, specific guidance for recognized model errors and logs
+only the controlled error code/class, never credentials or response content. The
+latest backend suite passes 36 tests; researcher and database suites passed 19 and
+40 respectively (95 total). The existing free hosting plan is unchanged.
+
+The synthetic live verification study was closed to new responses after the check.
+Its failed job and fabricated answer remain available for inspection/retry when the
+provider issue is resolved. No original study was edited or closed.
