@@ -64,3 +64,23 @@ are ignored, permission-restricted files under `backend/private/`.
 No production study was created or republished by this release. No new API key,
 funding, email delivery, or hosting upgrade is part of this phase. The previously
 documented NaviGator key expiry remains an operational follow-up before a pilot.
+
+## Published status
+
+Implementation commit: `967cc0a`, pushed to GitHub. The researcher Firebase site
+was published successfully. The participant app remains unchanged.
+
+Live checks confirmed review lookup, draft saving/reloading, an unresolved
+uncertainty flag, and a server-recorded history event on the existing closed,
+synthetic recruitment verification study. Its original response, coding, and
+summary were not edited. It remains unsigned; no scientific approval is implied.
+The combined downloaded report correctly marked itself as draft, included the
+saved report sections, and excluded the private flag and unselected response.
+The live review panel fit a measured 390px viewport without document overflow.
+
+Backend deployment is pending: the existing Render dashboard became blank after
+refresh and could not expose deployment controls. The codebook instruction update
+is committed and tested, but is not yet confirmed running on Render. Existing
+classification remains available with its prior definition-only instructions.
+The database review/report features are already live and independently verified.
+Print preview was exercised; a final exported PDF was not visually checked.
