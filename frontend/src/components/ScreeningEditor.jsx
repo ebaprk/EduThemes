@@ -1,12 +1,12 @@
 import React from 'react';
 import { cleanScreeningBranches, newScreeningQuestion, recruitmentDraft } from '../utils/recruitment';
 
-export default function ScreeningEditor({ value, onChange, disabled, mode }) {
+export default function ScreeningEditor({ value, onChange, disabled, mode, sectionId, sectionRef }) {
   const config = recruitmentDraft(value);
   const set = (field, next) => onChange({ ...config, [field]: next });
   const setQuestions = questions => set('questions', cleanScreeningBranches(questions));
   const questionChange = (id, field, next) => setQuestions(config.questions.map(q => q.id === id ? { ...q, [field]: next } : q));
-  return <section className="study-editor-section screening-editor" aria-labelledby="screening-heading">
+  return <section id={sectionId} ref={sectionRef} className="study-editor-section screening-editor" aria-labelledby="screening-heading">
     <div className="study-editor-section-title"><h3 id="screening-heading">Recruitment and screening</h3><p>Review volunteers before inviting them to join. Screening answers are kept separate from research responses.</p></div>
     <label className="study-check-choice"><input type="checkbox" checked={config.enabled} disabled={disabled || mode !== 'anonymous'} onChange={event => onChange({ ...config, enabled: event.target.checked, questions: config.questions.length ? config.questions : [newScreeningQuestion()] })} />Require screening and a researcher invitation</label>
     {mode !== 'anonymous' && <p className="study-help">Choose anonymous participation to use private recruitment and study return links.</p>}

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { studyLink } from '../appUrls';
+import { resolveStudyView } from '../utils/studyWorkflow';
 import { supabase, supabaseConfigured } from '../supabase';
 import { participantDetails, submissionsToCsv } from '../utils/participantData';
 import StudyForm from './StudyForm';
@@ -134,7 +135,7 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
         const [s, q, r, a, v, m, access] = results.map((result) => result.data);
         setStudy(s); setDraftQuestions(q || []); setSubmissions(r || []); setAnalyses(a || []);
         setVersions(v || []); setMembers(m || []); setRole(access);
-        setView(current => { const requested = new URLSearchParams(window.location.search).get('version'); return requested || (v?.some(version => version.id === current) ? current : s.status === 'draft' ? 'draft' : s.current_version_id); });
+        setView(current => resolveStudyView(s,v || [],new URLSearchParams(window.location.search).get('version'),current));
       }
     } catch (failure) { if (generation === loadGeneration.current) { setError(failure.message || 'The study could not be loaded.'); setLoadError(failure.message || 'The study could not be loaded.'); if (failure.status === 401 || failure.status === 403) { setStudy(null); setRole(null); } } }
     finally { if (generation === loadGeneration.current) { setLoadedKey(`${user.id}:${studyId || 'list'}`); setLoading(false); } }
@@ -159,12 +160,15 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
   const setStatus = async (status) => {
     setSaving(true); setUpdatingStatus(true); setError('');
     try {
-      const { data, error: statusError } = await supabase.from('studies').update({ status }).eq('id', study.id).select('id');
+      let request = supabase.from('studies').update({ status }).eq('id', study.id).eq('status', study.status);
+      if (status === 'open' && study.status === 'draft') request = request.eq('draft_revision', study.draft_revision);
+      const { data, error: statusError } = await request.select('id');
       if (statusError) throw statusError;
-      if (!data?.length) throw new Error('Only the study owner can change publication status.');
+      if (!data?.length) throw new Error(role === 'owner' ? 'The study changed before this action. Refresh and review the latest version before continuing.' : 'Only the study owner can change publication status.');
       setNotice(status === 'draft' ? 'A new draft is ready. The participant link is paused until you publish it. Earlier versions and responses are preserved.' : status === 'open' ? 'The study is open to participants.' : 'The study is closed to new responses.');
       await load(); if (status === 'draft') setView('draft');
-    } catch (failure) { setError(failure.message || 'The study status could not be changed.'); }
+      return true;
+    } catch (failure) { setError(failure.message || 'The study status could not be changed.'); return false; }
     finally { setSaving(false); setUpdatingStatus(false); }
   };
   const acceptInvitation = async (invitation) => {
@@ -213,7 +217,7 @@ export default function Researcher({ onAnalyze, hasActiveAnalysis, onResumeAnaly
       {isNew && <StudyForm draftKey={`${user.id}:new`} onSave={saveDraft} onCancel={() => navigate('/')} saving={saving} />}
       </ResearchDashboard>
     </> : <>
-      {loadingData && study?.id !== studyId ? <LoadingSkeleton variant="study" label="Loading study…" /> : study ? <StudyWorkspace study={study} user={user} versions={versions} view={view} setView={setView} questions={questions} responses={responses} analyses={versionAnalyses} members={members} role={role} saving={saving} startingQuestionId={startingQuestionId} saveDraft={saveDraft} setStatus={setStatus} copyLink={copyLink} load={load} setError={setError} setNotice={setNotice} launchAnalysis={launchAnalysis} /> : !loadingData && <p role="alert">Study unavailable. Check your access and try again.</p>}
+      {loadingData && study?.id !== studyId ? <LoadingSkeleton variant="study" label="Loading study…" /> : study ? <StudyWorkspace study={study} user={user} versions={versions} view={view} setView={setView} questions={questions} responses={responses} analyses={versionAnalyses} members={members} role={role} saving={saving} refreshing={loadingData} startingQuestionId={startingQuestionId} saveDraft={saveDraft} setStatus={setStatus} copyLink={copyLink} load={load} setError={setError} setNotice={setNotice} launchAnalysis={launchAnalysis} /> : !loadingData && <p role="alert">Study unavailable. Check your access and try again.</p>}
     </>}
   </main>;
 }

@@ -1,8 +1,10 @@
 import React, { useId, useLayoutEffect, useRef, useState, useEffect } from 'react';
-import { LuCheck, LuFileText, LuMessageSquare, LuSave, LuUsers } from 'react-icons/lu';
+import { LuCheck, LuFileText, LuMessageSquare, LuSave, LuUsers, LuEye } from 'react-icons/lu';
 import { Skeleton } from './LoadingSkeleton';
 import StudyActivityEditor from './StudyActivityEditor';
 import ScreeningEditor from './ScreeningEditor';
+import StudyPreview from './StudyPreview';
+import { draftPreview } from '../utils/studyWorkflow';
 import { recruitmentDraft } from '../utils/recruitment';
 import { activityDrafts, studyDraftPayload } from '../utils/studyActivities';
 import './StudyForm.css';
@@ -12,6 +14,7 @@ const emptyForm = { title: '', description: '', research_question: '', additiona
 export default function StudyForm({ initial = emptyForm, onSave, onCancel, saving, initialSection = 'design', draftKey }) {
   const id = useId();
   const editor = useRef(null);
+  const [preview,setPreview] = useState(false);
   const sectionRefs = useRef({});
   const Heading = initial.id ? 'h2' : 'h1';
   const storageKey = draftKey ? `eduthemes.draft.${draftKey}` : null;
@@ -60,11 +63,12 @@ export default function StudyForm({ initial = emptyForm, onSave, onCancel, savin
     if (saved && storageKey) localStorage.removeItem(storageKey);
   };
 
-  return <form ref={editor} className="study-panel study-editor study-form" onSubmit={submit} noValidate aria-busy={saving}>
+  return <><form ref={editor} className="study-panel study-editor study-form" onSubmit={submit} noValidate aria-busy={saving}>
     <header className="study-editor-heading"><div><Heading>{initial.id ? 'Edit study' : 'Create study'}</Heading></div><span>{dirty ? 'Unsaved changes · recovery on this device' : 'Private draft'}</span></header>
     <nav className="study-editor-nav" aria-label="Study setup sections">
       <a href={`#${id}-design`}><LuFileText aria-hidden="true" />Study design</a>
       <a href={`#${id}-participation`}><LuUsers aria-hidden="true" />Participation</a>
+      <a href={`#${id}-screening`}><LuUsers aria-hidden="true" />Recruitment</a>
       <a href={`#${id}-activities`}><LuMessageSquare aria-hidden="true" />Activities & questions</a>
     </nav>
     {validation && <p className="study-error study-form-validation" role="alert">{validation}</p>}
@@ -91,13 +95,13 @@ export default function StudyForm({ initial = emptyForm, onSave, onCancel, savin
           <div className="study-field"><label htmlFor={`${id}-compensation`}>Compensation or course credit <span aria-hidden="true">(optional)</span></label><textarea id={`${id}-compensation`} aria-label="Compensation or course credit" value={form.compensation_details} onChange={(event) => setField('compensation_details', event.target.value)} rows={2} maxLength={2000} placeholder="What is offered and how it is arranged" /></div>
         </div>
       </section>
-      <ScreeningEditor value={form.recruitment} onChange={value => setField('recruitment', value)} disabled={saving} mode={form.participant_mode} />
+      <ScreeningEditor sectionId={`${id}-screening`} sectionRef={element => { sectionRefs.current.screening = element; }} value={form.recruitment} onChange={value => setField('recruitment', value)} disabled={saving} mode={form.participant_mode} />
       <section id={`${id}-activities`} ref={(element) => { sectionRefs.current.activities = element; }} className="study-editor-section" aria-labelledby={`${id}-activities-heading`}>
         <div className="study-editor-section-title"><h3 id={`${id}-activities-heading`}>Activities and questions</h3><p>Add and edit your questions together. Participants answer them one at a time.</p></div>
         {form.participant_mode === 'canvas' && <p className="study-help">Canvas studies support one activity. Choose anonymous participation above to add follow-ups.</p>}
         <StudyActivityEditor activities={form.activities} onChange={setActivities} disabled={saving} multipleAllowed={form.participant_mode !== 'canvas'} />
       </section>
     </fieldset>
-    <footer className="study-actions study-form-footer"><button type="button" className="study-secondary" disabled={saving} onClick={onCancel}>{initial.id ? 'Back to study' : 'Back to studies'}</button><button type="submit" className="study-primary" disabled={saving || unsupportedCanvasPlan} aria-busy={saving}>{saving ? <><Skeleton className="edu-skeleton--button" />Saving…</> : <><LuSave aria-hidden="true" />Save draft</>}</button></footer>
-  </form>;
+    <footer className="study-actions study-form-footer"><button type="button" className="study-secondary" disabled={saving} onClick={onCancel}>{initial.id ? 'Back to study' : 'Back to studies'}</button><button type="button" className="study-secondary" disabled={saving} onClick={() => setPreview(true)}><LuEye aria-hidden="true" />Preview participant experience</button><button type="submit" className="study-primary" disabled={saving || unsupportedCanvasPlan} aria-busy={saving}>{saving ? <><Skeleton className="edu-skeleton--button" />Saving…</> : <><LuSave aria-hidden="true" />Save draft</>}</button></footer>
+  </form><StudyPreview show={preview} onHide={() => setPreview(false)} study={draftPreview(form)} /></>;
 }

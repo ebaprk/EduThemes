@@ -18,6 +18,7 @@ import { supabase } from './supabase';
 import { attachResponseSources, responseRecordsForQuestion, responsesForQuestion, responsesToCsv } from './utils/studyResponses';
 import "./components/Workflow.css";
 import "./styles/ContextTheme.css";
+import "./styles/ResearchFlow.css";
 
 const Review = lazy(() => import('./components/Review'));
 const Analyze = lazy(() => import('./components/Analyze'));
