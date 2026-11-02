@@ -109,4 +109,34 @@ rotation disabled. Toolkit rejects “Never resets”; its November 29 expiry pr
 the first scheduled reset. A permanent no-reset replacement still requires resolving
 that provider setting. This release does not extend or renew the credential.
 
-Deployment status: local checks passed; production rollout pending.
+## Production activation — November 2, 2026
+
+The migration was applied in one successful transaction. A protected before/after
+comparison across ten tables confirmed all original fields were unchanged: six
+studies, seven questions, five submissions, four analyses, seven published versions,
+one operations record, two analysis jobs, and empty membership/enrollment/progress
+tables. Backup files remain owner-readable under ignored `backend/private/`.
+Live privilege checks confirmed RLS, denied direct browser reads, denied anonymous
+pipeline access, and denied browser access to the private base/helper functions.
+
+Both Firebase sites are published. The researcher/database/backend implementation is
+commit `f454c95`; participant implementation is `fb8ad0c` with wording polish in
+`f1a41f2`. Render deployment `dep-dbkeram7bikc73c4uk90` is live at `f454c95`.
+Live file comparisons matched all tested public build files on both sites.
+
+Production verification used only a fabricated study:
+`a0cadb0e-a415-49d2-91ce-62d3d4df19ef`, version
+`ef1f78d6-3dde-4b74-9877-fa7b6dfec510`, question
+`e19e51d3-e970-45b4-8739-d230794dece0`. Its volunteer moved from screening to
+waitlist, confirmed eligibility, invitation, separate study consent/linking,
+single-activity enrollment, and completion. The private review note was absent
+from participant status. The Recruit refresh also updated enrollment completion.
+
+The fabricated research response was then coded, reviewed, and summarized by the
+live Nemotron worker. The 2,623-character summary passed completeness validation
+and ended in a full sentence. Screening answers were absent from the research
+analysis. The test study was closed afterward; its screening, review history,
+response, receipts, and findings remain available. No original study was edited.
+
+Screenshots and file-comparison evidence are ignored under
+`frontend/test-results/recruitment/`.
