@@ -61,6 +61,14 @@ Participants check status through private return links, then separately consent 
 join the existing activity hub. Screening is kept outside research analysis.
 See [the release guide](docs/recruitment-release.md) for deployment and access details.
 
+### Returning results to participants
+
+Participant results adds versioned plain-language drafts, reviewed source findings,
+owner release and withdrawal, retained release history, and private participant access.
+Apply `supabase/migrations/202611020005_participant_results.sql` before publishing
+the updated apps. See [the results release guide](docs/participant-results-release.md)
+for access rules, verification, and current rollout status.
+
 ### Supabase setup
 
 The [EduThemes Supabase project](https://supabase.com/dashboard/project/ihocmfxrhbiyilnzdptu)

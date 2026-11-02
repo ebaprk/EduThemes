@@ -15,16 +15,17 @@ import { StudyStatus } from './ResearchDashboard';
 import { studyLink } from '../appUrls';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 
-const sections=[['overview','Overview'],['design','Design'],['recruit','Recruitment'],['collect','Responses'],['analysis','Analysis'],['team-coding','Team coding'],['findings','Findings'],['settings','Team & settings']];
+const sections=[['overview','Overview'],['design','Design'],['recruit','Recruitment'],['collect','Responses'],['analysis','Analysis'],['team-coding','Team coding'],['findings','Findings'],['participant-results','Participant results'],['settings','Team & settings']];
 const TeamCoding=lazy(()=>import('./TeamCoding'));
 const StudyFindings=lazy(()=>import('./StudyFindings'));
+const StudyResultsSharing=lazy(()=>import('./StudyResultsSharing'));
 export default function StudyWorkspace({study,user,versions,view,setView,questions,responses,analyses,members,role,saving,refreshing,startingQuestionId,saveDraft,setStatus,copyLink,load,setError,setNotice,launchAnalysis}) {
   const [preview,setPreview]=useState(false),[copying,setCopying]=useState(false),[operationsRefresh,setOperationsRefresh]=useState(0);
   const [params,setParams]=useSearchParams();
   const section=sections.some(([key])=>key===params.get('section'))?params.get('section'):'overview';
   const select=(value,setup,resetVersion=false)=>{
     setParams(previous=>{const next=new URLSearchParams(previous);next.set('section',value);if(setup)next.set('setup',setup);else next.delete('setup');if(resetVersion)next.delete('version');return next;});
-    if(['collect','analysis','findings'].includes(value))load();
+    if(['collect','analysis','findings','participant-results'].includes(value))load();
   };
   const openedHash=useRef('');
   useEffect(()=>{const hash=window.location.hash;if(section!=='collect'||!hash||openedHash.current===hash)return;const target=document.getElementById(hash.slice(1));if(target){openedHash.current=hash;target.closest('details')?.setAttribute('open','');target.scrollIntoView({block:'center'});target.tabIndex=-1;target.focus({preventScroll:true});}},[section,responses]);
@@ -59,6 +60,7 @@ export default function StudyWorkspace({study,user,versions,view,setView,questio
       </section>}
       {section==='team-coding'&&<Suspense fallback={<LoadingSkeleton variant="responses" label="Opening team coding…"/>}><TeamCoding key={`${study.id}:${view}`} study={study} view={view} questions={questions} responses={responses} analyses={analyses} members={members} user={user} role={role} launchAnalysis={launchAnalysis}/></Suspense>}
       {section==='findings'&&snapshot&&<Suspense fallback={<LoadingSkeleton variant="results" label="Opening the findings workspace…"/>}><StudyFindings study={study} snapshot={snapshot} view={view} work={work} refreshing={refreshing} onSelect={select}/></Suspense>}
+      {section==='participant-results'&&<Suspense fallback={<LoadingSkeleton variant="form" label="Opening participant results…"/>}><StudyResultsSharing key={`${study.id}:${view}`} study={study} view={view} work={work} role={role}/></Suspense>}
       {section==='settings'&&<><div className="study-section-intro"><span className="study-eyebrow">Study administration</span><h2>Team, versions, and closeout</h2><p>Team access and collection status apply to the whole study. Published versions and their findings are preserved.</p></div><StudyTeam study={study} members={members} role={role} onChanged={load} onError={setError} onNotice={setNotice}/>{role==='owner'&&<section className="study-panel study-closeout"><h2>Collection and next version</h2><p>{study.status==='open'?'Close collection when you are ready to stop new submissions. Saved responses, analysis, and participant receipts remain available.':study.status==='closed'?'Collection is closed. Reopen it to resume the published plan, or prepare a draft for the next version.':'The draft is private until you publish it. Earlier versions remain available in the version selector.'}</p><div className="study-actions">{study.status!=='draft'&&<button className="study-secondary" disabled={saving} aria-busy={saving} onClick={()=>setStatus(study.status==='open'?'closed':'open')}>{saving?<><Skeleton className="edu-skeleton--button"/>Updating collection…</>:study.status==='open'?'Close collection':'Reopen collection'}</button>}{study.status==='closed'&&<button className="study-primary" disabled={saving} aria-busy={saving} onClick={async()=>{if(await setStatus('draft')){setParams(previous=>{const next=new URLSearchParams(previous);next.set('section','design');next.set('version','draft');next.delete('setup');return next;});}}}>{saving?<><Skeleton className="edu-skeleton--button"/>Preparing draft…</>:'Prepare next version'}</button>}</div></section>}</>}
     </div>
     <StudyPreview show={preview} onHide={()=>setPreview(false)} study={snapshot}/>
