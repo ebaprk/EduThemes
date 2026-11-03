@@ -13,14 +13,15 @@ are copied.
 
 - Geist for headings, controls, and reading text, with system sans-serif
   fallbacks. Keep body text at 14px and helper text at 12px or larger.
-- A soft workspace canvas `#f5f6f8`, white surfaces `#ffffff`, neutral inset panels
-  `#f8f9fb`, and borders `#e2e5eb`,
-  charcoal ink `#24262b`, and muted text `#71717a`.
-- Terracotta actions `#a54f35` and deeper links `#99472f`. Inputs, progress,
-  selection, and keyboard focus use the same restrained accent.
-- Neutral skeletons `#eaeaec`; the green book icon remains the brand mark.
-- Comfortable controls with 44–48px targets and 8px corners. Cards use 12px
-  corners, 24–36px interior padding, 24–32px layout gaps, and two subtle shadow
+- A warm ivory workspace canvas `#f3f5ee`, white surfaces `#ffffff`, pale sage inset
+  panels `#f7f8f2`, and borders `#dce4d9`, forest ink `#23382e`, and muted text
+  `#627268` across both apps.
+- Forest-green actions and links `#245d49`, dark hover `#194535`, and sage accent
+  `#39765d`. Inputs, progress, selection, and keyboard focus share this palette;
+  warning and error states retain their distinct amber and red colors.
+- Sage-neutral skeletons `#e4e9df`; the green book icon remains the brand mark.
+- Comfortable controls with 44–48px targets and 12px corners. Cards use 16px
+  corners, 26–38px interior padding, 24–32px layout gaps, and two subtle shadow
   layers to separate white work surfaces from the canvas. Mobile layouts keep
   24px panel padding and avoid squeezing labels or actions.
 - A collapsible desktop sidebar, breadcrumb header, and mobile navigation

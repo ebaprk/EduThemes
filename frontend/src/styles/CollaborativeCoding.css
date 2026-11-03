@@ -1,23 +1,23 @@
 .team-coding { display:grid; gap:24px; }
 .coding-round-list { display:flex; flex-wrap:wrap; gap:12px; }
 .coding-round-list > button { display:grid; text-align:left; gap:6px; max-width:100%; white-space:normal; }
-.coding-round-list > button[aria-pressed="true"] { border-color:#97543c; background:#f8eee8; }
+.coding-round-list > button[aria-pressed="true"] { border-color:#245d49; background:#eaf6f0; }
 .coding-round-list span { color:#666c76; font-size:.85rem; }
 .coding-round-workspace > .study-actions { flex-wrap:wrap; }
-.coding-assignment-plan { padding:20px 0; border-bottom:1px solid #e2e5eb; margin-bottom:16px; }
+.coding-assignment-plan { padding:20px 0; border-bottom:1px solid #dce4d9; margin-bottom:16px; }
 .coding-sample-choice { display:flex; align-items:flex-start; gap:12px; padding:12px; overflow-wrap:anywhere; }
 .coding-sample-choice input { flex-shrink:0; margin-top:5px; }
 .coding-round-setup .study-primary { margin-top:20px; }
-.coding-response-card { padding:28px 0; border-top:1px solid #e2e5eb; margin-top:24px; }
+.coding-response-card { padding:28px 0; border-top:1px solid #dce4d9; margin-top:24px; }
 .coding-response-card h4 { font-size:1.1rem; }
-.coding-response-card blockquote { padding:20px; border-radius:14px; background:#f5f6f8; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.75; }
+.coding-response-card blockquote { padding:20px; border-radius:14px; background:#f3f5ee; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.75; }
 .coding-theme-choices { display:grid; gap:12px; border:0; padding:0; margin:20px 0; }
 .coding-theme-choices legend { font-size:1rem; font-weight:600; }
-.coding-theme-choices label { display:flex; gap:12px; padding:14px; border:1px solid #e2e5eb; border-radius:12px; align-items:flex-start; cursor:pointer; }
+.coding-theme-choices label { display:flex; gap:12px; padding:14px; border:1px solid #dce4d9; border-radius:12px; align-items:flex-start; cursor:pointer; }
 .coding-theme-choices input { margin-top:5px; flex-shrink:0; }
 .coding-theme-choices small { display:block; color:#656c77; line-height:1.6; margin-top:4px; }
 .coding-vote-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin:20px 0; }
-.coding-vote-grid > div { padding:18px; border:1px solid #e2e5eb; border-radius:14px; overflow-wrap:anywhere; }
+.coding-vote-grid > div { padding:18px; border:1px solid #dce4d9; border-radius:14px; overflow-wrap:anywhere; }
 .coding-frozen-codebook summary,.coding-round-workspace details > summary { cursor:pointer; padding:12px 0; font-weight:600; }
 .coding-frozen-codebook article { padding:16px 0; }
 .coding-progress-list li { margin:12px 0; }
