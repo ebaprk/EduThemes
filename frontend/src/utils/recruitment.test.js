@@ -12,3 +12,12 @@ test('recruitment stages are distinct current statuses and never count enrollmen
  assert.equal(counts.invited,0); assert.equal(counts.enrolled,1); assert.equal(counts.completed,1);
  assert.equal(Object.values(counts).reduce((sum,count)=>sum+count,0),4);
 });
+
+test('a completed local review is not marked stale while the previous list refreshes', async () => {
+  const { applicationIsStale } = await import('./recruitment.js');
+  const selected={revision:4,status:'invited'};
+  assert.equal(applicationIsStale(selected,{revision:3,status:'eligible'}),false);
+  assert.equal(applicationIsStale(selected,{revision:4,status:'invited'}),false);
+  assert.equal(applicationIsStale(selected,{revision:4,status:'enrolled'}),true);
+  assert.equal(applicationIsStale(selected,{revision:5,status:'enrolled'}),true);
+});

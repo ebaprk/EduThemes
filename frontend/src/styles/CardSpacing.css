@@ -24,7 +24,7 @@
 .App .study-stage-card h3 { margin:28px 0 16px; }
 .App .study-stage-card p { margin-bottom:28px; }
 .App .study-stage-bottom { padding-top:22px; }
-.App .study-overview-metrics > div { padding:28px 32px; gap:24px; }
+.App .study-overview-metrics > button { padding:28px 32px; gap:24px; }
 .App .study-finding-card { gap:8px; }
 .App .study-finding-card > .study-primary { margin-top:auto; }
 .App .study-finding-card .finding-theme-chips { gap:12px; margin:20px 0 28px; }
@@ -57,7 +57,7 @@
   .App .study-list-card { padding:28px 24px 0; }
   .App .study-list-card .study-card-bottom { margin-inline:-24px; padding-inline:24px; }
   .App .study-stage-card { padding:26px; }
-  .App .study-overview-metrics > div { padding:24px; gap:20px; }
+  .App .study-overview-metrics > button { padding:24px; gap:20px; }
   .App .workflow-page .card-body,
   .App :is(.preview-sidebar,.review-sidebar) .card-body { padding:26px; }
   .App .workflow-page .card-header { padding:24px 26px; }

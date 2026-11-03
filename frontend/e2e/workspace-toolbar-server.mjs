@@ -14,7 +14,7 @@ const participant = path.resolve(root, '../EduThemes-Participant');
 const apiUrl = 'http://127.0.0.1:5192';
 const researcherUrl = 'http://127.0.0.1:5190';
 const participantUrl = 'http://127.0.0.1:5191';
-const output = path.join(frontend, 'test-results/workspace-toolbar');
+const output = process.env.EDUTHEMES_WALKTHROUGH_OUTPUT || '/private/tmp/eduthemes-cohesive-workflow';
 const owner = randomUUID(), coder = randomUUID();
 const db = new PGlite();
 await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
@@ -102,6 +102,9 @@ const api = createServer(async(req,res)=>{
     if(url.pathname==='/auth/v1/user')return user?reply(user):reply({message:'Sign in to the disposable account.'},401);
     if(url.pathname==='/auth/v1/logout')return reply({});
     if(url.pathname==='/models')return reply({models:{navigator:true}});
+    // Import setup is isolated from the model backend; no analysis is generated here.
+    if(url.pathname==='/session/start')return reply({session_id:randomUUID()});
+    if(req.method==='DELETE' && url.pathname.startsWith('/session/'))return reply({});
     if(url.pathname==='/__test__/snapshot') {
       await queue.catch(()=>{});
       const result={};

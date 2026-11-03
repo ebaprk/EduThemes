@@ -1,24 +1,13 @@
 import React, { useState } from 'react';
-import { Alert, Button } from 'react-bootstrap';
+import { Alert, Button, Modal } from 'react-bootstrap';
 import axios from 'axios';
 import {
     FaArrowRight,
-    FaFileAlt,
-    FaLightbulb,
-    FaListUl,
-    FaTags,
 } from 'react-icons/fa';
 import { API_URL, getApiErrorMessage } from '../api';
 import './Start.css';
 import WorkflowAlert from './WorkflowAlert';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
-
-const workflowSteps = [
-    { number: '01', icon: FaFileAlt, title: 'Set up', description: 'Add responses and project context.' },
-    { number: '02', icon: FaTags, title: 'Code', description: 'Build and refine your theme set.' },
-    { number: '03', icon: FaListUl, title: 'Review', description: 'Check the suggested assignments.' },
-    { number: '04', icon: FaLightbulb, title: 'Results', description: 'Explore and export your findings.' },
-];
 
 const stageNames = {
     upload: 'Set up',
@@ -41,10 +30,11 @@ const Start = ({
 }) => {
     const [isStarting, setIsStarting] = useState(false);
     const [error, setError] = useState(null);
+    const [confirmReplace, setConfirmReplace] = useState(false);
 
     const startSession = async () => {
         if (isStarting) return;
-
+        setConfirmReplace(false);
         setError(null);
         setIsStarting(true);
 
@@ -76,7 +66,7 @@ const Start = ({
             <div className="start-card__footer">
                 <Button
                     className="start-primary-button"
-                    onClick={startSession}
+                    onClick={() => hasActiveAnalysis ? setConfirmReplace(true) : startSession()}
                     disabled={isStarting}
                     aria-busy={isStarting}
                 >
@@ -86,7 +76,7 @@ const Start = ({
                         <>{hasActiveAnalysis ? 'Start a new analysis' : 'Create an analysis'} <FaArrowRight aria-hidden="true" /></>
                     )}
                 </Button>
-                {hasActiveAnalysis && <span className="start-card__hint">This replaces your current workspace.</span>}
+                {hasActiveAnalysis && <span className="start-card__hint">Finish or export your current analysis before replacing it.</span>}
             </div>
         </section>
     );
@@ -139,6 +129,11 @@ const Start = ({
                     onClose={() => setError(null)}
                     className="start-alert"
                 />
+                <Modal show={confirmReplace} onHide={() => setConfirmReplace(false)} centered aria-labelledby="replace-analysis-title">
+                    <Modal.Header closeButton><Modal.Title id="replace-analysis-title">Replace the current workspace?</Modal.Title></Modal.Header>
+                    <Modal.Body><p>Starting a new analysis replaces the workspace for “{researchQuestion || 'Your current analysis'}”. Continue or export that analysis first if you still need it.</p><p>Saved study findings remain in their study.</p></Modal.Body>
+                    <Modal.Footer><Button variant="secondary" onClick={() => setConfirmReplace(false)}>Keep current workspace</Button><Button className="start-primary-button" onClick={startSession}>Replace and start new analysis</Button></Modal.Footer>
+                </Modal>
 
             </div>
         </main>

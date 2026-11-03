@@ -14,3 +14,7 @@ export function cleanScreeningBranches(questions) {
 export function recruitmentCounts(applicants) {
   return Object.fromEntries(Object.keys(recruitmentStatuses).map(status => [status, applicants.filter(applicant => applicant.status === status).length]));
 }
+export function applicationIsStale(selected, latest) {
+  return Boolean(selected && latest && (latest.revision > selected.revision
+    || (latest.revision === selected.revision && latest.status !== selected.status)));
+}
