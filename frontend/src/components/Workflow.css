@@ -128,7 +128,7 @@
 }
 
 .workflow-stepper__item > a:focus-visible {
-    border-radius: 5px;
+    border-radius: 9px;
     outline: 3px solid rgba(183, 96, 67, 0.25);
     outline-offset: 3px;
 }
@@ -174,7 +174,7 @@
 .workflow-page .card {
     overflow: hidden;
     border: 1px solid var(--edu-border);
-    border-radius: 18px;
+    border-radius: 22px;
     background: #ffffff;
     box-shadow: none;
 }
@@ -211,7 +211,7 @@
 
 .App .btn-sm {
     min-height: 34px;
-    border-radius: 6px;
+    border-radius: 10px;
 }
 
 .App .btn-primary {
@@ -273,7 +273,7 @@
 .App .form-select {
     min-height: 46px;
     border-color: #e4e4e7;
-    border-radius: 10px;
+    border-radius: 14px;
     background-color: #ffffff;
     color: var(--edu-ink);
     box-shadow: none;
@@ -341,7 +341,7 @@
 
 .workflow-alert.alert {
     border: 1px solid rgba(200, 75, 90, 0.18);
-    border-radius: 8px;
+    border-radius: 12px;
 }
 
 .workflow-stat {
@@ -351,7 +351,7 @@
     min-height: 38px;
     padding: 7px 11px;
     border: 1px solid #e0e4eb;
-    border-radius: 6px;
+    border-radius: 10px;
     background: #ffffff;
     color: #5e6b7e;
     font-size: var(--font-size-min);
@@ -390,7 +390,7 @@
     margin-bottom: 20px;
     padding: 12px 16px;
     border: 1px solid #cbd6e3;
-    border-radius: 8px;
+    border-radius: 12px;
     background: #faf0eb;
     color: #405067;
     font-size: 0.86rem;
@@ -406,7 +406,7 @@
     top: 100px;
     padding: 28px;
     border: 1px solid #cbd6e3;
-    border-radius: 10px;
+    border-radius: 14px;
     background: #faf0eb;
 }
 
@@ -416,7 +416,7 @@
     height: 48px;
     margin-bottom: 22px;
     place-items: center;
-    border-radius: 7px;
+    border-radius: 11px;
     background: var(--edu-primary);
     box-shadow: none;
     color: #ffffff;
@@ -485,7 +485,7 @@
     width: 30px;
     height: 30px;
     place-items: center;
-    border-radius: 6px;
+    border-radius: 10px;
     background: var(--edu-primary-soft);
     color: var(--edu-primary);
     font-size: var(--font-size-min);
@@ -508,7 +508,7 @@
 .upload-dropzone {
     padding: 18px;
     border: 1px dashed #b9b2eb;
-    border-radius: 8px;
+    border-radius: 12px;
     background: #f8fafc;
 }
 
@@ -603,7 +603,7 @@
     width: 100%;
     padding: 32px 36px;
     border: 1px solid var(--edu-border);
-    border-radius: 14px;
+    border-radius: 18px;
     background: #ffffff;
 }
 
@@ -646,7 +646,7 @@
     min-height: 46px;
     padding: 10px 13px;
     border: 1px solid #ead8cf;
-    border-radius: 8px;
+    border-radius: 12px;
     background: #fff;
     color: var(--edu-ink);
     box-shadow: none;
@@ -677,7 +677,7 @@
     min-height: 68px;
     padding: 14px;
     border: 1px solid rgba(22, 32, 43, 0.2);
-    border-radius: 8px;
+    border-radius: 12px;
     background: #ffffff;
     color: var(--edu-ink);
     text-align: left;
@@ -695,7 +695,7 @@
     height: 34px;
     place-items: center;
     border: 1px solid rgba(22, 32, 43, 0.2);
-    border-radius: 7px;
+    border-radius: 11px;
     background: #f5f1e7;
     font-family: var(--font-mono);
     font-size: var(--font-size-min);
@@ -713,7 +713,7 @@
     align-items: center;
     padding: 20px;
     border: 1.5px dashed rgba(22, 32, 43, 0.32);
-    border-radius: 10px;
+    border-radius: 14px;
     background: rgba(255, 254, 248, 0.68);
 }
 
@@ -731,7 +731,7 @@
     margin-left: auto;
     padding: 10px 17px;
     border: 1px solid var(--edu-ink);
-    border-radius: 8px;
+    border-radius: 12px;
     background: var(--edu-ink);
     color: #ffffff;
     cursor: pointer;
@@ -746,7 +746,7 @@
 
 .setup-actions { display: flex; gap: 12px; align-items: center; margin-top: 24px; }
 .App .setup-next.btn,
-.App .setup-back.btn { display: inline-flex; gap: 9px; align-items: center; justify-content: center; min-height: 42px; padding: 8px 15px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; }
+.App .setup-back.btn { display: inline-flex; gap: 9px; align-items: center; justify-content: center; min-height: 42px; padding: 8px 15px; border-radius: 12px; font-size: 0.88rem; font-weight: 600; }
 .App .setup-next.btn { border-color: var(--edu-ink); background: var(--edu-ink); color: #ffffff; }
 .App .setup-next.btn:hover,
 .App .setup-next.btn:focus-visible { border-color: var(--edu-primary-dark); background: var(--edu-primary-dark); }
@@ -818,7 +818,7 @@
     align-items: center;
     padding: 8px 10px;
     border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    border-radius: 10px;
     background: #ffffff;
     color: #3e4d63;
     font-size: 0.84rem;
@@ -830,7 +830,7 @@
     flex: 0 0 auto;
     width: 10px;
     height: 10px;
-    border-radius: 2px;
+    border-radius: 6px;
 }
 
 .selected-response {
@@ -875,7 +875,7 @@
     max-height: 650px;
     overflow: auto;
     border: 1px solid #e5e8ee;
-    border-radius: 7px;
+    border-radius: 11px;
 }
 
 .preview-table {
@@ -962,7 +962,7 @@
     align-items: center;
     padding: 5px 7px;
     border: 1px solid #e4e4e7;
-    border-radius: 5px;
+    border-radius: 9px;
     background: #ffffff;
     color: #344054;
     font-size: var(--font-size-min);
@@ -979,7 +979,7 @@
 .theme-pill::before {
     width: 7px;
     height: 7px;
-    border-radius: 2px;
+    border-radius: 6px;
     background: var(--theme-color);
     content: '';
 }
@@ -1027,7 +1027,7 @@
     gap: 9px;
     align-items: center;
     padding: 8px 10px;
-    border-radius: 5px;
+    border-radius: 9px;
     color: #5d6a7d;
     font-size: var(--font-size-min);
 }
@@ -1077,12 +1077,12 @@
     width: 100%;
     height: 9px;
     overflow: visible;
-    border-radius: 3px;
+    border-radius: 7px;
     background: #e8eaf0;
 }
 
 .review-progress-strip .progress-bar {
-    border-radius: 3px;
+    border-radius: 7px;
     background: var(--edu-primary) !important;
     color: transparent;
 }
@@ -1109,7 +1109,7 @@
     margin: 0 !important;
     padding: 16px 18px !important;
     border: 1px solid #e4e7ed;
-    border-radius: 7px;
+    border-radius: 11px;
     background: #ffffff;
     color: #405067;
     font-size: 0.88rem;
@@ -1177,7 +1177,7 @@
 .analysis-metric {
     padding: 18px 20px;
     border: 1px solid #e4e4e7;
-    border-radius: 8px;
+    border-radius: 12px;
     background: #ffffff;
     box-shadow: none;
 }
@@ -1295,7 +1295,7 @@
     padding: 19px;
     overflow: hidden;
     border: 1px solid #e2e6ed;
-    border-radius: 7px;
+    border-radius: 11px;
     background: #ffffff;
 }
 
@@ -1359,7 +1359,7 @@
 .modal-content {
     overflow: hidden;
     border: 1px solid rgba(51, 65, 88, 0.12);
-    border-radius: 10px;
+    border-radius: 14px;
     box-shadow: 0 18px 48px rgba(30, 39, 64, 0.18);
 }
 
@@ -1469,13 +1469,13 @@
 
 .modal-content .btn {
     min-height: 40px;
-    border-radius: 7px;
+    border-radius: 11px;
     font-weight: 600;
 }
 
 .modal-content .btn-sm {
     min-height: 34px;
-    border-radius: 6px;
+    border-radius: 10px;
 }
 
 .modal-content .btn-primary {
@@ -1491,7 +1491,7 @@
 .modal-content .form-select {
     min-height: 44px;
     border-color: #e4e4e7;
-    border-radius: 7px;
+    border-radius: 11px;
     background-color: #ffffff;
     color: var(--edu-ink);
     box-shadow: none;
@@ -1511,7 +1511,7 @@
 }
 
 .modal-content .nav-pills .nav-link {
-    border-radius: 6px;
+    border-radius: 10px;
     color: #617086;
     font-size: 0.84rem;
     font-weight: 600;
@@ -1526,7 +1526,7 @@
     margin-bottom: 14px;
     padding: 10px 12px;
     border: 1px solid #efc4ca;
-    border-radius: 6px;
+    border-radius: 10px;
     background: #fff1f2;
     color: #7a2934;
     font-size: 0.88rem;

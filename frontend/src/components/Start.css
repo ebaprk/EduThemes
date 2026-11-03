@@ -64,7 +64,7 @@
     flex-direction: column;
     padding: 28px 30px;
     border: 1px solid var(--start-border);
-    border-radius: 16px;
+    border-radius: 20px;
     background: #ffffff;
 }
 
@@ -140,7 +140,7 @@
     justify-content: center;
     padding: 10px 16px;
     border: 1px solid var(--start-green);
-    border-radius: 9px;
+    border-radius: 13px;
     background: var(--start-green);
     box-shadow: none;
     color: #fff;
@@ -242,7 +242,7 @@
 .start-alert {
     max-width: 720px;
     margin: 18px 0 0;
-    border-radius: 10px;
+    border-radius: 14px;
     text-align: left;
 }
 
@@ -293,7 +293,7 @@
     min-height: 154px;
     padding: 18px;
     border: 1px solid var(--start-border);
-    border-radius: 12px;
+    border-radius: 16px;
     background: #ffffff;
 }
 
@@ -302,7 +302,7 @@
     width: 32px;
     height: 32px;
     place-items: center;
-    border-radius: 8px;
+    border-radius: 12px;
     background: #f4f4f5;
     color: var(--start-green);
     font-size: 0.82rem;

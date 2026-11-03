@@ -16,7 +16,7 @@
     padding: clamp(36px, 7vw, 64px);
     border: 1px solid #e4e4e7;
     border-top: 4px solid #a54f35;
-    border-radius: 12px;
+    border-radius: 16px;
     background: #ffffff;
     text-align: center;
 }
@@ -24,7 +24,7 @@
 .not-found-card img {
     display: block;
     margin: 0 auto 22px;
-    border-radius: 14px;
+    border-radius: 18px;
 }
 
 .not-found-code {
@@ -54,7 +54,7 @@
     padding: 11px 20px;
     align-items: center;
     justify-content: center;
-    border-radius: 7px;
+    border-radius: 11px;
     background: #a54f35;
     color: #ffffff;
     font-weight: 600;
