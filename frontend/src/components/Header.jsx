@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LuArchive, LuArrowUpRight, LuChevronRight, LuCircleHelp, LuFlaskConical, LuFolder, LuFolderOpen, LuImport, LuLogOut, LuMenu, LuPanelLeftClose, LuPanelLeftOpen, LuX } from 'react-icons/lu';
+import { LuArrowLeft, LuArrowUpRight, LuCircleHelp, LuFolder, LuImport, LuLogOut, LuMenu, LuPanelLeftClose, LuPanelLeftOpen, LuPlus, LuSearch, LuX } from 'react-icons/lu';
 import { supabase } from '../supabase';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
+import { studySearchUrl, workspaceNavigation } from '../utils/workspaceNavigation';
 import './Header.css';
 
 const Brand = () => <Link className="site-brand" to="/" aria-label="EduThemes home"><img src="/eduthemes-mark.svg" alt="" width="30" height="30" /><span>EduThemes<span className="brand-period">.</span></span></Link>;
 
-export default function Header({ hasActiveAnalysis = false, analysisSource }) {
+export default function Header({ hasActiveAnalysis = false, analysisSource, beforeNavigate }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [signingOut, setSigningOut] = useState(false);
@@ -16,13 +17,15 @@ export default function Header({ hasActiveAnalysis = false, analysisSource }) {
   const [checking, setChecking] = useState(Boolean(supabase));
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [navigating, setNavigating] = useState(false);
+  const [navigationError, setNavigationError] = useState('');
   const drawer = useRef(null);
   const menuButton = useRef(null);
-  const requestedStatus = new URLSearchParams(location.search).get('status');
-  const status = ['open', 'draft', 'closed'].includes(requestedStatus) ? requestedStatus : 'all';
-  const inStudy = location.pathname.startsWith('/studies/');
   const inAnalysis = ['/analysis', '/upload', '/code', '/review', '/results'].includes(location.pathname) || location.pathname.includes('/questions/');
   const studyAnalysis = inAnalysis && Boolean(analysisSource);
+  const context = workspaceNavigation(location.pathname, location.search, analysisSource);
+  useEffect(() => { setSearch(location.pathname === '/' ? new URLSearchParams(location.search).get('q') || '' : ''); }, [location.pathname, location.search]);
 
   useEffect(() => {
     if (!supabase) return undefined;
@@ -69,12 +72,22 @@ export default function Header({ hasActiveAnalysis = false, analysisSource }) {
     } catch { setSignOutError('Could not sign out. Please try again.'); }
     finally { setSigningOut(false); }
   };
+  const go = async (href) => {
+    if (navigating) return;
+    setNavigating(true); setNavigationError('');
+    try { if (inAnalysis && analysisSource) await beforeNavigate?.(); navigate(href); }
+    catch { setNavigationError('Could not finish saving your analysis. Try again before leaving this page.'); }
+    finally { setNavigating(false); }
+  };
+  const follow = (event, href) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault(); go(href);
+  };
 
   if (!user) return <header className="public-header"><Brand /><span className="public-header__label">A workspace for educational research</span>{checking ? <LoadingSkeleton className="header-auth-check" label="Checking account…" rows={1} /> : <a className="header-help" href="https://github.com/ebaprk/EduThemes#research-studies-and-participant-responses" target="_blank" rel="noreferrer">About EduThemes <LuArrowUpRight aria-hidden="true" /></a>}</header>;
 
   const links = [{href:'/',label:'Studies',icon:LuFolder,active:!inAnalysis || studyAnalysis}];
   const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Researcher';
-  const stageName = ({ '/analysis': 'Overview', '/upload': 'Set up', '/code': 'Code', '/review': 'Review', '/results': 'Results' })[location.pathname];
 
   return <>
     {mobileOpen && <div className="sidebar-backdrop" onClick={() => { setMobileOpen(false); menuButton.current?.focus(); }} aria-hidden="true" />}
@@ -85,6 +98,10 @@ export default function Header({ hasActiveAnalysis = false, analysisSource }) {
       </nav>
       <div className="sidebar-bottom"><a className="sidebar-link" href="https://github.com/ebaprk/EduThemes#research-studies-and-participant-responses" target="_blank" rel="noreferrer" title={collapsed ? 'Help and documentation' : undefined}><LuCircleHelp aria-hidden="true" /><span>Help & documentation</span><LuArrowUpRight className="sidebar-external" aria-hidden="true" /></a><div className="sidebar-profile"><span className="profile-avatar" aria-hidden="true">{name.slice(0, 2).toUpperCase()}</span><div><strong>{name}</strong><span title={user.email}>{user.email}</span></div><button type="button" className="icon-button sidebar-collapse" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={() => setCollapsed(!collapsed)}>{collapsed ? <LuPanelLeftOpen /> : <LuPanelLeftClose />}</button></div><button type="button" className="sidebar-link sidebar-sign-out" onClick={signOut} disabled={signingOut} aria-busy={signingOut} aria-label={signingOut ? 'Signing out…' : 'Sign out'} title={collapsed ? 'Sign out' : undefined}>{signingOut ? <Skeleton className="edu-skeleton--button" /> : <LuLogOut aria-hidden="true" />}<span>{signingOut ? 'Signing out…' : 'Sign out'}</span></button>{signOutError && <p className="sidebar-account-error" role="alert">{signOutError}</p>}</div>
     </aside>
-    <header className="workspace-header"><div className="workspace-breadcrumb"><button ref={menuButton} type="button" className="icon-button mobile-menu" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}><LuMenu /></button><LuFolder className="breadcrumb-icon" aria-hidden="true" /><Link to="/">Workspace</Link><LuChevronRight aria-hidden="true" /><span>{studyAnalysis ? <Link to={`/studies/${analysisSource.studyId}?section=analysis`}>{analysisSource.title}</Link> : inStudy ? location.pathname === '/studies/new' ? 'Create study' : 'Study' : inAnalysis ? 'Import responses' : 'Studies'}</span>{(stageName || location.pathname.includes('/questions/')) && <><LuChevronRight aria-hidden="true" /><span>{stageName || ({code:'Code',review:'Review',results:'Findings'})[location.pathname.split('/').at(-1)]}</span></>}</div></header>
+    <header className="workspace-header workspace-toolbar" aria-label="Researcher workspace tools">
+      <div className="workspace-toolbar-context"><button ref={menuButton} type="button" className="icon-button mobile-menu" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}><LuMenu /></button><div>{context.back && <Link className="workspace-parent-link" to={context.back} onClick={event => follow(event,context.back)}><LuArrowLeft aria-hidden="true" />{context.backLabel}</Link>}<span className="workspace-current-section">{context.title}</span></div></div>
+      <div className="workspace-toolbar-actions"><form className="workspace-study-search" role="search" aria-label="Find a study" onSubmit={event => { event.preventDefault(); go(studySearchUrl(search)); }}><label className="visually-hidden" htmlFor="workspace-study-search">Find a study</label><input id="workspace-study-search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Find a study…" disabled={navigating}/><button type="submit" aria-label={navigating ? 'Opening workspace…' : 'Search studies'} disabled={navigating} aria-busy={navigating}>{navigating ? <Skeleton className="edu-skeleton--button"/> : <LuSearch aria-hidden="true"/>}</button></form>{location.pathname !== '/studies/new' && <Link className="workspace-create-study" to="/studies/new" aria-label="Create study" onClick={event => follow(event,'/studies/new')}><LuPlus aria-hidden="true"/><span>Create study</span></Link>}</div>
+    </header>
+    {navigationError && <p className="study-error workspace-navigation-error" role="alert">{navigationError}</p>}
   </>;
 }

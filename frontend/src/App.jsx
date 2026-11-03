@@ -382,7 +382,7 @@ function App() {
   return (
     <div className="App">
       <a className="skip-to-content" href="#main-content">Skip to content</a>
-      <Header analysisSource={analysisSource} hasActiveAnalysis={Boolean(sessionId && currentStage !== 'start')} />
+      <Header analysisSource={analysisSource} hasActiveAnalysis={Boolean(sessionId && currentStage !== 'start')} beforeNavigate={async () => { await saveQueue.current; }} />
       <div className="app-content" id="main-content" tabIndex="-1">
         {analysisSource && ['preview', 'review', 'results'].includes(currentStage) && (
           <div className="study-analysis-banner"><span><strong>{analysisSource.title}</strong> · {analysisSource.versionNumber ? `Version ${analysisSource.versionNumber} · ` : ''}{analysisSource.prompt}</span>{analysisSaveState.startsWith('Saving') ? <LoadingSkeleton variant="inline" label={analysisSaveState} /> : <span role="status">{analysisSource.readOnly ? 'Saved findings' : analysisSaveState}</span>}{analysisSaveState.startsWith('Could not') && <button type="button" className="study-text-button" onClick={downloadCurrentCoding}>Download current coding</button>}<Link to={`/studies/${analysisSource.studyId}?section=analysis&version=${analysisSource.versionId}`} onClick={async (event) => { event.preventDefault(); await saveQueue.current; navigate(`/studies/${analysisSource.studyId}?section=analysis&version=${analysisSource.versionId}`); }}>Study overview</Link></div>

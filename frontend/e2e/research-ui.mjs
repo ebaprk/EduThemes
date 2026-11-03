@@ -90,9 +90,10 @@ try {
     await page.getByRole('button', { name: 'Collecting', exact: true }).click();
     await expect(page.locator('.study-list-card')).toHaveCount(2);
     await expect(page).toHaveURL(/status=open/);
-    await page.getByLabel('Search studies').fill('advising');
+    await page.getByLabel('Find a study', { exact: true }).fill('advising');
+    await page.getByRole('button', { name: 'Search studies', exact: true }).click();
     await expect(page.locator('.study-list-card')).toHaveCount(1);
-    await page.getByLabel('Clear search').click();
+    await page.getByRole('button', { name: 'Clear search', exact: true }).click();
     await page.getByRole('button', { name: 'Drafts', exact: true }).click();
     await expect(page.locator('.study-list-card')).toHaveCount(1);
     await expect(page.locator('.study-list-card')).toContainText('Learning with generative AI');
@@ -103,7 +104,8 @@ try {
     await expect(page.locator('.study-library-table tbody tr')).toHaveCount(4);
     await page.getByLabel('Sort studies').selectOption('oldest');
     await expect(page.locator('.study-library-table tbody tr').first()).toContainText('First-year advising');
-    await page.getByLabel('Search studies').fill('no matching title');
+    await page.getByLabel('Find a study', { exact: true }).fill('no matching title');
+    await page.getByRole('button', { name: 'Search studies', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'No matching studies' })).toBeVisible();
     await page.getByRole('button', { name: 'Clear filters' }).click();
     await expect(page.locator('.study-library-table tbody tr')).toHaveCount(4);
@@ -182,7 +184,7 @@ try {
   }, { studies: [] });
   await scenario('single-page setup preserves multiple activities and validates before saving', async (page, state) => {
     await page.goto(baseUrl);
-    await page.getByRole('button', { name: 'Create study', exact: true }).click();
+    await page.getByRole('link', { name: 'Create study', exact: true }).click();
     await page.getByLabel('Question 1', { exact: true }).fill('What helped you get started?');
     await page.getByRole('button', { name: /Add question$/ }).click();
     await page.getByLabel('Question 2', { exact: true }).fill('What would you improve?');

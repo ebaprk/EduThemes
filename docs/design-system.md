@@ -24,8 +24,18 @@ are copied.
   corners, 26–38px interior padding, 24–32px layout gaps, and two subtle shadow
   layers to separate white work surfaces from the canvas. Mobile layouts keep
   24px panel padding and avoid squeezing labels or actions.
-- A collapsible desktop sidebar, breadcrumb header, and mobile navigation
-  drawer with focus containment, Escape dismissal, and focus restoration.
+- A collapsible researcher desktop sidebar and mobile navigation drawer with
+  focus containment, Escape dismissal, and focus restoration.
+- The signed-in researcher top bar provides study search, study creation, and
+  explicit parent navigation. Search is shared with the library URL and updates
+  without reloading; returning from an analysis retains the selected version.
+  Analysis navigation waits for queued saves. Repeated page-level search/create
+  controls and the study hero's duplicate back link are removed.
+- The participant top bar provides a private-link shortcut and a contextual
+  return action. Its native dialog supports study keys and private results links,
+  validates locally, keeps credentials in URL fragments, traps keyboard focus,
+  and restores focus on dismissal. Mobile navigation remains directly available.
+  Both toolbars use the warm workspace background instead of a blank white strip.
 - A searchable study library with URL-based status filters, sorting, grid and
   table views, real status counts, and separate loading, error, and empty states.
 - An efficient single-page researcher study form with all fields available in
