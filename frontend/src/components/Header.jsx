@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LuArrowLeft, LuArrowUpRight, LuCircleHelp, LuFolder, LuImport, LuLogOut, LuMenu, LuPanelLeftClose, LuPanelLeftOpen, LuPlus, LuSearch, LuX } from 'react-icons/lu';
+import { LuArrowLeft, LuArrowUpRight, LuChevronRight, LuCircleHelp, LuFolder, LuImport, LuLogOut, LuMenu, LuPanelLeftClose, LuPanelLeftOpen, LuPlus, LuSearch, LuX } from 'react-icons/lu';
 import { supabase } from '../supabase';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import { studySearchUrl, workspaceNavigation } from '../utils/workspaceNavigation';
@@ -99,7 +99,15 @@ export default function Header({ hasActiveAnalysis = false, analysisSource, befo
       <div className="sidebar-bottom"><a className="sidebar-link" href="https://github.com/ebaprk/EduThemes#research-studies-and-participant-responses" target="_blank" rel="noreferrer" title={collapsed ? 'Help and documentation' : undefined}><LuCircleHelp aria-hidden="true" /><span>Help & documentation</span><LuArrowUpRight className="sidebar-external" aria-hidden="true" /></a><div className="sidebar-profile"><span className="profile-avatar" aria-hidden="true">{name.slice(0, 2).toUpperCase()}</span><div><strong>{name}</strong><span title={user.email}>{user.email}</span></div><button type="button" className="icon-button sidebar-collapse" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={() => setCollapsed(!collapsed)}>{collapsed ? <LuPanelLeftOpen /> : <LuPanelLeftClose />}</button></div><button type="button" className="sidebar-link sidebar-sign-out" onClick={signOut} disabled={signingOut} aria-busy={signingOut} aria-label={signingOut ? 'Signing out…' : 'Sign out'} title={collapsed ? 'Sign out' : undefined}>{signingOut ? <Skeleton className="edu-skeleton--button" /> : <LuLogOut aria-hidden="true" />}<span>{signingOut ? 'Signing out…' : 'Sign out'}</span></button>{signOutError && <p className="sidebar-account-error" role="alert">{signOutError}</p>}</div>
     </aside>
     <header className="workspace-header workspace-toolbar" aria-label="Researcher workspace tools">
-      <div className="workspace-toolbar-context"><button ref={menuButton} type="button" className="icon-button mobile-menu" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}><LuMenu /></button><div>{context.back && <Link className="workspace-parent-link" to={context.back} onClick={event => follow(event,context.back)}><LuArrowLeft aria-hidden="true" />{context.backLabel}</Link>}<span className="workspace-current-section">{context.title}</span></div></div>
+      <div className="workspace-toolbar-context">
+        <button ref={menuButton} type="button" className="icon-button mobile-menu" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}><LuMenu /></button>
+        <nav className={`workspace-breadcrumb${context.back?' has-parent':''}`} aria-label="Breadcrumb">
+          <ol>
+            {context.back&&<><li className="workspace-breadcrumb-parent"><Link className="workspace-parent-link" to={context.back} aria-label={context.backLabel} onClick={event=>follow(event,context.back)}><LuArrowLeft className="workspace-breadcrumb-back" aria-hidden="true"/>{context.back==='/'?'Studies':context.back==='/analysis'?'Import':'Study'}</Link></li><li className="workspace-breadcrumb-separator" aria-hidden="true"><LuChevronRight/></li></>}
+            <li className="workspace-breadcrumb-current"><span className="workspace-current-section" aria-current="page" title={context.title}>{context.title}</span></li>
+          </ol>
+        </nav>
+      </div>
       <div className="workspace-toolbar-actions"><form className="workspace-study-search" role="search" aria-label="Find a study" onSubmit={event => { event.preventDefault(); go(studySearchUrl(search)); }}><label className="visually-hidden" htmlFor="workspace-study-search">Find a study</label><input id="workspace-study-search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Find a study…" disabled={navigating}/><button type="submit" aria-label={navigating ? 'Opening workspace…' : 'Search studies'} disabled={navigating} aria-busy={navigating}>{navigating ? <Skeleton className="edu-skeleton--button"/> : <LuSearch aria-hidden="true"/>}</button></form>{location.pathname !== '/studies/new' && <Link className="workspace-create-study" to="/studies/new" aria-label="Create study" onClick={event => follow(event,'/studies/new')}><LuPlus aria-hidden="true"/><span>Create study</span></Link>}</div>
     </header>
     {navigationError && <p className="study-error workspace-navigation-error" role="alert">{navigationError}</p>}
