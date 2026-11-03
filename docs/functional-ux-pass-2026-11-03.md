@@ -4,7 +4,7 @@ Both apps keep the warm white, stone, and charcoal theme, book logo, spacious ca
 
 ## Researcher changes
 
-- Study navigation exposes every section without horizontal clipping; smaller screens use a labelled selector.
+- Primary study sections use one row of underlined tabs. Team coding, participant results, and team settings remain accessible through More. Smaller screens use a labelled selector.
 - The overview keeps a next action, linked study counts, readiness, and a question work queue. Repeated roadmap and process cards are removed.
 - Work-queue actions open the selected question’s coding/review workspace or exact saved findings run. Published activity-plan links scroll and focus the activity plan.
 - Repeated publication buttons are consolidated. Read-only draft actions say “View details.”
@@ -12,6 +12,7 @@ Both apps keep the warm white, stone, and charcoal theme, book logo, spacious ca
 - Replacing the current analysis asks for confirmation. Cancellation and failed requests retain the current analysis.
 - Recruitment refreshes do not treat a successful local decision as an external conflict. Genuine newer revisions and changed enrollment status still require review.
 - Section changes move to their content. The draft editor avoids stacking two sticky menus over fields.
+- Select controls reserve a fixed chevron gutter, including the version picker, mobile section picker, and library sort. More supports keyboard activation, Escape with focus return, selection dismissal, and outside-click dismissal.
 
 ## Participant changes
 

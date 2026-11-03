@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { LuArrowRight,LuEye,LuRefreshCw } from 'react-icons/lu';
+import { LuArrowRight,LuChevronDown,LuEye,LuRefreshCw } from 'react-icons/lu';
 import { submissionsToCsv,participantDetails } from '../utils/participantData';
 import { findingsEntries,findingsUrl,nextStudyAction,studyReadiness,studySnapshot,studyWork } from '../utils/studyWorkflow';
 import { runKey } from '../utils/analysisHistory';
@@ -16,6 +16,7 @@ import { studyLink } from '../appUrls';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 
 const sections=[['overview','Overview'],['design','Design'],['recruit','Recruitment'],['collect','Responses'],['analysis','Analysis'],['team-coding','Team coding'],['findings','Findings'],['participant-results','Participant results'],['settings','Team & settings']];
+const secondarySections=new Set(['team-coding','participant-results','settings']);
 const TeamCoding=lazy(()=>import('./TeamCoding'));
 const StudyFindings=lazy(()=>import('./StudyFindings'));
 const StudyResultsSharing=lazy(()=>import('./StudyResultsSharing'));
@@ -23,6 +24,13 @@ export default function StudyWorkspace({study,user,versions,view,setView,questio
   const [preview,setPreview]=useState(false),[copying,setCopying]=useState(false),[operationsRefresh,setOperationsRefresh]=useState(0);
   const [params,setParams]=useSearchParams();
   const section=sections.some(([key])=>key===params.get('section'))?params.get('section'):'overview';
+  const moreNavigation=useRef(null);
+  useEffect(()=>{
+    const closeOutside=event=>{const menu=moreNavigation.current;if(menu?.open&&!menu.contains(event.target))menu.open=false;};
+    document.addEventListener('pointerdown',closeOutside);
+    return()=>document.removeEventListener('pointerdown',closeOutside);
+  },[]);
+  useEffect(()=>{if(moreNavigation.current)moreNavigation.current.open=false;},[section]);
   const content=useRef(null), previousSection=useRef(section);
   useLayoutEffect(()=>{
     if(previousSection.current===section)return;
@@ -33,6 +41,7 @@ export default function StudyWorkspace({study,user,versions,view,setView,questio
     if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true});}
   },[section]);
   const select=(value,setup,resetVersion=false)=>{
+    if(moreNavigation.current)moreNavigation.current.open=false;
     setParams(previous=>{const next=new URLSearchParams(previous);next.set('section',value);if(setup)next.set('setup',setup);else next.delete('setup');if(resetVersion)next.delete('version');return next;});
     if(['collect','analysis','findings','participant-results'].includes(value))load();
   };
@@ -53,7 +62,16 @@ export default function StudyWorkspace({study,user,versions,view,setView,questio
       <div className="study-actions">{!editingDraft&&<button className="study-secondary study-refresh-button" disabled={refreshing||saving} aria-busy={refreshing} aria-label="Refresh study" onClick={load}>{refreshing?<><Skeleton className="edu-skeleton--button"/>Refreshing…</>:<LuRefreshCw aria-hidden="true"/>}</button>}{!editingDraft&&<button className="study-secondary" disabled={!snapshot||saving} onClick={()=>setPreview(true)}><LuEye aria-hidden="true"/>Participant preview</button>}{section!=='overview'&&(editingDraft||nextAction.kind==='publish'||nextAction.section!==section)&&<button className="study-primary" disabled={saving||refreshing} aria-busy={saving&&nextAction.kind==='publish'} onClick={editingDraft?()=>select('overview'):action}>{editingDraft?'Study overview':saving&&nextAction.kind==='publish'?<><Skeleton className="edu-skeleton--button"/>Publishing…</>:nextAction.label}</button>}</div>
     </div></header>
     {historical&&<p className="study-version-notice" role="note">You are viewing an earlier published version. Its design, responses, and findings are preserved. The participant link always opens the current published version.</p>}
-    <nav className="study-section-nav study-workspace-nav" aria-label="Study sections"><label className="study-section-picker">Study section<select value={section} onChange={event=>select(event.target.value)}>{sections.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><div className="study-section-buttons">{sections.map(([value,label])=><button type="button" key={value} aria-current={section===value?'page':undefined} onClick={()=>select(value)}>{label}{value==='findings'&&findings.length>0&&<span className="study-nav-count">{findings.length}</span>}</button>)}</div></nav>
+    <nav className="study-section-nav study-workspace-nav" aria-label="Study sections">
+      <label className="study-section-picker">Study section<select value={section} onChange={event=>select(event.target.value)}>{sections.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+      <div className="study-section-buttons">
+        {sections.filter(([value])=>!secondarySections.has(value)).map(([value,label])=><button type="button" key={value} aria-current={section===value?'page':undefined} onClick={()=>select(value)}>{label}{value==='findings'&&findings.length>0&&<span className="study-nav-count">{findings.length}</span>}</button>)}
+        <details className={`study-more-nav${secondarySections.has(section)?' is-active':''}`} ref={moreNavigation} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus();}}}>
+          <summary>{secondarySections.has(section)?sections.find(([value])=>value===section)[1]:'More'}<LuChevronDown aria-hidden="true"/></summary>
+          <div className="study-more-options">{sections.filter(([value])=>secondarySections.has(value)).map(([value,label])=><button type="button" key={value} aria-current={section===value?'page':undefined} onClick={()=>select(value)}>{label}</button>)}</div>
+        </details>
+      </div>
+    </nav>
     <div className="study-workspace-content" ref={content}>
       {section==='overview'&&<StudyOverview study={study} snapshot={snapshot} role={role} readiness={readiness} work={work} findings={findings} nextAction={nextAction} onAction={action} onSelect={select} onAnalyze={item=>launchAnalysis(item.question,item.analysis?.stage!=='results'?item.analysis:null)} view={view} startingQuestionId={startingQuestionId} saving={saving} refreshing={refreshing}/>}
       {section==='design'&&(study.status==='draft'&&view==='draft'&&canEdit?<StudyForm key={`${study.id}:${study.draft_revision}`} initial={{...study,questions:questions.map(q=>q.prompt)}} initialSection={params.get('setup') || 'design'} draftKey={`${user.id}:${study.id}`} onSave={saveDraft} onCancel={()=>select('overview')} saving={saving}/>:<StudyDesignSummary snapshot={snapshot} initialSection={params.get('setup')} onPreview={()=>setPreview(true)}/>)}

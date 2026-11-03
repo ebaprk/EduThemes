@@ -37,10 +37,17 @@
 .version-control { gap:12px; color:var(--edu-muted); }
 .version-control select { min-height:42px; border-color:var(--edu-border); padding:9px 12px; border-radius:12px; box-shadow:var(--edu-shadow-soft); }
 .study-version-notice { padding:16px 20px; border:1px solid #e7ddcd; background:#fffbf3; border-radius:14px; font-size:.875rem; line-height:1.7; }
-.study-workspace-nav { gap:4px; padding:6px; margin:0 0 32px; background:#ece9e3; border:1px solid #e3dfd7; border-radius:16px; box-shadow:inset 0 1px 2px #24314604; }
-.study-workspace-nav button { display:flex; align-items:center; justify-content:center; flex:1; gap:8px; min-height:46px; padding:10px 16px; border:1px solid transparent; border-radius:12px; font-size:.875rem; white-space:nowrap; color:#626975; }
-.study-workspace-nav button[aria-current=page] { border-color:#e0e3e8; background:#fff; color:var(--edu-accent-ink); box-shadow:0 1px 3px #1c24310a,0 3px 8px #1c243105; }
-.study-workspace-nav button:hover { background:#ffffff80; }
+.study-section-nav.study-workspace-nav { gap:0; padding:0; margin:0 0 32px; background:var(--edu-paper); border:0; border-bottom:1px solid var(--edu-border); border-radius:0; box-shadow:none; overflow:visible; white-space:normal; }
+.study-workspace-nav .study-section-buttons > button,.study-more-nav > summary { display:flex; align-items:center; justify-content:center; flex:0 0 auto; gap:8px; min-height:52px; padding:14px 12px; border:0; border-bottom:2px solid transparent; border-radius:0; background:transparent; font-size:.875rem; white-space:nowrap; color:var(--edu-muted); cursor:pointer; }
+.study-workspace-nav .study-section-buttons > button[aria-current=page],.study-more-nav.is-active > summary { border-bottom-color:var(--edu-primary); color:var(--edu-ink); font-weight:600; box-shadow:none; }
+.study-workspace-nav .study-section-buttons > button:hover,.study-more-nav > summary:hover { color:var(--edu-ink); background:var(--edu-inset,#faf9f6); }
+.study-more-nav { position:relative; margin-left:auto; }
+.study-more-nav > summary { list-style:none; }
+.study-more-nav > summary::-webkit-details-marker { display:none; }
+.study-more-nav > summary svg { width:16px; height:16px; flex:none; }
+.study-more-options { position:absolute; z-index:10; right:0; top:calc(100% + 8px); min-width:220px; padding:6px; border:1px solid var(--edu-border); border-radius:12px; background:#fff; box-shadow:0 8px 24px #29272414; }
+.study-more-options button { display:block; width:100%; min-height:44px; padding:12px 14px; border:0; border-radius:8px; text-align:left; font-size:.875rem; color:var(--edu-ink); }
+.study-more-options button:hover,.study-more-options button[aria-current=page] { background:var(--edu-sidebar,#f1efea); border:0; color:var(--edu-ink); }
 .study-nav-count { display:inline-grid; place-items:center; min-width:22px; height:22px; padding:0 5px; border-radius:10px; background:#eeecea; color:var(--edu-accent-ink); font-size:.75rem; }
 .study-workspace-content,.study-overview-layout,.published-design-layout { display:grid; gap:32px; }
 .study-workspace-content > * { margin-bottom:0; }
@@ -292,18 +299,16 @@
 @media(max-width:900px) { .study-form .study-editor-nav { top:68px; } }
 @media(max-width:1100px) { .study-workspace-content .study-form .study-editor-section { scroll-margin-top:180px; } }
 
-/* All study destinations stay visible; compact screens use a labelled selector. */
-.study-section-nav.study-workspace-nav { overflow:visible; white-space:normal; }
-.study-section-buttons { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:4px; width:100%; }
-.study-section-buttons > button { white-space:normal; }
+/* Primary destinations use one tab row; secondary destinations stay in More. */
+.study-section-buttons { display:flex; align-items:stretch; gap:4px; width:100%; min-width:0; }
 .study-section-picker { display:none; }
-.study-workspace-content { scroll-margin-top:210px; }
-.published-design-layout [data-design-section] { scroll-margin-top:220px; }
+.study-workspace-content,.published-design-layout [data-design-section] { scroll-margin-top:160px; }
 @media(max-width:1100px) {
   .study-section-buttons { display:none; }
-  .study-workspace-content { scroll-margin-top:170px; }
-  .study-section-picker { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:8px 12px; width:100%; font-size:.8125rem; color:var(--edu-muted); }
-  .study-section-picker select { flex:1; min-width:0; padding:12px 14px; border:1px solid var(--edu-border); border-radius:12px; background:var(--edu-paper,#fff); color:var(--edu-ink); font:inherit; font-size:.9375rem; }
+  .study-section-nav.study-workspace-nav { border:0; padding-block:12px; }
+  .study-workspace-content { scroll-margin-top:190px; }
+  .study-section-picker { display:grid; gap:8px; width:100%; font-size:.8125rem; color:var(--edu-muted); }
+  .study-section-picker select { width:100%; min-width:0; min-height:46px; padding:12px 14px; border:1px solid var(--edu-border); border-radius:12px; background:#fff; color:var(--edu-ink); font:inherit; font-size:.9375rem; }
   .published-design-layout [data-design-section] { scroll-margin-top:180px; }
 }
 @media(max-width:480px) { .study-overview-metrics { grid-template-columns:1fr; } }
