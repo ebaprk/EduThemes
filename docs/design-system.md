@@ -13,13 +13,13 @@ are copied.
 
 - Geist for headings, controls, and reading text, with system sans-serif
   fallbacks. Keep body text at 14px and helper text at 12px or larger.
-- A warm ivory workspace canvas `#f3f5ee`, white surfaces `#ffffff`, pale sage inset
-  panels `#f7f8f2`, and borders `#dce4d9`, forest ink `#23382e`, and muted text
-  `#627268` across both apps.
-- Forest-green actions and links `#245d49`, dark hover `#194535`, and sage accent
-  `#39765d`. Inputs, progress, selection, and keyboard focus share this palette;
+- A warm white workspace canvas `#f7f6f2`, white surfaces `#ffffff`, stone inset
+  panels `#faf9f6`, and borders `#e3dfd7`, charcoal ink `#292724`, and muted text
+  `#6c6761` across both apps.
+- Charcoal actions and links `#37332f`, dark hover `#211f1c`, and stone accent
+  `#57534e`. Inputs, progress, selection, and keyboard focus share this palette;
   warning and error states retain their distinct amber and red colors.
-- Sage-neutral skeletons `#e4e9df`; the green book icon remains the brand mark.
+- Stone-neutral skeletons `#e8e5df`; the green book icon remains the brand mark.
 - Comfortable controls with 44–48px targets and 12px corners. Cards use 16px
   corners, 26–38px interior padding, 24–32px layout gaps, and two subtle shadow
   layers to separate white work surfaces from the canvas. Mobile layouts keep

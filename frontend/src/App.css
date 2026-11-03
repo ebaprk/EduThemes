@@ -1,7 +1,7 @@
 .App {
   min-height: 100vh;
   background: #fafafa;
-  color: #23382e;
+  color: #292724;
   font-family: var(--font-sans);
   text-align: left;
 }
@@ -29,14 +29,14 @@
 }
 
 .pill--selected {
-  border-color: #245d49;
-  background: #245d49;
+  border-color: #37332f;
+  background: #37332f;
   color: #ffffff;
 }
 
-.study-analysis-banner { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 10px max(20px, calc((100vw - 1080px) / 2)); background: #f4f4f5; border-bottom: 1px solid #f4f4f5; color: #245d49; font-size: .85rem; }
+.study-analysis-banner { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 10px max(20px, calc((100vw - 1080px) / 2)); background: #f4f4f5; border-bottom: 1px solid #f4f4f5; color: #37332f; font-size: .85rem; }
 .study-analysis-banner span:first-child { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.study-analysis-banner a { color: #245d49; font-weight: 700; white-space: nowrap; }
+.study-analysis-banner a { color: #37332f; font-weight: 700; white-space: nowrap; }
 .study-analysis-banner { flex-wrap: wrap; }
 .study-analysis-banner [role="status"] { flex: 1; min-width: 200px; }
 @media (max-width: 700px) { .study-analysis-banner { flex-wrap: wrap; } .study-analysis-banner span:first-child { max-width: 100%; width: 100%; } }
