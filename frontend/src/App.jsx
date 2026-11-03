@@ -21,6 +21,7 @@ import "./styles/ContextTheme.css";
 import "./styles/ResearchFlow.css";
 import "./styles/ResearchQuality.css";
 import "./styles/CollaborativeCoding.css";
+import "./styles/CardSpacing.css";
 
 const Review = lazy(() => import('./components/Review'));
 const Analyze = lazy(() => import('./components/Analyze'));

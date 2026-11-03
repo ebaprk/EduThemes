@@ -1,0 +1,66 @@
+/* Comfortable internal rhythm for cards, including their loading counterparts. */
+.App .study-panel { padding:36px; }
+.App .study-panel > :is(h2,h3),
+.App .study-panel > div > :is(h2,h3) { margin-bottom:16px; }
+.App .study-panel .study-eyebrow + :is(h2,h3) { margin-top:12px; }
+.App .study-panel p + p { margin-top:16px; }
+.App .study-panel > p { margin-bottom:24px; }
+.App .study-panel > :last-child { margin-bottom:0; }
+.App .study-panel .study-section-heading { gap:28px; margin-bottom:32px; }
+.App .study-panel .study-section-heading p { margin-top:12px; }
+.App .study-panel .study-field { gap:12px; margin-bottom:30px; }
+.App .study-panel .study-field .study-help { margin:0; }
+.App .study-panel .study-actions { gap:16px; row-gap:16px; }
+.App .study-panel > .study-actions,
+.App .study-panel fieldset + .study-actions { margin-top:28px; }
+.App .study-panel > p + :is(button,a.study-primary,a.study-secondary) { margin-top:4px; }
+.App .study-panel > details { margin-top:24px; }
+.App .study-list-card { padding:32px 30px 0; }
+.App .study-list-card .study-card-top { margin-bottom:24px; }
+.App .study-list-card h3 { margin-bottom:18px; line-height:1.5; }
+.App .study-list-card > p { margin-bottom:24px; }
+.App .study-list-card .study-card-bottom { margin:28px -30px 0; padding:22px 30px; }
+.App .study-stage-card { padding:32px; }
+.App .study-stage-card h3 { margin:28px 0 16px; }
+.App .study-stage-card p { margin-bottom:28px; }
+.App .study-stage-bottom { padding-top:22px; }
+.App .study-overview-metrics > div { padding:28px 32px; gap:24px; }
+.App .study-finding-card { gap:8px; }
+.App .study-finding-card > .study-primary { margin-top:auto; }
+.App .study-finding-card .finding-theme-chips { gap:12px; margin:20px 0 28px; }
+.App .workflow-page .card-body,
+.App :is(.preview-sidebar,.review-sidebar) .card-body { padding:32px; }
+.App .workflow-page .card-header { padding:26px 32px; }
+.App .analysis-theme-card { padding:30px; }
+.App .analysis-theme-card h3 { margin-bottom:16px; }
+.App .analysis-theme-card__description { margin-top:16px; line-height:1.8; }
+.App .quality-panel { padding:36px; }
+.App .quality-panel .study-field { margin:28px 0 20px; }
+.App .quality-panel .study-actions { gap:16px; margin-block:28px; }
+.App .coding-vote-grid > div { padding:24px; }
+.App .coding-vote-grid > div > p { margin-top:16px; }
+.App .coding-theme-choices { gap:16px; margin-block:28px; }
+.App .coding-theme-choices label { padding:18px; gap:16px; }
+.App .coding-theme-choices small { margin-top:8px; }
+.App .results-source { padding-block:28px; }
+.App .results-source small { margin-top:12px; }
+.App .results-source a { margin-top:18px; }
+.App .results-summary-document section { margin-top:36px; }
+.App .results-summary-document h4 { margin-bottom:16px; }
+.App .edu-skeleton-panel { padding:32px; gap:28px; }
+@media(max-width:900px) {
+  .App .study-panel,.App .quality-panel { padding:30px; }
+}
+@media(max-width:700px) {
+  .App .study-panel,.App .quality-panel { padding:26px; }
+  .App .study-panel .study-section-heading { gap:22px; margin-bottom:28px; }
+  .App .study-list-card { padding:28px 24px 0; }
+  .App .study-list-card .study-card-bottom { margin-inline:-24px; padding-inline:24px; }
+  .App .study-stage-card { padding:26px; }
+  .App .study-overview-metrics > div { padding:24px; gap:20px; }
+  .App .workflow-page .card-body,
+  .App :is(.preview-sidebar,.review-sidebar) .card-body { padding:26px; }
+  .App .workflow-page .card-header { padding:24px 26px; }
+  .App .coding-vote-grid > div { padding:22px; }
+  .App .edu-skeleton-panel { padding:26px; gap:24px; }
+}
