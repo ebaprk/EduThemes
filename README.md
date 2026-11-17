@@ -1,169 +1,68 @@
 # EduThemes
 
-### Large-scale qualitative analysis of student responses presents significant challenges for instructors due to the time-intensive nature of thematic coding, though it offers great opportunity for feedback. While recent advances in Large Language Models (LLMs) show promise for supporting this process, their reliability and comparative advantage over traditional machine learning approaches remain unclear. This study evaluates five traditional machine learning methods - combining text representation techniques (TF-IDF, SentenceTransformers, Doc2Vec) with classification and clustering algorithms (SVM, Random Forest, DBSCAN) - against two state-of-the-art LLMs (GPT-4 and Claude-3) for supporting thematic analysis of student responses. We develop and test a custom interface that allows instructors to receive and evaluate coding suggestions from these different computational approaches while maintaining control over the analysis process. Using a dataset of 600 student responses, with 100 manually coded responses as ground truth, we will compare these methods on multiple dimensions including classification performance (precision, recall, F1-score), agreement with human coders (Cohen's Kappa), processing time and resource usage, and interface usability through user testing. This will contribute to an understanding of how computational methods can effectively support qualitative research while maintaining methodological rigor. The developed interface and study findings will be the main deliverables of this senior project.
+EduThemes is a researcher-led workspace for qualitative analysis of open-ended responses. Researchers can import existing data or collect responses through a study, define a codebook, and use a few of their own coded examples to guide AI suggestions. They review those suggestions against the original text before generating findings and preparing a research brief.
 
-## Research studies and participant responses
+[Open the researcher workspace](https://eduthemes-abepark.web.app/) · [Open the participant app](https://eduthemes-participant-abepark.web.app/) · [Participant app source](https://github.com/ebaprk/EduThemes-Participant)
 
-This repository contains the
-[researcher workspace](https://eduthemes-abepark.web.app/). The
-[participant app](https://eduthemes-participant-abepark.web.app/) lives in the
-separate [EduThemes-Participant repository](https://github.com/ebaprk/EduThemes-Participant).
-Researchers create draft studies with open-response questions, publish a study,
-and share a link to the participant app or a code. Participants submit responses
-there without an account. Existing researcher-domain `/join` links redirect to
-the participant domain.
-The study owner and accepted research team members can read its submissions. A researcher
-can code each question's responses with the existing Code → Review → Results
-workflow; progress and completed findings are saved to Supabase per question.
+## Research workflow
 
-## Phase 1: teams, versions, and consent
+1. **Import or collect responses.** In Studies, select **Import file** for CSV or Excel data. Enter a research question and choose **Import & continue** to save a private study under **Imported** and start coding. To collect new data, create and publish a versioned study with questions and consent. Participants respond in the companion app.
+2. **Define themes and code examples.** Create a codebook with definitions, inclusion and exclusion rules, and optional examples. Reuse a saved codebook or import one. An example response can have multiple themes or an explicit no-match decision. NaviGator uses those decisions as guidance during classification.
+3. **Review the proposals.** Inspect the original responses, accept or reject proposed assignments, and assign an available theme to an unclassified response. Progress is saved so researchers can return to a study. Saved analyses support background classification and findings jobs.
+4. **Compare independent coding when appropriate.** In **Team coding**, assign a shared sample. Coders submit their choices separately before comparing results. For each eligible pair, EduThemes reports observed agreement and per-theme Cohen’s kappa on the shared responses. Reconciliation retains the original choices and agreement.
+5. **Inspect and report findings.** Review the AI-generated summary, theme counts, and supporting responses. Document methods, limitations, and AI use, and select original quotations for an unsigned draft or researcher-reviewed brief. Export coded responses or a Markdown brief, or use the print preview.
 
-The workspace now supports owner-managed invitations, researcher and read-only
-reviewer roles, immutable published study versions, explicit anonymous or
-Canvas-identified participation, and version-specific consent records.
-Researchers can close a study, prepare a new draft, and publish its next version
-while preserving earlier questions, responses, and analyses. Participants review
-consent before answering, recover drafts within their browser tab, and download a
-study receipt. Saved theme evidence links back to original responses and consent
-records, and coding decisions survive a refresh.
+Published collection studies also support researcher and reviewer roles, participant activities, optional recruitment screening, and owner-controlled release of a participant-facing summary. Canvas LTI support requires institutional registration and a verified launch before use in a Canvas course. [Study teams and versions](docs/phase1-release.md) · [Participant activities](docs/phase2-activities-release.md) · [Recruitment](docs/recruitment-release.md) · [Participant results](docs/participant-results-release.md) · [Canvas activation status](docs/canvas-activation-status.md)
 
-Apply `supabase/migrations/202610280001_teams_versions_consent.sql` before releasing
-the updated apps and backend. This migration preserves existing data, labels
-older consent as unrecorded, and replaces draft/analysis writes with atomic,
-revision-checked operations. **A coordinated release is required:** older
-researcher builds cannot save drafts or coding after this migration.
+## Latest verification
 
-See [the Phase 1 release guide](docs/phase1-release.md) for the roles, migration,
-verification commands, and release order. The companion participant project is
-updated separately; this repository does not deploy it.
+**November 17, 2026.** The hosted import workflow was tested twice with 72 public University of Waterloo course reviews. Twelve examples guided classification, and 60 reviews were held out for comparison against published annotations. All 12 example decisions were preserved in both runs. On the first run, initial suggestions scored 0.650 micro-F1 and matched the full reference tag set on 12 of 60 reviews. The rerun scored 0.633 and matched 11 of 60. The results describe agreement for this dataset and codebook. Researchers still need to check for both extra and missing assignments. [EduRABSA dataset and published annotations](https://doi.org/10.5281/zenodo.18500517)
 
-### Recoverable background analysis
+The first test found that 11 accepted assignments were lost between Review and Findings. The deployed fix preserved every one of the 113 accepted assignments in the fresh live run. Individual evidence rows, chart counts, and the downloaded brief matched after opening the saved study in a new tab.
 
-Study classification and findings now support saved background jobs, input snapshots,
-interruption recovery, and explicit retry. Production activation requires the additive
-migration and API feature switch in [the deployment guide](docs/background-analysis-release.md).
+The independent-coding and reconciliation workflow was verified with two scripted test accounts. A real two-coder exercise and a researcher usability session remain open. A known review limitation is that researchers can only add themes through the Unclassified picker. The project report and demo have drafts, and the final demo still needs to reflect the current import and review flow.
 
-### Phase 2.1: operations and multiple activities
+**Source status.** This README describes the hosted application. The latest hosted researcher UI and imported-study migrations include changes awaiting a separate source release on this branch.
 
-Study operations include dashboards, recruitment targets,
-coordinator handoff records, versioned baseline/follow-up/diary activity plans,
-and a private participant hub with durable drafts and consent receipts.
-Apply `supabase/migrations/202610280002_study_operations_activities.sql` before
-deploying either updated frontend. Existing single-activity and Canvas flows
-remain compatible. See [the release guide](docs/phase2-activities-release.md)
-for current deployment status, access rules, local walkthroughs, and pilot limits.
+## Development
 
-### Recruitment and screening
+This repository contains the React and Vite researcher frontend, the Flask analysis API, and the Supabase schema and migrations. Firebase Hosting serves the researcher frontend, Render runs the API, and model requests use UF’s NaviGator AI Toolkit. The companion participant app has its own repository and deployment.
 
-Study drafts can add a versioned preview and branching screener. Researchers review
-eligibility, manage a waitlist, and invite volunteers through the Recruit pipeline.
-Participants check status through private return links, then separately consent and
-join the existing activity hub. Screening is kept outside research analysis.
-See [the release guide](docs/recruitment-release.md) for deployment and access details.
+Configure the researcher frontend from [the frontend environment template](frontend/.env.example) and the API from [the backend environment template](backend/.env.example). Use a Supabase project with the migrations in [supabase/migrations](supabase/migrations) applied in order. Keep `NAVIGATOR_API_KEY` and Supabase service-role credentials on the server. The frontend uses the Supabase project URL and a publishable browser key.
 
-### Returning results to participants
+Run the researcher app on port 3000.
 
-Participant results adds versioned plain-language drafts, reviewed source findings,
-owner release and withdrawal, retained release history, and private participant access.
-Apply `supabase/migrations/202611020005_participant_results.sql` before publishing
-the updated apps. See [the results release guide](docs/participant-results-release.md)
-for access rules, verification, and current rollout status.
+```bash
+cd frontend
+npm ci
+npm start
+```
 
-### Supabase setup
+Run the local API on port 1500 from a separate terminal.
 
-The [EduThemes Supabase project](https://supabase.com/dashboard/project/ihocmfxrhbiyilnzdptu)
-is created. [`supabase/migrations/202610090001_studies.sql`](supabase/migrations/202610090001_studies.sql)
-has been applied to it. Email sign-in and email confirmation are enabled, and
-the authentication site URL is `https://eduthemes-abepark.web.app`.
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+flask run --port 1500
+```
 
-`frontend/.env.production` contains the project URL and publishable browser key.
-The same values are in the ignored `frontend/.env.local` for local development.
-If you use a different Supabase project, copy `frontend/.env.example` and replace
-those values. **Never put a Supabase secret or service-role key in the frontend.**
+For local participant testing, run the companion app on port 3001 and set `VITE_PARTICIPANT_URL=http://localhost:3001` in the researcher frontend’s environment. Set the API’s `CORS_ORIGINS` for the intended frontend origins.
 
-`npm run build` creates the researcher bundle. The researcher app uses the
-Render analysis backend through `VITE_API_URL`; keep the researcher origin in
-the backend's `CORS_ORIGINS`. The participant app connects directly to
-Supabase from its own project.
-
-The study, question, submission, and coding tables have row-level security.
-Public links use narrowly scoped database functions to read published study
-plans, validate submissions, and access private activity drafts and receipts.
-Participant responses and saved coding are not exposed through public table
-queries.
-
-### Run locally
-
-From `frontend`, run `npm install` and `npm start` for the researcher app on
-port 3000. To run the participant app locally, open its separate VS Code
-project and run `npm ci` and `npm run dev` there on port 3001. Set
-`VITE_PARTICIPANT_URL` in this project's `.env.local` to
-`http://localhost:3001` so researcher study links point to that app.
-
-For the analysis backend, create and activate a virtual environment in
-`backend`, install `requirements.txt`, then run `flask run --port 1500`.
-
-The analysis model selector uses UF's NaviGator AI Toolkit. Set
-`NAVIGATOR_API_KEY` on the backend. `NAVIGATOR_MODEL` defaults to
-`nemotron-3-super-120b-a12b`, and `NAVIGATOR_BASE_URL` defaults to
-`https://api.ai.it.ufl.edu/v1`. Model failures are returned to the interface for
-retry; production analysis never substitutes random classifications.
-
-## Canvas participant details
-
-Canvas LTI 1.3 support is implemented across the backend, researcher workspace,
-shared Supabase schema, and the separate participant project. Participants launch
-EduThemes from Canvas, review and confirm sharing their supplied details, and
-those details are saved with their study answers. Researchers can view and export
-the participant data. Academic year is included only if the institution supplies
-it; it is not inferred from course or student identifiers.
-
-See [the UF Canvas setup guide](docs/canvas-lti.md) for registration URLs,
-backend settings, migration/deployment order, and verification. **UF approval,
-real client/deployment IDs, and server configuration are required before this
-integration is live.** The migration must precede the updated researcher app.
-
-## Tests
+### Tests and deployment
 
 ```bash
 cd frontend
 npm test
 npm run test:database
 npm run build
-# Build the companion participant app first; browser tests use synthetic services.
+
+# The browser suite uses synthetic services and a built companion app.
 npm run test:browser
 
 cd ../backend
 python -m unittest
 ```
 
-### Notes:
-1. When adding new dependencies, run `pip freeze > requirements.txt`
-2. **Do not commit the `venv/` directory to the repository**
-3. **Always make sure you activate the virtual environment before working to avoid any issues**
-4. You can run `deactivate` to leave the virtual environment
-
-## Deploy the Backend to Render
-
-The repository includes a `render.yaml` Blueprint for a free Docker web
-service. In Render, create a Blueprint from this repository and provide the
-`NAVIGATOR_API_KEY` secret value when prompted.
-
-This repository owns the researcher Hosting target. Build and deploy it with:
-
-```bash
-cd frontend
-npm run build
-cd ..
-firebase deploy --only hosting:researcher
-```
-
-The participant repository owns the participant Hosting target and deploys it
-separately.
-
-The analysis backend still uses temporary SQLite sessions and uploaded files.
-Supabase durably stores studies, collected responses, and coding snapshots.
-If a backend session expires, researchers can resume coding from the saved
-study snapshot; an in-progress analysis that has not yet saved may need to be
-restarted. Set up persistent backend storage if you need the original transient
-session files to survive restarts.
+The Render service is configured in [render.yaml](render.yaml). Before deploying, apply the schema changes required by the release and check service configuration. Build the researcher frontend with `npm run build` in `frontend`, then run `firebase deploy --only hosting:researcher` from the repository root. The participant repository deploys separately. [Background analysis setup](docs/background-analysis-release.md) · [Research reporting](docs/research-quality-release.md) · [Collaborative coding release notes](docs/collaborative-coding-release.md)
