@@ -104,6 +104,42 @@ class NavigatorProviderTests(unittest.TestCase):
         self.assertEqual(error.exception.code, 'NAVIGATOR_INVALID_OUTPUT')
         self.assertEqual(completion.call_count, 2)
 
+    def test_all_batches_receive_all_examples_and_manual_multi_theme_choices_are_preserved(self):
+        outputs = ['{"classifications":[{"response_num":1,"themes":["A"]}]}',
+                   '{"classifications":[{"response_num":1,"themes":["B"]}]}']
+        with patch('src.llm.openai_analysis._create_client'), patch('src.llm.openai_analysis._chat_completion', side_effect=outputs) as completion:
+            result = navigator_llm.classify_responses_by_themes(
+                ['Both example', 'First unseen', 'No-match example', 'Second unseen'],
+                [{'name':'A'}, {'name':'B'}], batch_size=1,
+                manual_codes=[{'index':0,'themes':[{'name':'A'},{'name':'B'}]}, {'index':2,'themes':[]}])
+        self.assertEqual(result, {'A':[0,1], 'B':[0,3], 'Unclassified':[2]})
+        self.assertEqual(completion.call_count, 2)
+        for call in completion.call_args_list:
+            prompt = call.args[1]
+            self.assertIn('"text": "Both example", "themes": ["A", "B"]', prompt)
+            self.assertIn('"text": "No-match example", "themes": []', prompt)
+        self.assertIn('Response 1: "Second unseen"', completion.call_args.args[1])
+
+    def test_fully_coded_dataset_keeps_researcher_choices_without_model_request(self):
+        with patch('src.llm.openai_analysis._create_client') as client:
+            result = navigator_llm.classify_responses_by_themes(['Example'], [{'name':'A'}],
+                manual_codes=[{'index':0,'themes':[{'name':'A'}]}])
+        self.assertEqual(result, {'A':[0]})
+        client.assert_not_called()
+
+    def test_stale_example_theme_is_rejected_instead_of_silently_losing_the_decision(self):
+        with self.assertRaises(NavigatorError) as failure:
+            navigator_llm.classify_responses_by_themes(['Example'], [{'name':'A'}],
+                manual_codes=[{'index':0,'themes':[{'name':'Removed theme'}]}])
+        self.assertEqual(failure.exception.code, 'INVALID_CALIBRATION')
+
+    def test_legacy_no_match_sentinel_can_be_reused_as_an_example(self):
+        with patch('src.llm.openai_analysis._create_client') as client:
+            result=navigator_llm.classify_responses_by_themes(['No match'], [{'name':'A'}],
+                manual_codes=[{'index':0,'themes':[{'name':'Unclassified'}]}])
+        self.assertEqual(result, {'A':[], 'Unclassified':[0]})
+        client.assert_not_called()
+
     def test_summary_preserves_complete_long_paragraphs_without_clipping(self):
         summary = ('A participant described clear planning and its limits. ' * 30) + '\n\nThis single-response sample does not support generalization.'
         with patch('src.llm.openai_analysis._create_client'), patch('src.llm.openai_analysis._chat_completion', return_value=summary) as completion:

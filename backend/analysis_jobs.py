@@ -27,7 +27,8 @@ def process(job):
                    project_description=payload.get('projectDescription', '') + '\n' + payload.get('additionalContext', ''))
     responses = [entry['original'] for entry in dataset]
     if job['kind'] == 'classify':
-        manual = [{'index': i, 'themes': entry.get('themes', [])} for i, entry in enumerate(dataset) if entry.get('themes')]
+        manual = [{'index': i, 'themes': entry.get('themes', [])} for i, entry in enumerate(dataset)
+                  if entry.get('themes') or entry.get('coding_complete') is True]
         return {'claude_data': model.classify_responses_by_themes(responses=responses, themes=labels, manual_codes=manual, **context), 'svm_data': {}}
     classifications = {theme['name']: [i for i, entry in enumerate(dataset) if any(t['name'] == theme['name'] for t in entry.get('themes', []))] for theme in labels}
     summary = model.generate_summary(responses=responses, themes=labels, classifications=classifications, **context)

@@ -22,6 +22,14 @@ class AnalysisJobTests(unittest.TestCase):
         self.assertEqual(result,{'themes':[{'name':'Help','color':'#123456','frequency':1}],'summary':'Evidence'})
         self.assertEqual(model.generate_summary.call_args.kwargs['classifications'],{'Help':[0]})
 
+    def test_classification_retains_explicit_no_match_examples(self):
+        job=self.job(); job['payload']['dataset'][1]['coding_complete']=True
+        model=Mock()
+        with patch.object(analysis_jobs,'serve_llm',return_value=model):
+            analysis_jobs.process(job)
+        self.assertEqual(model.classify_responses_by_themes.call_args.kwargs['manual_codes'],
+                         [{'index':0,'themes':[{'name':'Help'}]},{'index':1,'themes':[]}])
+
     def test_results_are_fenced_by_claim_token(self):
         with patch.object(analysis_jobs,'process',return_value={'summary':'Saved'}),patch.object(analysis_jobs,'rpc',return_value=True) as rpc:
             analysis_jobs.execute(self.job('findings'))
