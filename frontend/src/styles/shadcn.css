@@ -1,0 +1,4 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@eduthemes/ui/theme.css";
+@source "../../../packages/ui/src";

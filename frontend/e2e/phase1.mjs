@@ -72,18 +72,33 @@ async function scenario(name, fn) {
     const rpc = url.pathname.split('/rpc/')[1];
     if (rpc) {
       data.calls.push({ rpc, body });
+      if (rpc === 'get_study_run_review') return reply({can_edit:data.role==='owner'||data.role==='researcher',current:true,snapshot_hash:'synthetic',review:null,run:data.analyses[0],events:[]});
       if (rpc === 'study_role') return reply(data.role);
       if (rpc === 'pending_study_invitations') return reply(data.pending);
       if (rpc === 'invite_study_member') { data.members.push({ id: 'invitation', study_id: studyId, email: body.p_email, role: body.p_role, created_at: '2026-10-28', accepted_at: null }); return reply('invitation'); }
       if (rpc === 'accept_study_invitation') { data.pending = []; data.role = 'researcher'; return reply(studyId); }
       if (rpc === 'remove_study_member') { data.members = []; return reply(null); }
       if (rpc === 'save_study_draft') { Object.assign(data.study, body.p_form); data.study.draft_revision += 1; data.questions = body.p_form.questions.map((prompt, position) => ({ id: questionId, prompt, position })); return reply(studyId); }
+      if (rpc === 'save_file_study') {
+        const { p_title, p_question, p_analysis } = body;
+        if (data.failImportSave) return reply({message:'Study save interrupted. Try again.',code:'SAVE_INTERRUPTED'},503);
+        Object.assign(data.study,{ title:p_title, research_question:p_question, source_type:'file', status:'closed' });
+        data.questions = [{ id:questionId, position:0, prompt:p_question }];
+        data.versions = [{ ...data.versions[0], questions:data.questions, research_question:p_question, description:body.p_description, import_metadata:p_analysis.import_metadata }];
+        data.responses = p_analysis.coded_responses.map(row => ({id:responseId,study_id:studyId,study_version_id:versionId,answers:{[questionId]:row.original}}));
+        data.analyses = [{ study_id:studyId, study_version_id:versionId, question_id:questionId, stage:p_analysis.stage, revision:1,
+          response_count:data.responses.length, labels:p_analysis.labels, coded_responses:p_analysis.coded_responses.map(row=>({...row,submission_id:responseId})),
+          results:{ _draft:true, _run_id:'import-fixture' } }];
+        return reply(studyId);
+      }
       if (rpc === 'save_study_analysis') {
         if (data.conflictOnSave) return reply({ code: 'PT409', message: 'Another researcher saved this analysis.' }, 409);
         const saved = { ...body.p_snapshot, revision: body.p_expected_revision + 1 };
         data.analyses = [saved]; return reply(saved.revision);
       }
       if (rpc === 'get_public_study' && data.loadDelay) await new Promise((resolve) => setTimeout(resolve, data.loadDelay));
+      if (rpc === 'list_coding_rounds' && data.codingRound) return reply([{...data.codingRound.round,coder_count:2,submitted_count:2}]);
+      if (rpc === 'get_coding_round' && data.codingRound) return reply(data.codingRound);
       if (rpc === 'get_public_study') return reply({ ...data.versions[0], version_id: data.versions[0].id, ...{ participant_mode: data.study.participant_mode } });
       if (rpc === 'submit_study_version') {
         if (data.submitDelay) await new Promise((resolve) => setTimeout(resolve, data.submitDelay));
@@ -91,7 +106,7 @@ async function scenario(name, fn) {
         return reply(responseId);
       }
       if (rpc === 'enroll_study') return reply(data.participantStudy);
-      if (rpc === 'get_participant_study') return reply(data.participantStudy);
+      if (rpc === 'get_participant_study' || rpc === 'get_participant_portal') return reply(data.participantStudy);
       if (rpc === 'start_study_activity') return reply(data.activityProgress);
       if (rpc === 'save_activity_draft') {
         if (data.saveDelay) await new Promise((resolve) => setTimeout(resolve, data.saveDelay));
@@ -118,8 +133,10 @@ async function scenario(name, fn) {
       return reply(({ study_questions: data.questions, study_versions: data.versions, study_submissions: data.responses, study_analyses: data.analyses, study_members: data.members })[table] || []);
     }
     if (url.pathname === '/models') return reply({ models: { navigator: true } });
-    if (url.pathname === '/session/start') return reply({ session_id: 'test-session' });
-    if (url.pathname.endsWith('/upload-dataset')) return reply({ preprocessed_dataset: [{ original: 'A clear appointment link helped.', cleaned: 'A clear appointment link helped.', themes: [] }], predefined_themes: [], dataset_summary: { response_count: 1 } });
+    if (url.pathname === '/session/start') {data.sessionStarts=(data.sessionStarts||0)+1;return reply({ session_id: 'test-session' });}
+    if (url.pathname.endsWith('/submit-manual-coding') && data.classifications) { data.manualCoding=body; return reply({claude_data:data.classifications,svm_data:{}}); }
+    if (url.pathname.endsWith('/submit-final-dataset') && data.classifications) { data.finalDataset=body.dataset; return reply({summary:'Fictional findings for testing the review and reporting workflow.',themes:body.labels.map(t=>({...t,frequency:body.dataset.filter(entry=>entry.themes.some(theme=>theme.name===t.name)).length}))}); }
+    if (url.pathname.endsWith('/upload-dataset')) { data.uploadAttempts=(data.uploadAttempts||0)+1;if(data.failUpload)return reply({message:'Synthetic import connection interrupted.'},503);return reply({ preprocessed_dataset: [{ original: 'A clear appointment link helped.', cleaned: 'A clear appointment link helped.', themes: [] }], predefined_themes: [], dataset_summary: { response_count: 1 } });}
     if (url.pathname.startsWith('/session/')) return reply({ status: 'CREATED' });
     return route.abort();
   });
@@ -135,29 +152,401 @@ async function scenario(name, fn) {
 }
 async function signIn(context, sessionValues = {}) {
   await context.addInitScript(({ key, session, values }) => {
+    if (location.hostname !== '127.0.0.1') return;
     localStorage.setItem(key, JSON.stringify(session));
     for (const [name, value] of Object.entries(values)) if (!sessionStorage.getItem(name)) sessionStorage.setItem(name, JSON.stringify(value));
   }, { key: storageKey, session: { access_token: token, refresh_token: 'synthetic-refresh', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, token_type: 'bearer', user }, values: sessionValues });
 }
 
+async function assignExampleTheme(page, responseNumber, theme) {
+  await page.getByRole('button',{name:new RegExp(`^(Assign|Edit) themes for response ${responseNumber}$`)}).click();
+  const choice=page.getByRole('menuitemcheckbox',{name:theme,exact:true});
+  if(await choice.getAttribute('aria-checked')!=='true')await choice.click();
+  await page.getByRole('menuitem',{name:'Done',exact:true}).click();
+}
+
+
 try {
+  await scenario('coding picker preserves multi-theme and no-match examples through filters and keyboard changes',async({page,context,data})=>{
+    const labels=[{name:'Planning',description:'Clear next steps',color:'#176b52'},{name:'Support',description:'Help from others',color:'#97543c'}];
+    const dataset=[{original:'Good.',cleaned:'Good.',themes:[]},{original:'A clear plan and support from my advisor helped me choose my courses.',cleaned:'A clear plan and support from my advisor helped me choose my courses.',themes:[]}];
+    await signIn(context,{'eduthemes.sessionId':'coding-picker-test','eduthemes.dataset':dataset,'eduthemes.labels':labels,'eduthemes.analysisSource':null,'eduthemes.projectMetadata':{researchQuestion:'What supports planning?',projectDescription:'Synthetic UI check',apiKey:''}});
+    await page.goto(`${researcherServer.url}/code`);
+    await page.getByRole('checkbox',{name:'Uncoded only',exact:true}).check();
+    await page.getByRole('button',{name:'Assign themes for response 1',exact:true}).focus();
+    await page.keyboard.press('Enter');
+    await page.getByRole('menuitemcheckbox',{name:'Planning',exact:true}).focus();await page.keyboard.press('Space');
+    await expect(page.getByRole('menuitemcheckbox',{name:'Planning',exact:true})).toHaveAttribute('aria-checked','true');
+    await page.getByRole('menuitemcheckbox',{name:'Support',exact:true}).click();
+    await expect(page.getByText('Good.',{exact:true})).toBeVisible();
+    await page.getByRole('menuitem',{name:'Done',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Assign themes for response 2',exact:true})).toBeFocused();
+    await page.getByRole('checkbox',{name:'Uncoded only',exact:true}).uncheck();
+    await expect(page.getByRole('button',{name:'Remove Planning from response 1',exact:true})).toBeVisible();
+    await expect(page.getByRole('button',{name:'Remove Support from response 1',exact:true})).toBeVisible();
+    await assignExampleTheme(page,1,'No matching theme');
+    await expect(page.getByRole('button',{name:'Remove Support from response 1',exact:true})).toHaveCount(0);
+    await expect(page.getByRole('button',{name:'Clear no-match coding for response 1',exact:true})).toBeVisible();
+    await page.getByRole('button',{name:'Clear no-match coding for response 1',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Assign themes for response 1',exact:true})).toBeFocused();
+    await expect(page.getByRole('button',{name:'Classify responses',exact:true})).toBeDisabled();
+    await page.getByRole('searchbox',{name:'Search responses',exact:true}).fill('not a matching response');
+    await expect(page.getByText('No responses match these filters.',{exact:true})).toBeVisible();
+    await page.getByRole('button',{name:'Show all responses',exact:true}).click();
+    await expect(page.getByText('Good.',{exact:true})).toBeVisible();
+    assert.deepEqual(await page.evaluate(()=>JSON.parse(sessionStorage.getItem('eduthemes.dataset')).map(row=>row.original)),dataset.map(row=>row.original));
+    for(const width of [1440,1024,768,390,320]){
+      await page.setViewportSize({width,height:900});await page.waitForTimeout(300);
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+      await page.screenshot({path:path.join(output,`coding-picker-${width}.png`),animations:'disabled'});
+      const picker=page.getByRole('button',{name:'Assign themes for response 1',exact:true});await picker.click();
+      const menu=page.getByRole('menu');await expect(menu).toBeVisible();const menuBox=await menu.boundingBox();
+      assert.ok(menuBox.x>=-1&&menuBox.x+menuBox.width<=width+1,'The theme menu fits the viewport');
+      await page.screenshot({path:path.join(output,`coding-picker-menu-${width}.png`),animations:'disabled'});
+      await page.keyboard.press('Escape');await expect(picker).toBeFocused();
+    }
+  });
+  await scenario('overview puts unanswered coding work first and launches the selected question directly', async ({page,context,data})=>{
+    const secondQuestion='40000000-0000-4000-8000-000000000002';
+    data.analyses=[];
+    data.questions.push({id:secondQuestion,position:1,prompt:'What would improve advising next time?'});
+    data.versions[0].questions=data.questions;
+    data.responses[0].answers[secondQuestion]='A shorter appointment process.';
+    await signIn(context);await page.goto(`${researcherServer.url}/studies/${studyId}`);
+    const queue=page.getByRole('region',{name:'Questions to analyze',exact:true});
+    await expect(queue).toBeVisible();
+    const summary=page.getByRole('list',{name:'Study summary'});
+    await expect(summary).toContainText('1 submission');
+    await expect(summary).toContainText('2 questions with responses');
+    await expect(page.getByRole('button',{name:'Continue analysis',exact:true})).toHaveCount(0);
+    await expect(page.getByRole('button',{name:'Open analysis',exact:true})).toHaveCount(0);
+    for(const width of [1440,768,390,320]){
+      await page.setViewportSize({width,height:900});
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+      await page.screenshot({path:path.join(output,`overview-ready-${width}.png`),animations:'disabled'});
+    }
+    await queue.getByRole('button',{name:/^Start coding/}).first().click();
+    await expect(page).toHaveURL(new RegExp(`/questions/${questionId}/code\\?version=${versionId}`));
+    await expect(page.getByRole('heading',{name:'Code responses',exact:true})).toBeVisible();
+  });
+  for(const stage of ['code','review'])await scenario(`overview resumes saved ${stage} work and retains the coded responses`,async({page,context,data})=>{
+    const original=structuredClone(data.analyses[0]);
+    data.analyses[0]={...original,stage,classifications:stage==='review'?{'Clear guidance':[0],Unclassified:[]}:null,results:{_draft:true,_completed:[original]}};
+    await signIn(context);await page.goto(`${researcherServer.url}/studies/${studyId}`);
+    await page.getByRole('region',{name:'Questions to analyze',exact:true}).getByRole('button',{name:new RegExp(stage==='review'?'^Continue review':'^Continue coding')}).click();
+    await expect(page.getByRole('heading',{name:stage==='review'?'Review classifications':'Code responses',exact:true})).toBeVisible();
+    const dataset=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('eduthemes.dataset')));
+    assert.equal(dataset[0].original,original.coded_responses[0].original);
+    assert.deepEqual(dataset[0].themes,original.coded_responses[0].themes);
+  });
+  await scenario('overview opens completed findings without creating a new analysis',async({page,context,data})=>{
+    await signIn(context);await page.goto(`${researcherServer.url}/studies/${studyId}`);
+    const queue=page.getByRole('region',{name:'Completed analyses',exact:true});
+    await expect(queue.getByRole('button',{name:/Start coding/})).toHaveCount(0);
+    await queue.getByRole('link',{name:/^Open findings/}).click();
+    await expect(page.getByRole('heading',{name:'Findings',level:1,exact:true})).toBeVisible();
+    await expect(page.locator('.workflow-question')).toHaveText(data.questions[0].prompt);
+    assert.equal(new URL(page.url()).searchParams.get('version'),versionId);
+    assert.equal(new URL(page.url()).searchParams.get('run'),'legacy-1');
+    assert.equal(data.calls.filter(call=>call.rpc==='save_study_analysis').length,0);
+  });
+  await scenario('overview keeps reviewer question actions read-only',async({page,context,data})=>{
+    data.role='reviewer';data.analyses=[];
+    await signIn(context);await page.goto(`${researcherServer.url}/studies/${studyId}`);
+    const queue=page.getByRole('region',{name:'Questions to analyze',exact:true});
+    await expect(queue.getByRole('button',{name:/Start coding|Continue coding|Continue review/})).toHaveCount(0);
+    await queue.getByRole('button',{name:/^View responses/}).click();
+    assert.equal(new URL(page.url()).searchParams.get('section'),'collect');
+    assert.equal(data.calls.filter(call=>call.rpc==='save_study_analysis').length,0);
+  });
+  await scenario('overview identifies a historical version and previews its frozen design',async({page,context,data})=>{
+    const currentVersion='30000000-0000-4000-8000-000000000002';
+    data.versions[0].title='Earlier published title';
+    data.versions.unshift({...data.versions[0],id:currentVersion,version_number:2,title:'Current published title'});
+    data.study.current_version_id=currentVersion;
+    await signIn(context);await page.goto(`${researcherServer.url}/studies/${studyId}?version=${versionId}`);
+    const header=page.locator('.study-workspace-header');
+    await expect(header.getByRole('heading',{name:'Earlier published title',exact:true})).toBeVisible();
+    await expect(header.getByText('Historical version',{exact:true})).toBeVisible();
+    await expect(header.getByText('Collecting',{exact:true})).toHaveCount(0);
+    await expect(page.getByRole('combobox',{name:'Study version',exact:true})).toHaveValue(versionId);
+    await page.getByRole('button',{name:'Participant preview',exact:true}).click();
+    await expect(page.getByRole('dialog').getByRole('heading',{name:'Earlier published title',exact:true})).toBeVisible();
+    await page.keyboard.press('Escape');
+    data.study.status='draft';data.study.current_version_id=versionId;
+    await page.goto(`${researcherServer.url}/studies/${studyId}?version=${versionId}`);
+    await expect(header.locator('[data-slot=badge]')).toHaveText('Published version');
+  });
+  await scenario('researcher flow saves setup, reviews readiness, publishes, and collects before coding',async({page,context,data})=>{
+    data.study.status='draft';data.study.current_version_id=null;data.versions=[];data.responses=[];data.analyses=[];
+    await signIn(context);await page.goto(researcherServer.url);
+    await page.getByRole('button',{name:'Create study',exact:true}).click();
+    await page.getByLabel('Study title',{exact:true}).fill('New advising study');
+    const setup = page.getByRole('navigation',{name:'Study setup sections'});
+    await expect(page.getByLabel('Question 1',{exact:true})).toBeHidden();
+    await setup.getByRole('button',{name:'Questions',exact:true}).click();
+    await expect(page.getByLabel('Study title',{exact:true})).toBeHidden();
+    await page.getByRole('button',{name:'Save draft & review',exact:true}).click();
+    await expect(page.getByLabel('Research question',{exact:true})).toBeFocused();
+    await expect(page.getByLabel('Study title',{exact:true})).toHaveValue('New advising study');
+    await page.getByLabel('Research question',{exact:true}).fill('What helps with advising?');
+    await page.getByRole('button',{name:'Continue to questions',exact:true}).click();
+    await page.getByLabel('Question 1',{exact:true}).fill('What helped you get advising?');
+    await page.getByText('Activity settings',{exact:true}).click();
+    await page.locator('#activity-instructions-0').fill('Answer in a few sentences.');
+    await page.getByText('Activity settings',{exact:true}).click();
+    for (const width of [1440,390,320]) {
+      await page.setViewportSize({width,height:900});
+      await page.evaluate(() => new Promise(resolve => {
+        window.scrollTo(0, 0);
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      }));
+      await expect(page.getByRole('banner',{name:'Researcher navigation'})).toHaveCount(1);
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+      await page.screenshot({path:path.join(output,`study-creation-questions-${width}.png`),animations:'disabled'});
+    }
+    await page.setViewportSize({width:1280,height:1000});
+    await page.getByRole('button',{name:'Continue to participation',exact:true}).click();
+    await page.getByLabel('Participant consent text',{exact:true}).fill('Synthetic voluntary participation notice.');
+    await setup.getByRole('button',{name:'Questions',exact:true}).click();
+    await expect(page.getByLabel('Question 1',{exact:true})).toHaveValue('What helped you get advising?');
+    await page.getByRole('button',{name:'Save draft & review',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Study readiness',exact:true})).toBeVisible();
+    await expect(page.getByRole('button',{name:'Publish study',exact:true})).toBeVisible();
+    data.study.current_version_id=versionId;
+    data.versions=[{...data.study,id:versionId,study_id:studyId,questions:data.questions,version_number:1,consent_required:true}];
+    await page.getByRole('button',{name:'Publish study',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Copy participant link',exact:true})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'No submissions in this version yet',exact:true})).toBeVisible();
+    data.responses=[{id:responseId,study_id:studyId,study_version_id:versionId,answers:{[questionId]:'A clear appointment link helped.'},consent_accepted_at:'2026-11-16T12:00:00Z'}];
+    await page.getByRole('button',{name:'Refresh responses',exact:true}).click();
+    await expect(page.locator('.study-response-group').getByRole('button',{name:/^Start coding/})).toBeVisible();
+  });
+  await scenario('researcher flow imports directly, retains failed input, and exposes codebook actions',async({page,context,data})=>{
+    await signIn(context);await page.goto(researcherServer.url);
+    await expect(page.getByRole('button',{name:'Create study',exact:true})).toBeVisible();
+    await page.screenshot({path:path.join(output,'streamlined-library-desktop.png'),animations:'disabled'});
+    await page.getByRole('link',{name:'Import response file',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Import responses',exact:true})).toBeVisible();
+    assert.equal(data.sessionStarts||0,0,'Opening import does not create an empty server session');
+    await page.getByLabel('CSV or Excel file · up to 20 MB',{exact:true}).setInputFiles({name:'responses.csv',mimeType:'text/csv',buffer:Buffer.from('Response\nA clear appointment link helped.\n')});
+    await page.getByLabel('Research question',{exact:true}).fill('What supports advising?');
+    await page.getByLabel('Project description',{exact:true}).fill('Synthetic advising responses.');
+    await page.screenshot({path:path.join(output,'streamlined-import-desktop.png'),animations:'disabled'});
+    data.failUpload=true;await page.getByRole('button',{name:'Import & continue',exact:true}).click();
+    await expect(page.getByText('Synthetic import connection interrupted.',{exact:false})).toBeVisible();
+    await expect(page.getByLabel('Research question',{exact:true})).toHaveValue('What supports advising?');
+    assert.equal(await page.locator('#import-file').evaluate(input=>input.files[0]?.name),'responses.csv');
+    data.failUpload=false;data.failImportSave=true;
+    await page.getByRole('button',{name:'Import & continue',exact:true}).click();
+    await expect(page.getByText('Study save interrupted. Try again.',{exact:true})).toBeVisible();
+    data.failImportSave=false;
+    await page.getByRole('button',{name:'Import & continue',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Code responses',exact:true})).toBeVisible();
+    const imports = data.calls.filter(call=>call.rpc==='save_file_study');
+    assert.equal(imports.length,2);
+    assert.equal(imports[0].body.p_import_id,imports[1].body.p_import_id);
+    assert.equal(imports[1].body.p_title,'responses');
+    assert.equal(imports[1].body.p_analysis.stage,'code');
+    assert.equal(data.sessionStarts,1,'Retry reuses the pending import session');assert.equal(data.uploadAttempts,2);
+    await expect(page.getByRole('button',{name:'Classify responses',exact:true})).toBeDisabled();
+    await expect(page.getByText('Add at least one theme to begin.',{exact:true})).toBeVisible();
+    for(const width of [1440,390,320]){
+      await page.setViewportSize({width,height:900});
+      await expect(page.getByRole('button',{name:'Add themes',exact:true})).toBeVisible();
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+      const step=await page.locator('.workflow-stepper').boundingBox();
+      for(const label of await page.locator('.workflow-stepper__label').all()){const box=await label.boundingBox();assert.ok(box.x>=step.x-1&&box.x+box.width<=step.x+step.width+1,'Every progress label fits');}
+      const add=await page.getByRole('button',{name:'Add themes',exact:true}).boundingBox(),table=await page.locator('.preview-main').boundingBox();
+      if(width<760)assert.ok(add.y<table.y,'Theme controls precede example coding on phones');
+      await page.screenshot({path:path.join(output,`streamlined-coding-${width}.png`),fullPage:true,animations:'disabled'});
+    }
+    await page.getByRole('button',{name:'Add themes',exact:true}).click();
+    await page.getByLabel('Theme name',{exact:true}).fill('Guidance');await page.getByLabel('Definition',{exact:true}).fill('Clear next steps.');
+    await page.getByRole('button',{name:'Add theme',exact:true}).click();await page.locator('.modal-footer').getByRole('button',{name:'Close',exact:true}).click();
+    await assignExampleTheme(page,1,'Guidance');
+    await expect(page.getByRole('button',{name:'Review coded responses',exact:true})).toBeEnabled();
+    await expect.poll(()=>data.analyses[0].coded_responses[0].themes[0]?.name).toBe('Guidance');
+    const library=await context.newPage();
+    await library.setViewportSize({width:320,height:900});
+    await library.goto(researcherServer.url);
+    await library.getByRole('button',{name:'Imported',exact:true}).click();
+    const row=library.getByRole('row').filter({has:library.getByRole('link',{name:'responses',exact:true})});
+    await expect(row.getByText('Imported file',{exact:true})).toBeVisible();
+    assert.ok(await library.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+    await row.getByRole('link',{name:'Continue coding',exact:true}).click();
+    await expect(library.getByRole('button',{name:'Review coded responses',exact:true})).toBeEnabled();
+    await expect(library.getByRole('heading',{name:'Code responses',exact:true})).toBeVisible();
+  });
+  await scenario('researcher flow moves from collected responses to coding and returns to the same question list',async({page,context,data})=>{
+    data.analyses=[];await signIn(context);await page.goto(`${researcherServer.url}/studies/${studyId}?section=collect&version=${versionId}`);
+    const group=page.locator('.study-response-group');await expect(group.getByRole('button',{name:/^Start coding/})).toBeVisible();
+    await page.screenshot({path:path.join(output,'streamlined-responses-desktop.png'),animations:'disabled'});
+    await group.getByRole('button',{name:/^Start coding/}).click();
+    await expect(page.getByRole('heading',{name:'Code responses',exact:true})).toBeVisible();
+    await expect(page.locator('.workflow-stepper > li')).toHaveCount(3);
+    await expect(page.getByRole('link',{name:'← Back to question list',exact:true})).toHaveAttribute('href',`/studies/${studyId}?section=analysis&version=${versionId}`);
+    await page.getByRole('link',{name:'← Back to question list',exact:true}).click();
+    await expect(page).toHaveURL(new RegExp(`section=analysis&version=${versionId}`));
+    await expect(page.getByRole('button',{name:/^Continue coding/})).toBeVisible();
+    await expect(page.getByRole('button',{name:'Open team coding',exact:true})).toBeVisible();
+  });
+  await scenario('researcher flow opens finished findings before report preparation and protects the saved run',async({page,context,data})=>{
+    await signIn(context);await page.goto(`${researcherServer.url}/studies/${studyId}?section=analysis&version=${versionId}`);
+    const card=page.locator('.analysis-question-card');await expect(card.getByRole('link',{name:/^Open findings/})).toBeVisible();
+    await expect(card.getByRole('button',{name:/^Start a new run/})).not.toBeVisible();
+    await card.getByRole('link',{name:/^Open findings/}).click();
+    await expect(page.getByRole('heading',{name:'Findings',level:1,exact:true})).toBeVisible();
+    await expect(page.locator('.workflow-question')).toHaveText(data.questions[0].prompt);
+    await expect(page.getByRole('list',{name:'Analysis progress',exact:true})).toHaveCount(0);
+    await expect(page.getByRole('tab',{name:'Summary',exact:true})).toHaveAttribute('aria-selected','true');
+    await expect(page.getByRole('tabpanel',{name:'Summary',exact:true}).getByText('Clear instructions helped.',{exact:true})).toBeVisible();
+    await expect(page.getByLabel('Methods and human review',{exact:true})).not.toBeVisible();
+    await page.screenshot({path:path.join(output,'streamlined-findings-desktop.png'),animations:'disabled'});
+    await page.getByRole('button',{name:'Review evidence',exact:true}).click();
+    await expect(page.getByRole('tab',{name:'Evidence',exact:true})).toBeFocused();
+    await page.getByRole('tab',{name:'Charts',exact:true}).click();
+    await page.getByRole('link',{name:'Clear guidance',exact:true}).click();
+    await expect(page.getByRole('tab',{name:'Evidence',exact:true})).toHaveAttribute('aria-selected','true');
+    const details = page.locator('.theme-evidence-item', { hasText: 'Clear guidance' });
+    await expect(details).toHaveAttribute('open', '');
+    await expect(details.locator('summary')).toBeFocused();
+    assert.equal(new URL(page.url()).searchParams.get('theme'),'Clear guidance');
+    await page.getByRole('button',{name:'Prepare report',exact:true}).click();
+    assert.equal(new URL(page.url()).pathname,`/studies/${studyId}/questions/${questionId}/results`);
+    assert.equal(new URL(page.url()).searchParams.get('version'),versionId);
+    assert.equal(new URL(page.url()).searchParams.has('theme'),false);
+    await expect(page.getByRole('heading',{name:'Review and research brief',exact:true})).toBeVisible();
+    await page.getByLabel('Methods and human review',{exact:true}).fill('A synthetic report note.');
+    await page.getByRole('tab',{name:'Evidence',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Evidence behind the themes',exact:true})).toBeVisible();
+    await page.getByRole('tab',{name:'Report',exact:true}).click();
+    await expect(page.getByLabel('Methods and human review',{exact:true})).toHaveValue('A synthetic report note.');
+    assert.equal(data.calls.filter(call=>call.rpc==='save_study_analysis').length,0,'Opening saved findings does not create or replace a run');
+    for(const width of [390,320]){
+      await page.setViewportSize({width,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+    }
+  });
+  await scenario('saved findings list opens the right run and exports the displayed history', async ({page,context,data}) => {
+    const [latest] = data.analyses;
+    latest.updated_at = '2026-10-28T12:40:00Z';
+    const earlierSummary = 'An earlier pass at the fictional advising responses.';
+    const earlier = { ...latest, revision: 0, updated_at: '2026-10-28T12:30:00Z',
+      results: { ...latest.results, _run_id: 'earlier-run', summary: `# Initial observations\n\n${earlierSummary}\n\nA course checklist gave the fictional participant a concrete way to plan for the next semester. The example describes one experience and offers no basis for comparing advising approaches across participants.` } };
+    latest.results._completed = [earlier];
+    await signIn(context);
+    await page.goto(`${researcherServer.url}/studies/${studyId}?section=findings&version=${versionId}`);
+    const runs = page.getByRole('list', { name: 'Saved analysis runs' });
+    await expect(runs.getByRole('listitem')).toHaveCount(1);
+    const history = page.getByRole('checkbox', { name: 'Include earlier runs' });
+    await history.check();
+    await expect(runs.getByRole('listitem')).toHaveCount(2);
+    const pending = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download findings report' }).click();
+    const report = await readFile(await (await pending).path(), 'utf8');
+    assert.ok(report.includes(latest.results.summary));
+    assert.ok(report.includes(earlier.results.summary));
+    for (const width of [1440, 390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+      await page.screenshot({ path:path.join(output, `saved-findings-${width}.png`), animations:'disabled' });
+    }
+    await runs.getByRole('link', { name: /earlier run 1$/ }).click();
+    const summary = page.getByRole('tabpanel', { name: 'Summary' });
+    await expect(summary).toContainText(earlierSummary);
+    await expect(summary.getByRole('heading', { name: 'Initial observations', level: 3 })).toBeVisible();
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await page.screenshot({ path:path.join(output, 'saved-findings-detail-320.png'), animations:'disabled' });
+    assert.equal(new URL(page.url()).searchParams.get('run'), 'earlier-run');
+    await page.getByRole('link', { name: /Back to saved findings/ }).click();
+    await expect(runs).toBeVisible();
+    assert.equal(new URL(page.url()).searchParams.get('version'), versionId);
+  });
+  await scenario('professor deliverable preserves examples and prepares an imported-file report', async ({page,context,data})=>{
+    const labels=[{name:'Planning',description:'Clear next steps',color:'#176b52'},{name:'Support',description:'Help from others',color:'#97543c'}];
+    const dataset=['A fictional no-match example.','A fictional example of planning and support.','A fictional planning response.','A fictional uncategorized response.'].map(original=>({original,cleaned:original,themes:[]}));
+    data.classifications={Planning:[3,2,1],Support:[1],Unclassified:[0]};
+    await signIn(context,{'eduthemes.sessionId':'file-report-test','eduthemes.dataset':dataset,'eduthemes.labels':labels,'eduthemes.analysisSource':null,'eduthemes.projectMetadata':{researchQuestion:'What supports planning?',projectDescription:'Synthetic test',apiKey:''}});
+    await page.goto(`${researcherServer.url}/code`);
+    await assignExampleTheme(page,1,'No matching theme');
+    await assignExampleTheme(page,2,'Planning');
+    await assignExampleTheme(page,2,'Support');
+    await page.getByRole('button',{name:'Classify responses',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Review classifications',exact:true})).toBeVisible();
+    assert.deepEqual(data.manualCoding.manual_codings,[{index:0,themes:[]},{index:1,themes:labels}]);
+    await expect(page.getByRole('button',{name:'Next theme',exact:true})).toBeDisabled();
+    for(const width of [1440,390,320]){
+      await page.setViewportSize({width,height:width===1440?1000:844});
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+      if(width<760){await expect(page.getByRole('combobox',{name:'Review theme',exact:true})).toBeVisible();await page.getByRole('combobox',{name:'Review theme',exact:true}).selectOption('1');await page.getByRole('combobox',{name:'Review theme',exact:true}).selectOption('0');}
+      await page.screenshot({path:path.join(output,`streamlined-review-${width}.png`),fullPage:true,animations:'disabled'});
+    }
+    await page.setViewportSize({width:1280,height:1000});
+    await page.getByRole('button',{name:'Reject response 4',exact:true}).click();
+    await page.getByRole('button',{name:'Accept response 3',exact:true}).click();
+    await page.getByRole('button',{name:'Accept response 2',exact:true}).click();
+    await page.getByRole('button',{name:'Next theme',exact:true}).click();
+    await page.getByRole('button',{name:'Accept all',exact:true}).click();
+    await page.getByRole('button',{name:'Next theme',exact:true}).click();
+    await page.getByRole('button',{name:'Keep unclassified & generate findings',exact:true}).click();
+    await expect(page.getByRole('tab',{name:'Summary',exact:true})).toHaveAttribute('aria-selected','true');
+    await page.getByRole('tab',{name:'Report',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Prepare your research brief'})).toBeVisible();
+    assert.deepEqual(data.finalDataset[1].themes.map(t=>t.name),['Planning','Support']);
+    assert.deepEqual(data.finalDataset[2].themes.map(t=>t.name),['Planning']);
+    assert.deepEqual(data.finalDataset[3].themes.map(t=>t.name),['Unclassified']);
+    await page.getByLabel('Methods and human review',{exact:true}).fill('A fictional demonstration of codebook-guided analysis. No independent reliability study was performed.');
+    await page.getByLabel('Limitations',{exact:true}).fill('Four fabricated responses; no research conclusions.');
+    await page.getByLabel('AI assistance disclosure',{exact:true}).fill('Responses were supplied by the local test service. No live model was used.');
+    await page.getByText('Select supporting quotes · 4 responses',{exact:true}).click();
+    await page.getByLabel('Include response 2 as a supporting quote',{exact:true}).check();
+    await page.reload();
+    await expect(page.getByLabel('Limitations',{exact:true})).toHaveValue('Four fabricated responses; no research conclusions.');
+    const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download research brief',exact:true}).click();
+    const file=await download, text=await readFile(await file.path(),'utf8');
+    assert.ok(text.includes(dataset[1].original));assert.ok(!text.includes(dataset[0].original));assert.ok(!text.includes('Consent required: Yes'));assert.ok(text.includes('DRAFT'));
+    await page.getByRole('button',{name:'Preview / print report',exact:true}).click();
+    await expect(page.locator('.research-brief-document')).toContainText('What supports planning?');
+    await page.screenshot({path:path.join(output,'professor-report-desktop.png'),fullPage:true,animations:'disabled'});
+    await page.setViewportSize({width:390,height:844});
+    await expect(page.getByRole('heading',{name:'Prepare your research brief'})).toBeVisible();
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+    await page.screenshot({path:path.join(output,'professor-report-phone.png'),fullPage:true,animations:'disabled'});
+  });
+
+  await scenario('professor deliverable shows independent per-theme kappa and exports its calculation', async ({page,context,data})=>{
+    const second='10000000-0000-4000-8000-000000000002';
+    const responses=Array.from({length:4},(_,i)=>({id:`r${i}`,original:`Private fictional round response ${i}`}));
+    const first=[['Planning','Support'],['Planning'],[],[]], other=[['Planning','Support'],[],['Planning'],[]];
+    data.codingRound={round:{id:'reliability-round',study_id:studyId,version_id:versionId,question_id:questionId,state:'comparison',title:'Independent reliability example',prompt:'What supports planning?',codebook:[{name:'Planning'},{name:'Support'},{name:'Absent'}],responses,revision:1},
+      assignments:[{coder_id:owner,label:'Owner',response_ids:responses.map(r=>r.id),submitted_at:'2026-11-16',ballot:Object.fromEntries(responses.map((r,i)=>[r.id,{themes:first[i],note:'Private coding note'}]))},{coder_id:second,label:'Independent coder',response_ids:responses.map(r=>r.id),submitted_at:'2026-11-16',ballot:Object.fromEntries(responses.map((r,i)=>[r.id,{themes:other[i]}]))}],decisions:[],events:[],can_code:false};
+    await signIn(context);await page.goto(`${researcherServer.url}/studies/${studyId}?section=team-coding&version=${versionId}&round=reliability-round`);
+    await expect(page.getByRole('heading',{name:'Cohen’s kappa by theme'})).toBeVisible();
+    const table=page.locator('.coding-reliability table');await expect(table).toContainText('0.000');await expect(table).toContainText('1.000');await expect(table).toContainText('No variation');
+    const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download coding and agreement report'}).click();
+    const file=await download,text=await readFile(await file.path(),'utf8');assert.ok(text.includes('| Planning | 0.000 |'));assert.ok(!text.includes('Private coding note'));assert.ok(!text.includes(responses[0].original));
+    await page.screenshot({path:path.join(output,'professor-kappa-desktop.png'),fullPage:true,animations:'disabled'});
+    await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+    await page.screenshot({path:path.join(output,'professor-kappa-phone.png'),fullPage:true,animations:'disabled'});
+  });
+
   await scenario('participant portal matches the workspace and preserves private activity access', async ({ page, data }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(participantServer.url);
-    await expect(page.getByRole('heading', { name: 'Join a study.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Join a study', exact: true })).toBeVisible();
     await expect(page.getByRole('complementary', { name: 'Participant workspace' })).toBeVisible();
     await page.screenshot({ path: path.join(output, 'participant-portal-desktop.png'), fullPage: true, animations: 'disabled' });
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.screenshot({ path: path.join(output, 'participant-portal-mobile.png'), fullPage: true, animations: 'disabled' });
     await page.getByLabel('Study code', { exact: true }).fill(code.toLowerCase());
-    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await page.getByRole('button', { name: 'Find study', exact: true }).click();
     await expect(page.getByRole('heading', { name: data.study.title })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Start study', exact: true })).toBeVisible();
     await expect(page.locator('.participant-sidebar')).not.toBeVisible();
     await page.getByRole('link', { name: 'EduThemes home', exact: true }).click();
     await page.getByRole('link', { name: 'My studies', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Your next activity starts here' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your studies', exact: true })).toBeVisible();
     await page.screenshot({ path: path.join(output, 'participant-saved-studies-mobile.png'), fullPage: true, animations: 'disabled' });
     const key = 'b'.repeat(64);
     data.participantStudy = { ...data.versions[0], version_id: versionId, participant_reference: 'STUDY-DEMO', study_status: 'open', reward_status: 'not_recorded', activities: [
@@ -174,7 +563,9 @@ try {
     await page.screenshot({ path: path.join(output, 'participant-hub-mobile.png'), fullPage: true, animations: 'disabled' });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.reload();
-    await page.getByRole('button', { name: 'Open activities', exact: true }).click();
+    const openActivities=page.getByRole('button', { name: 'Open activities', exact: true });
+    if(await openActivities.isVisible())await openActivities.click();
+    else await page.getByRole('button',{name:'Open study',exact:true}).click();
     await expect(page.getByRole('heading', { name: 'Your study progress', exact: true })).toBeVisible();
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await page.screenshot({ path: path.join(output, 'participant-hub-desktop.png'), fullPage: true, animations: 'disabled' });
@@ -234,9 +625,9 @@ try {
   });
   await scenario('study analysis saves source IDs, version IDs, and the expected revision', async ({ page, context, data }) => {
     data.analyses = []; await signIn(context); await page.goto(`${researcherServer.url}/studies/${studyId}`);
-    await page.getByRole('button', { name: 'Start coding', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Shape the themes in your data' })).toBeVisible();
-    await expect(page.getByText('Study progress saved', { exact: true })).toBeVisible();
+    await page.getByRole('region', { name: 'Questions to analyze', exact: true }).getByRole('button', { name: /^Start coding/ }).click();
+    await expect(page.getByRole('heading', { name: 'Code responses', exact: true })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Analysis save status', exact: true })).toHaveText('Saved');
     const saved = data.calls.find((call) => call.rpc === 'save_study_analysis').body;
     assert.equal(saved.p_snapshot.study_version_id, versionId);
     assert.equal(saved.p_snapshot.coded_responses[0].submission_id, responseId);
@@ -409,7 +800,7 @@ try {
     await page.goto(`${researcherServer.url}/review`);
     await page.getByRole('button', { name: 'Accept response 1', exact: true }).click();
     await expect(page.locator('.review-response-card.is-approved')).toHaveCount(1);
-    await expect(page.getByText('Study progress saved', { exact: true })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Analysis save status', exact: true })).toHaveText('Saved');
     await page.reload();
     await expect(page.locator('.review-response-card.is-approved')).toHaveCount(1);
     assert.equal(data.analyses[0].coded_responses[0].review_decisions['Clear guidance'].action, 'approve');

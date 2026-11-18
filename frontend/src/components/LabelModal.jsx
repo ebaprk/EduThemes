@@ -1,347 +1,162 @@
-import React, { useState } from 'react';
-import Modal from 'react-bootstrap/Modal';
-import Button from 'react-bootstrap/Button';
-import Form from 'react-bootstrap/Form';
-import ListGroup from 'react-bootstrap/ListGroup';
-import { OverlayTrigger, Tooltip } from 'react-bootstrap';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import CodebookLibrary from './CodebookLibrary';
-import {codebookFields,cleanCodebook} from '../utils/researchQuality';
+import LoadingSkeleton from './LoadingSkeleton';
+import { codebookFields, cleanCodebook } from '../utils/researchQuality';
+import { Button } from '@eduthemes/ui/components/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@eduthemes/ui/components/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@eduthemes/ui/components/tabs';
+import { ContextHelp, Field } from '@eduthemes/ui/workbench';
+import { Label } from '@eduthemes/ui/components/label';
+import { Input } from '@eduthemes/ui/components/input';
+import { Textarea } from '@eduthemes/ui/components/textarea';
 
 const DEFAULT_THEME_COLOR = '#176b52';
 const THEME_COLORS = ['#176b52', '#ff7856', '#d0a72d', '#7a5c99', '#3f7d9d', '#8a6a2f', '#556b5d', '#9a4f61'];
+const emptyRules = () => ({include_when:'',exclude_when:'',example:''});
 
-const LabelModal = ({ labels = [], setLabels, onDeleteLabel, onUpdateLabel, buttonBool=true }) => {
-    const [newLabel, setNewLabel] = useState('');
-    const [labelDescription, setLabelDescription] = useState('');
-    const [rules,setRules] = useState({include_when:'',exclude_when:'',example:''});
-    const [selectedColor, setSelectedColor] = useState(DEFAULT_THEME_COLOR);
-    const [show, setShow] = useState(false);
-    const [editIndex, setEditIndex] = useState(null);
-    const [formMode, setFormMode] = useState('add');
-    const [formError, setFormError] = useState('');
+export default function LabelModal({labels=[],setLabels,onDeleteLabel,onUpdateLabel}) {
+  const [show,setShow] = useState(false);
+  const [tab,setTab] = useState('themes');
+  const [newLabel,setNewLabel] = useState('');
+  const [labelDescription,setLabelDescription] = useState('');
+  const [rules,setRules] = useState(emptyRules);
+  const [rulesOpen,setRulesOpen] = useState(false);
+  const [selectedColor,setSelectedColor] = useState(DEFAULT_THEME_COLOR);
+  const [editIndex,setEditIndex] = useState(null);
+  const [formError,setFormError] = useState('');
+  const [importError,setImportError] = useState('');
+  const [readingThemes,setReadingThemes] = useState(false);
+  const [editorFits, setEditorFits] = useState(false);
+  const [themeEditor, setThemeEditor] = useState(null);
+  const nameInput = useRef(null);
+  const themesTab = useRef(null);
+  const scrollBody = useRef(null);
 
-    const toggleShow = () => setShow(!show);
+  useLayoutEffect(() => {
+    if (scrollBody.current) scrollBody.current.scrollTop = 0;
+  }, [tab]);
 
-    const renderTooltip = (props) => (
-        <Tooltip id="button-tooltip" {...props}>
-        Use one theme per row: theme name, then description. TXT files may use the same comma-separated format.
-        </Tooltip>
-    );
- 
-    const addLabel = () => {
-        const trimmedName = newLabel.trim();
-        if (!trimmedName) return;
-        if(trimmedName.toLowerCase()==='unclassified'){setFormError('Unclassified is reserved for responses without a theme.');return;}
-        if (labels.some(label => label.name.toLowerCase() === trimmedName.toLowerCase())) {
-            setFormError('Theme names must be unique.');
-            return;
-        }
-        if (labels.length >= 10) {
-            setFormError('You can create up to 10 themes.');
-            return;
-        }
+  useLayoutEffect(() => {
+    const body = scrollBody.current;
+    if (!show || tab !== 'themes' || !body || !themeEditor) return;
+    const measure = () => setEditorFits(themeEditor.offsetHeight + 24 <= body.clientHeight);
+    const observer = new ResizeObserver(measure);
+    observer.observe(body);
+    observer.observe(themeEditor);
+    measure();
+    return () => observer.disconnect();
+  }, [show, tab, themeEditor]);
 
-        setLabels([...labels, { 
-            name: trimmedName,
-            description: labelDescription.trim(),
-            ...rules,
-            color: selectedColor 
-        }]);
-        
-        setNewLabel('');
-        setLabelDescription('');
-        setRules({include_when:'',exclude_when:'',example:''});
-        setSelectedColor(DEFAULT_THEME_COLOR);
-        setFormError('');
-    };
+  const resetEditor = () => {
+    setNewLabel('');setLabelDescription('');setRules(emptyRules());
+    setSelectedColor(DEFAULT_THEME_COLOR);setEditIndex(null);setRulesOpen(false);setFormError('');
+  };
+  const focusName = () => requestAnimationFrame(() => nameInput.current?.focus());
+  const startEditLabel = index => {
+    const theme=labels[index];
+    setNewLabel(theme.name);setLabelDescription(theme.description||'');
+    setRules({include_when:theme.include_when||'',exclude_when:theme.exclude_when||'',example:theme.example||''});
+    setRulesOpen(Boolean(theme.include_when||theme.exclude_when||theme.example));
+    setSelectedColor(theme.color||DEFAULT_THEME_COLOR);setEditIndex(index);setFormError('');
+    scrollBody.current.scrollTop = 0;
+    setTab('themes');focusName();
+  };
+  const submitTheme = event => {
+    event.preventDefault();
+    const name=newLabel.trim();
+    if (!name) return;
+    if (name.toLowerCase()==='unclassified') {setFormError('Unclassified is reserved for responses without a theme.');return;}
+    if (labels.some((theme,index)=>index!==editIndex&&theme.name.toLowerCase()===name.toLowerCase())) {setFormError('Theme names must be unique.');return;}
+    if (editIndex===null&&labels.length>=10) {setFormError('You can create up to 10 themes.');return;}
+    const theme={...(editIndex===null?{}:labels[editIndex]),name,description:labelDescription.trim(),...rules,color:selectedColor};
+    try {cleanCodebook([theme]);} catch(error) {setFormError(error.message);return;}
+    if (editIndex===null) setLabels([...labels,theme]);
+    else {
+      const updated=labels.map((entry,index)=>index===editIndex?theme:entry);
+      setLabels(updated);onUpdateLabel?.(labels[editIndex].name,theme);
+    }
+    resetEditor();
+  };
+  const deleteLabel = index => {
+    const theme=labels[index];
+    if (!window.confirm(`Delete “${theme.name}”? This also removes it from coded responses.`)) return;
+    setLabels(labels.filter((_,position)=>position!==index));onDeleteLabel?.(theme.name);
+    if (editIndex===index) resetEditor();
+    else if (editIndex!==null&&editIndex>index) setEditIndex(editIndex-1);
+  };
+  const importLabels = value => {setLabels(value);setImportError('');setTab('themes');requestAnimationFrame(()=>themesTab.current?.focus());};
+  const fileLabel = async event => {
+    const input=event.currentTarget;
+    const file=input.files?.[0];if (!file) return;
+    setReadingThemes(true);setImportError('');
+    try {
+      if (file.size>100000) throw new Error('Choose a theme file smaller than 100 KB.');
+      const next=labels.filter(theme=>theme.name!=='Unclassified').map(theme=>({...theme}));
+      for (const row of (await file.text()).split(/\r?\n/)) {
+        const comma=row.indexOf(',');if(comma===-1)continue;
+        const name=row.slice(0,comma).trim(),description=row.slice(comma+1).trim();
+        if (!name) continue;
+        const existing=next.findIndex(theme=>theme.name.toLowerCase()===name.toLowerCase());
+        if (existing===-1)next.push({name,description,color:THEME_COLORS[next.length%THEME_COLORS.length]});
+        else next[existing]={...next[existing],description};
+      }
+      if (JSON.stringify(next)===JSON.stringify(labels)) throw new Error('No new themes were found. Use “Theme name,definition” on each line.');
+      importLabels(cleanCodebook(next));
+    } catch(error) {setImportError(error.message);}
+    finally {setReadingThemes(false);input.value='';}
+  };
 
-    const startEditLabel = (index) => {
-        const label = labels[index];
-        setNewLabel(label.name);
-        setLabelDescription(label.description || '');
-        setRules({include_when:label.include_when || '',exclude_when:label.exclude_when || '',example:label.example || ''});
-        setSelectedColor(label.color);
-        setEditIndex(index);
-        setFormMode('edit');
-    };
-
-    const updateLabel = () => {
-        if (editIndex === null || newLabel.trim() === '') return;
-        if(newLabel.trim().toLowerCase()==='unclassified'){setFormError('Unclassified is reserved.');return;}
-        
-        if (labels.some((label, idx) => 
-            idx !== editIndex && 
-            label.name.toLowerCase() === newLabel.toLowerCase()
-        )) {
-            setFormError('Theme names must be unique.');
-            return;
-        }
-
-        const updatedLabels = [...labels];
-        updatedLabels[editIndex] = {
-            ...updatedLabels[editIndex],
-            name: newLabel.trim(),
-            description: labelDescription.trim(),
-            ...rules,
-            color: selectedColor
-        };
-        
-        setLabels(updatedLabels);
-        onUpdateLabel?.(labels[editIndex].name,updatedLabels[editIndex]);
-        
-        setNewLabel('');
-        setLabelDescription('');
-        setRules({include_when:'',exclude_when:'',example:''});
-        setSelectedColor(DEFAULT_THEME_COLOR);
-        setEditIndex(null);
-        setFormMode('add');
-        setFormError('');
-    };
-
-    const cancelEdit = () => {
-        setNewLabel('');
-        setLabelDescription('');
-        setRules({include_when:'',exclude_when:'',example:''});
-        setSelectedColor(DEFAULT_THEME_COLOR);
-        setEditIndex(null);
-        setFormMode('add');
-    };
-
-    const deleteLabel = (index) => {
-        const label = labels[index];
-        if (!window.confirm(`Delete “${label.name}”? This also removes it from coded responses.`)) return;
-        setLabels(labels.filter((_, idx) => idx !== index));
-        onDeleteLabel?.(label.name);
-       
-        if (editIndex === index) {
-            cancelEdit();
-        }
-    };
-
-    const fileLabel = (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
-        if(file.size>100000){setFormError('Choose a theme file smaller than 100 KB.');return;}
-
-        const reader = new FileReader();
-        reader.onerror = () => setFormError('The theme file could not be read.');
-        reader.readAsText(file);
-        reader.onload = (e) => {
-            const text = e.target.result;
-            const rows = text.split('\n');
-            const newLabels = [...labels]; // Create a copy of current labels
-
-            rows.forEach(row => {
-                const firstCommaIndex = row.indexOf(',');
-                if (firstCommaIndex === -1) return;
-
-                const name = row.substring(0, firstCommaIndex).trim();
-                const description = row.substring(firstCommaIndex + 1).trim();
-                
-                if (name && name !== '') {
-                    const existingLabelIndex = newLabels.findIndex(
-                        label => label.name.toLowerCase() === name.toLowerCase()
-                    );
-
-                    if (existingLabelIndex === -1 && newLabels.length < 10) {
-                        // Name doesn't exist, add new label
-                        const color = THEME_COLORS[newLabels.length % THEME_COLORS.length];
-                        newLabels.push({ 
-                            name, 
-                            description: description || "",
-                            color 
-                        });
-                    } else if (existingLabelIndex !== -1 && 
-                             labels[existingLabelIndex].description !== description) {
-                        // Name exists but description is different, update description
-                        newLabels[existingLabelIndex] = {
-                            ...newLabels[existingLabelIndex],
-                            description: description || ""
-                        };
-                    }
-                }
-            });
-
-            try {
-            if (JSON.stringify(newLabels) === JSON.stringify(labels)) {
-                setFormError('No new themes were found. Use “Theme name, description” on each line.');
-            } else {
-                setLabels(cleanCodebook(newLabels));
-                setFormError('');
-            }
-            } catch(error) { setFormError(error.message); }
-        };
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (formMode === 'add') {
-            addLabel();
-        } else {
-            updateLabel();
-        }
-    };
-
-    return (
-        <>
-            <Button variant="primary" onClick={toggleShow}>Edit codebook</Button>
-
-            <Modal show={show} onHide={toggleShow} centered size="lg" scrollable>
-                <Modal.Header closeButton>
-                    <Modal.Title>Manage codebook</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <CodebookLibrary labels={labels} onImport={setLabels}/>
-                    <Form onSubmit={handleSubmit}>
-                        {formError && <div className="theme-form-error" role="alert">{formError}</div>}
-                        <Form.Group className="mb-3" controlId="codebook-name">
-                            <Form.Label>Theme name</Form.Label>
-                            <Form.Control
-                                type="text"
-                                placeholder="Enter theme name"
-                                value={newLabel}
-                                onChange={(e) => { setNewLabel(e.target.value); setFormError(''); }}
-                                aria-invalid={Boolean(formError)}
-                                maxLength={30}
-                            />
-                        </Form.Group>
-                        
-                        <Form.Group className="mb-3" controlId="codebook-definition">
-                            <Form.Label>Definition</Form.Label>
-                            <Form.Control
-                                as="textarea"
-                                rows={2}
-                                placeholder="Enter theme description"
-                                value={labelDescription}
-                                onChange={(e) => setLabelDescription(e.target.value)}
-                                maxLength={200}
-                            />
-                        </Form.Group>
-                        
-                        {codebookFields.filter(([key])=>key!=='description').map(([key,title,limit])=><Form.Group className="mb-3" controlId={`codebook-${key}`} key={key}><Form.Label>{title}</Form.Label><Form.Control as="textarea" rows={2} value={rules[key]} maxLength={limit} onChange={event=>setRules(previous=>({...previous,[key]:event.target.value}))}/></Form.Group>)}
-                        <div className="theme-editor-actions">
-                            <Form.Label>Theme color</Form.Label>
-                            <Form.Control
-                                type="color"
-                                value={selectedColor}
-                                onChange={(e) => setSelectedColor(e.target.value)}
-                                className="form-control-color m-2"
-                            />
-
-                            {formMode === 'add' ? (
-                                <Button 
-                                    variant="primary"
-                                    onClick={addLabel}
-                                    disabled={!newLabel.trim() || labels.length >= 10}
-                                    className="theme-editor-actions__submit"
-                                >
-                                    Add theme
-                                </Button>
-                            ) : (
-                                <div className="theme-editor-actions__buttons">
-                                    <Button 
-                                        variant="primary" 
-                                        onClick={updateLabel}
-                                        className="me-2"
-                                        disabled={!newLabel.trim()}
-                                    >
-                                        Update
-                                    </Button>
-                                    <Button variant="secondary" onClick={cancelEdit}>
-                                        Cancel
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    </Form>
-                    
-                    <hr />
-                    
-                    <div className="theme-manager-header">
-                        <h5 className="mb-0">Current themes ({labels.length}/10)</h5>
-                        <Form.Group controlId="formFile" className="theme-manager-import">
-                            <Form.Control 
-                                type="file" 
-                                accept=".txt,.csv" 
-                                onChange={fileLabel}
-                                disabled={labels.length >= 10}
-                                size="sm"
-                            />
-                            <Form.Text className="text-muted">
-                                Import themes from CSV or TXT
-                            </Form.Text>
-                            <OverlayTrigger
-                            placement="right"
-                            delay={{ show: 250, hide: 400 }}
-                            overlay={renderTooltip}
-                            >
-                                <span className="theme-import-help" role="button" tabIndex="0" aria-label="Theme import format help">
-                                <svg style={{margin: '2px'}} xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-question-circle" viewBox="0 0 16 16">
-                                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
-                                    <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"/>
-                                </svg>
-                                </span>
-                            </OverlayTrigger>
-                        </Form.Group>
-                    </div>
-                    
-                    <ListGroup>
-                        {labels.length === 0 ? (
-                            <p className="text-muted text-center py-3">
-                                No themes defined yet. Add your first theme above.
-                            </p>
-                        ) : (
-                            labels.map((label, index) => (
-                                <ListGroup.Item key={index} className="theme-manager-item">
-                                    <div className="theme-manager-item__copy">
-                                        <div 
-                                            style={{ 
-                                                backgroundColor: label.color, 
-                                                width: '20px', 
-                                                height: '20px', 
-                                                borderRadius: '50%', 
-                                                display: 'inline-block',
-                                                marginRight: '10px'
-                                            }}
-                                        ></div>
-                                        <div>
-                                            <div><strong>{label.name}</strong></div>
-                                            {label.description && (
-                                                <small className="text-muted">{label.description}</small>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="theme-manager-item__actions">
-                                        <Button 
-                                            variant="outline-secondary" 
-                                            size="sm" 
-                                            className="me-2"
-                                            onClick={() => startEditLabel(index)}
-                                        >
-                                            Edit
-                                        </Button>
-                                        <Button 
-                                            variant="outline-danger" 
-                                            size="sm" 
-                                            onClick={() => deleteLabel(index)}
-                                        >
-                                            Delete
-                                        </Button>
-                                    </div>
-                                </ListGroup.Item>
-                            ))
-                        )}
-                    </ListGroup>
-
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={toggleShow}>Close</Button>
-                </Modal.Footer>
-            </Modal>
-        </>
-    );
-};
-
-
-export default LabelModal;
+  return <>
+    <Button variant="outline" onClick={()=>setShow(true)}>{labels.length?'Edit codebook':'Add themes'}</Button>
+    <Dialog open={show} onOpenChange={setShow}><DialogContent className="codebook-manager-dialog">
+      <DialogHeader><DialogTitle>Manage codebook</DialogTitle></DialogHeader>
+      <Tabs value={tab} onValueChange={setTab} className="codebook-manager-tabs">
+        <TabsList variant="line" className="codebook-manager-tabs-list" aria-label="Codebook views">
+          <TabsTrigger ref={themesTab} value="themes">Themes ({labels.length}/10)</TabsTrigger>
+          <TabsTrigger value="import">Import &amp; reuse</TabsTrigger>
+        </TabsList>
+        <div className="codebook-manager-body" ref={scrollBody}>
+          <TabsContent value="themes" forceMount>
+            <div className="codebook-manager-layout">
+              <section className="codebook-current-themes" aria-label="Current themes">
+                <h3>Current themes</h3>
+                {labels.length ? <ul className="codebook-theme-list">{labels.map((theme,index)=><li key={index} className={editIndex===index?'is-editing':''}>
+                  <div className="codebook-theme-name"><span style={{backgroundColor:theme.color||DEFAULT_THEME_COLOR}} aria-hidden="true"/><strong>{theme.name}</strong></div>
+                  {theme.description&&<p>{theme.description}</p>}
+                  <div className="codebook-theme-actions"><Button type="button" variant="ghost" size="auto" aria-label={`Edit ${theme.name}`} onClick={()=>startEditLabel(index)}>Edit</Button><Button type="button" variant="ghost" size="auto" aria-label={`Delete ${theme.name}`} onClick={()=>deleteLabel(index)}>Delete</Button></div>
+                </li>)}</ul> : <div className="codebook-empty"><p>No themes yet. Add one or import a codebook.</p><Button type="button" variant="outline" size="auto" onClick={()=>setTab('import')}>Import themes</Button></div>}
+              </section>
+              <div className="codebook-editor-column">
+              <form ref={setThemeEditor} className="codebook-theme-editor" data-fits={editorFits || undefined} onSubmit={submitTheme}>
+                <h3>{editIndex===null?'Add a theme':'Edit theme'}</h3>
+                {formError&&<p className="codebook-manager-error" role="alert">{formError}</p>}
+                <Field className="codebook-field" controlId="codebook-name"><Label>Theme name</Label><Input ref={nameInput} value={newLabel} onChange={event=>{setNewLabel(event.target.value);setFormError('');}} maxLength={30} placeholder="e.g. Learning support"/></Field>
+                <Field className="codebook-field" controlId="codebook-definition"><div className="codebook-field-label"><Label>Definition</Label><span title="Maximum 200 characters">{labelDescription.length}/200</span></div><Textarea value={labelDescription} onChange={event=>setLabelDescription(event.target.value)} maxLength={200} rows={3} placeholder="When does this theme apply?"/></Field>
+                <details className="codebook-rules" open={rulesOpen} onToggle={event=>setRulesOpen(event.currentTarget.open)}><summary>Coding rules (optional)</summary><div className="codebook-rules-grid">
+                  {codebookFields.filter(([key])=>key!=='description').map(([key,title,limit])=><Field className="codebook-field" controlId={`codebook-${key}`} key={key}><Label>{title}</Label><Textarea rows={2} maxLength={limit} value={rules[key]} onChange={event=>setRules(previous=>({...previous,[key]:event.target.value}))}/></Field>)}
+                </div></details>
+                <div className="codebook-editor-footer"><Field controlId="codebook-color" className="codebook-color-field"><Label>Theme color</Label><Input type="color" value={selectedColor} onChange={event=>setSelectedColor(event.target.value)}/></Field><div className="codebook-editor-actions">
+                  {editIndex!==null&&<Button type="button" variant="outline" size="auto" onClick={resetEditor}>Cancel</Button>}
+                  <Button type="submit" size="auto" disabled={!newLabel.trim()||(editIndex===null&&labels.length>=10)}>{editIndex===null?'Add theme':'Update'}</Button>
+                </div></div>
+                {labels.length>=10&&editIndex===null&&<p className="codebook-manager-help">Theme limit reached. Edit or delete a theme to add another.</p>}
+              </form>
+              </div>
+            </div>
+          </TabsContent>
+          <TabsContent value="import" forceMount>
+            <CodebookLibrary labels={labels} onImport={importLabels}>
+            <section className="codebook-list-import" aria-label="Import a theme list"><h3>Import a theme list</h3><p>CSV or TXT files contain theme names and definitions only.</p>
+              <Field controlId="codebook-theme-file" className="codebook-field"><Label>Theme list (CSV or TXT)</Label><Input type="file" accept=".txt,.csv,text/plain,text/csv" aria-label="Import themes (CSV or TXT)" disabled={readingThemes} aria-busy={readingThemes} onChange={fileLabel}/></Field>
+              {readingThemes&&<LoadingSkeleton variant="inline" label="Reading theme list…"/>}
+              <ContextHelp title="CSV/TXT format"><p>Use one theme per line: Theme name,definition. No header row. Names can have up to 30 characters and definitions up to 200. Up to 10 themes are supported.</p></ContextHelp>
+              {importError&&<p className="codebook-manager-error" role="alert">{importError}</p>}
+            </section>
+            </CodebookLibrary>
+          </TabsContent>
+        </div>
+      </Tabs>
+      <DialogFooter className="modal-footer codebook-manager-footer"><Button type="button" variant="outline" size="auto" onClick={()=>setShow(false)}>Close</Button></DialogFooter>
+    </DialogContent></Dialog>
+  </>;
+}

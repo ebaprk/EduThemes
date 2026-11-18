@@ -21,7 +21,7 @@ await db.exec(`create role anon; create role authenticated; create role service_
   create schema auth; create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz);
   create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
   grant usage on schema public,auth to anon,authenticated,service_role; grant execute on function auth.uid() to authenticated;`);
-for (const migration of ['202610090001_studies.sql','202610240001_canvas_lti.sql','202610280001_teams_versions_consent.sql','202610280002_study_operations_activities.sql','202611020001_analysis_jobs.sql','202611020002_recruitment_screeners.sql','202611020003_research_quality.sql','202611020004_collaborative_coding.sql']) {
+for (const migration of ['202610090001_studies.sql','202610240001_canvas_lti.sql','202610280001_teams_versions_consent.sql','202610280002_study_operations_activities.sql','202611020001_analysis_jobs.sql','202611020002_recruitment_screeners.sql','202611020003_research_quality.sql','202611020004_collaborative_coding.sql','202611020005_participant_results.sql','202611170001_imported_studies.sql','202611170002_save_import_on_upload.sql']) {
   await db.exec(await readFile(path.join(root,'supabase/migrations',migration),'utf8'));
 }
 await db.query('insert into auth.users values ($1,$2,now()),($3,$4,now())',[owner,'owner@example.invalid',coder,'coder@example.invalid']);
@@ -71,6 +71,7 @@ const testUsers = [owner,coder].map((id,index)=>({id,email:index?'coder@example.
 const tokens = new Map(testUsers.map(user=>[`${Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url')}.${Buffer.from(JSON.stringify({sub:user.id,role:'authenticated',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')}.c3ludGhldGlj`,user]));
 const tables = new Set(['studies','study_questions','study_submissions','study_analyses','study_versions','study_members']);
 const functions = new Set(['study_role','pending_study_invitations','invite_study_member','accept_study_invitation','remove_study_member',
+  'save_file_study',
   'create_coding_round','list_coding_rounds','get_coding_round','save_coding_ballot','set_coding_round_state','save_coding_decision','apply_coding_consensus','list_study_codebooks','get_study_run_review','save_study_run_review','save_study_draft','get_public_study','submit_study_version','get_study_receipt','save_study_analysis',
   'get_study_operations','save_study_operations','update_participation_reward','get_participant_study','enroll_study',
   'start_study_activity','save_activity_draft','submit_study_activity','get_participant_portal','submit_study_screener','get_study_recruitment','review_study_applicant','enroll_recruited_study']);
@@ -123,7 +124,7 @@ const api = createServer(async(req,res)=>{
     if(url.pathname.startsWith('/rest/v1/')){
       const table=url.pathname.split('/').at(-1);if(!tables.has(table))throw new Error('Unsupported test table');
       const params=[]; const conditions=[];
-      for(const [key,value] of url.searchParams)if(!['select','order'].includes(key)){
+      for(const [key,value] of url.searchParams)if(!['select','order','offset','limit'].includes(key)){
         if(!value.startsWith('eq.'))throw new Error('Unsupported test filter');
         params.push(value.slice(3));conditions.push(`${identifier(key)}=$${params.length}`);
       }

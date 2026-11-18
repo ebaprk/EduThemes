@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addThemeAssignment, rejectThemeAssignments, removeThemeAssignment } from './themeAssignments.js';
+import { addThemeAssignment, classificationsFromDataset, rejectThemeAssignments, removeThemeAssignment, reviewedDataset } from './themeAssignments.js';
 
 const themeA = { name: 'Access', color: '#315f9f', description: 'Access issues' };
 const unclassifiedTheme = { name: 'Unclassified', color: '#cccccc', description: 'No match' };
@@ -42,4 +42,28 @@ test('rejected responses become unclassified only when no other theme remains', 
   assert.deepEqual(result.classifications.Unclassified, [0]);
   assert.deepEqual(result.dataset[0].themes, [unclassifiedTheme]);
   assert.deepEqual(result.dataset[1].themes, [other]);
+});
+
+test('findings keep the approved rows after a rejection changes their positions', () => {
+  const support = { name: 'Support', color: '#000000', description: 'Help from others' };
+  const labels = [themeA, support, unclassifiedTheme];
+  const dataset = [
+    { original: 'Rejected in both themes', themes: [support], review_decisions: { Access: { action: 'deny' }, Support: { action: 'deny' } } },
+    { original: 'Accepted in both themes', themes: [], review_decisions: { Access: { action: 'approve' }, Support: { action: 'approve' } } },
+    { original: 'Accepted in one theme', themes: [], review_decisions: { Access: { action: 'approve' }, Support: { action: 'deny' } } },
+    { original: 'No suggested theme', themes: [] },
+  ];
+  const rejectedInAccess = rejectThemeAssignments({
+    classifications: { Access: [0, 1, 2], Support: [0, 1, 2], Unclassified: [3] },
+    dataset,
+    rejectedIndices: [0],
+    themeName: 'Access',
+    unclassifiedTheme,
+  });
+  const finalDataset = reviewedDataset({ ...rejectedInAccess, labels });
+
+  assert.deepEqual(finalDataset.map(row => row.original), dataset.map(row => row.original));
+  assert.deepEqual(finalDataset.map(row => row.review_decisions), dataset.map(row => row.review_decisions));
+  assert.deepEqual(finalDataset.map(row => row.themes), [[unclassifiedTheme], [themeA, support], [themeA], [unclassifiedTheme]]);
+  assert.deepEqual(classificationsFromDataset(finalDataset, labels), { Access: [1, 2], Support: [1], Unclassified: [0, 3] });
 });

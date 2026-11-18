@@ -1,9 +1,15 @@
 # EduThemes interface direction
 
-The researcher workspace follows [shadcn/ui](https://ui.shadcn.com/)'s restrained
-components and [Terracotta](https://www.terracotta.education/product-overview)'s
-clear research workflows: neutral surfaces, comfortable controls, and explicit
-separation between study design, participation, responses, and analysis.
+The researcher and participant apps use real [shadcn/ui](https://ui.shadcn.com/)
+components from the shared `@eduthemes/ui` package in `packages/ui`. The package
+owns the component source, neutral theme tokens, and shared component styling.
+Both apps use Tailwind CSS v4; dialogs, tabs, tooltips, checkboxes, and the
+researcher account menu use the Radix primitives provided by shadcn.
+Bootstrap, React Bootstrap, and DaisyUI have been removed from the researcher app.
+
+The workspace retains compact work areas and explicit separation between study
+design, participation, responses, and analysis. See
+[`packages/ui/README.md`](../packages/ui/README.md) for component ownership and setup.
 
 EduThemes keeps its own green book mark, existing language,
 and research workflows. No reference-site logos, assets, or application code
@@ -11,31 +17,64 @@ are copied.
 
 ## Foundations
 
+- Give each task one clear heading and a short introduction when it adds useful
+  context. Avoid repeating the page purpose as an eyebrow, heading, and paragraph
+  across multiple panels. Put supporting explanations in `ContextHelp` or an
+  existing guide; keep errors, decisions, consent, and important privacy information
+  visible where users act. Research responses and study-authored content retain
+  their full wording. Preserve readable type and use 20–24px between work areas
+  and 12–16px within related groups.
+- Participants separates Applications and Enrollments into mounted tabs so local
+  review notes survive switching views. Application review appears after selection.
+  Empty views use one short state and useful action; status filters hold full stage
+  counts, and populated views use inline summaries rather than walls of metric cards.
 - Geist for headings, controls, and reading text, with system sans-serif
   fallbacks. Keep body text at 14px and helper text at 12px or larger.
-- A warm white workspace canvas `#f7f6f2`, white surfaces `#ffffff`, stone inset
-  panels `#faf9f6`, and borders `#e3dfd7`, charcoal ink `#292724`, and muted text
-  `#6c6761` across both apps.
-- Charcoal actions and links `#37332f`, dark hover `#211f1c`, and stone accent
-  `#57534e`. Inputs, progress, selection, and keyboard focus share this palette;
+- A neutral workspace canvas `#fafafa`, white surfaces `#ffffff`, inset
+  panels `#f5f5f5`, borders `#e5e5e5`, ink `#171717`, and muted text
+  `#737373` across both apps. Use semantic shared tokens instead of introducing
+  a second palette in individual screens.
+- Charcoal primary actions `#262626` and neutral accents `#f5f5f5`.
+  Inputs, progress, selection, and keyboard focus share this palette;
   warning and error states retain their distinct amber and red colors.
-- Stone-neutral skeletons `#e8e5df`; the green book icon remains the brand mark.
-- Comfortable controls with 44–48px targets and 12px corners. Cards use 16px
-  corners, 26–38px interior padding, 24–32px layout gaps, and two subtle shadow
-  layers to separate white work surfaces from the canvas. Mobile layouts keep
-  24px panel padding and avoid squeezing labels or actions.
-- A collapsible researcher desktop sidebar and mobile navigation drawer with
-  focus containment, Escape dismissal, and focus restoration.
-- The signed-in researcher top bar provides study search, study creation, and
-  explicit parent navigation. Search is shared with the library URL and updates
-  without reloading; returning from an analysis retains the selected version.
-  Analysis navigation waits for queued saves. Repeated page-level search/create
-  controls and the study hero's duplicate back link are removed.
-- The participant top bar provides a private-link shortcut and a contextual
-  return action. Its native dialog supports study keys and private results links,
+- Neutral skeletons use the shared muted token; the green book icon remains the brand mark.
+- A shared type scale: 28px page titles (24px on phones), 20px section headings,
+  16px subheadings, 14px body text, and 13px labels and helper text. Eyebrows and
+  minor metadata may use 12px. Reading documents can retain their own print scale.
+- Content determines card height. Outer panels use 20px padding on desktop and
+  16px on phones, with 16–20px between sections and 8–12px within related groups.
+  Nested choices, quotes, and coder ballots use 10–16px insets instead of another
+  full outer panel inset. Overview counts sit beside their labels and actions.
+- Main controls use 40px desktop heights and at least 44px on phones. Participant
+  controls retain 44px targets. Study fields use 16px text on phones to remain readable when
+  focused. Decorative space must not be added by the final CardSpacing layer.
+- The optional study template picker starts collapsed. On phones the study form's
+  actions follow the fields instead of covering them with a tall sticky footer.
+- Dialogs use one continuous neutral surface. Do not add contrasting header
+  and footer bands or nest another card solely to frame the dialog's content.
+  Keep titles compact and close controls at least 44px. Participant preview uses
+  inline step navigation and actions immediately beneath the content, with its
+  close control reachable while long content scrolls. Preserve Escape dismissal
+  and focus restoration.
+- One compact researcher top bar across desktop and phones. The brand is the
+  home link; no separate Studies destination repeats it. Help remains directly
+  accessible, and the shadcn account menu contains identity and sign-out. The menu
+  supports keyboard navigation, Escape dismissal, and focus restoration. Account
+  checks and pending navigation/sign-out actions use shared skeletons.
+- Each researcher page keeps its own heading. Import file is the primary
+  action beside the Studies heading, with Create study as the secondary action.
+  Import is an action on this page rather than a duplicate global destination;
+  ongoing work remains available through Continue analysis. Search belongs to the library filters and keeps
+  the selected status and sort while filtering. Other researcher pages keep their
+  own task-specific back links. Sticky menus account for the actual top bar height.
+  Home navigation and sign-out wait for queued study saves. The top bar sits below
+  dialog and menu overlays, and page content uses the width recovered from the sidebar.
+- The participant sidebar provides the private-link shortcut on desktop; a
+  compact header keeps it available on phones and during focused study slides.
+  Its shared shadcn dialog supports study keys and private results links,
   validates locally, keeps credentials in URL fragments, traps keyboard focus,
   and restores focus on dismissal. Mobile navigation remains directly available.
-  Both toolbars use the warm workspace background instead of a blank white strip.
+  The participant toolbar uses the shared workspace background.
 - A searchable study library with URL-based status filters, sorting, grid and
   table views, real status counts, and separate loading, error, and empty states.
 - An efficient single-page researcher study form with all fields available in
@@ -43,11 +82,24 @@ are copied.
   access; researchers can edit questions together and save directly. Researcher
   study setup never uses a slide flow or requires a separate review step.
   Each activity and question keeps its association when adding or reordering.
+  Setup section links use a flat row with one active underline; avoid nested
+  pills or repeated icons. The active section follows scrolling and field focus,
+  with a two-column link layout on phones.
   Study pages provide section links for operations, participation, responses,
   and team.
-- A study overview with a next action, version-specific metrics, a six-stage
-  workflow map, and a launch readiness checklist. Purpose, participation, activities,
+- A study overview with an inline version-specific summary and an actionable
+  question queue. Submission counts stay separate from questions with answers;
+  saved analyses count completed runs. Pending questions precede completed work.
+  Start coding, Continue coding, Continue review, and Open findings use the same
+  saved-state logic as Responses and Analysis, and open the selected task directly.
+  The published overview has one action per question, without a duplicate next-step
+  banner or metric cards. Draft readiness retains the owner-only publication action.
+  Purpose, participation, activities,
   screening, and recommended context link directly to the appropriate editor section.
+- The study header places collection status beside the title and groups the
+  compact version selector with participant preview. Historical and preserved
+  published views have explicit labels. Study navigation uses a flat row and active
+  underline, with a native section picker on narrower screens.
 - A participant preview covers the introduction, branching screener, consent, and
   activities without making network writes. Unsaved edits can be previewed locally.
 - A study-information rail beside responses and saved evidence on desktop.
@@ -58,14 +110,14 @@ are copied.
 - Stacked panels at narrower widths; independent table scrolling where needed.
 - Visible keyboard focus, mobile touch targets, and reduced-motion support.
 
-The researcher foundations are in `frontend/src/styles/ContextTheme.css`;
-`frontend/src/styles/ResearchFlow.css` defines the current spacing, elevation,
-workflow overview, preview, and findings library. The same
-foundations are used in the independent participant repository's
-`src/styles/ContextTheme.css`, with spacious surfaces in
-`src/styles/RoomyTheme.css`. Both portals share the sidebar, neutral panels,
-Geist typography, and terracotta controls. Participant responses use a focused
-slide canvas with the portal sidebar hidden while answering.
+Shared foundations are in `packages/ui/src/theme.css` and
+`packages/ui/src/components.css`. Each app imports Tailwind and this theme through
+`src/styles/shadcn.css`; the component stylesheet loads after existing page styles.
+Researcher `ContextTheme.css` and `ResearchFlow.css`, and participant
+`ContextTheme.css` and `RoomyTheme.css`, retain page layout rules. New controls
+should come from `@eduthemes/ui/components/*`, with layout-specific composition in
+the owning screen. Participant responses use a focused slide canvas with the
+portal sidebar hidden while answering.
 
 Every asynchronous state continues to use `LoadingSkeleton` or the shared
 button skeleton. Background refreshes retain existing content and entered work.
@@ -96,3 +148,56 @@ keys, analysis workers, and database contracts are preserved.
 Run `npm run test:ui` from `frontend` for the researcher UI checks, or
 `npm run test:browser` for the complete browser suite. Checks use synthetic
 services and capture previews in `frontend/test-results/research-ui`.
+The complete screen inventory runs with `npm run test:ui:audit` after building
+both apps. Set `UI_AUDIT_OUTPUT` to retain a separate snapshot, or
+`PARTICIPANT_DIST` to use a particular participant build. This diagnostic records
+known product findings as well as unexpected walkthrough failures; a successful
+walkthrough does not mean every recorded product finding is resolved.
+
+
+## Researcher task flow
+
+- The library offers two explicit starting points: create a study to collect new
+  responses, or import a response file. Fresh imports open the file form directly;
+  the analysis session starts on submission. A failed upload retains its selected
+  file and entered context and reuses the pending session on retry. Existing
+  workspaces retain their resume and explicit replacement flow.
+- Study setup ends with Save draft & review next steps. Publication remains on
+  the overview readiness screen. The study header contains version and participant
+  preview controls; it does not push an unrelated next action on every destination.
+  Study setup and Participants use plain destination names.
+- Each collected question offers Start coding, Continue coding, Continue review,
+  or Open findings according to its actual state. Finished questions open saved
+  findings by default. Starting another completed run is an explicit secondary
+  option. Independent team coding is linked from the analysis question list.
+- Codebook controls sit with themes. Continuation follows the example table and
+  review assignments, with visible explanations when an action is unavailable.
+  The codebook dialog has Themes and Import & reuse views. Keep the current theme
+  list beside a compact editor on desktop; stack the editor first on phones.
+  Expand optional coding rules only when needed. Show the 200-character definition
+  limit and group JSON codebooks and CSV/TXT theme lists with explicit format labels.
+  Invalid imports preserve existing themes and response coding.
+  On phones theme controls precede the response table. Responses use neutral,
+  top-aligned rows with full original text; processed text is available per row.
+  One shadcn checkbox menu assigns multiple themes or an exclusive no-match
+  example. Assigned themes remain visible as removable tags. Removing the last
+  theme or clearing no-match returns the response to uncoded. With Uncoded only
+  active, a row remains visible while its menu is open; Done/Escape moves focus
+  to the next response after the coded row disappears. Search and filters have
+  an explicit empty state and reset action. Avoid whole-row selection styling,
+  duplicate response previews, and stacked redundant status labels.
+- Study analyses have three stages: Code examples, Review coding, Findings. File
+  analyses include Import data as their first stage. Back navigation returns study
+  coders to their question list, preserving the version. Progress labels wrap on
+  narrow screens rather than clipping later steps.
+- Study name, version, and save status sit together above the page title, without
+  a separate shell banner. Saving uses the inline skeleton; failed saves keep a
+  visible warning and coding download. Saved findings identify their read-only
+  state, while file imports omit study save metadata.
+- Phone review uses one compact theme chooser; desktop keeps the theme list
+  beside the assignments. Switching themes retains the recorded decisions.
+- Findings open with the summary. Evidence and data downloads, optional charts,
+  and Review & report have distinct tabs. Preparing a brief opens the reporting
+  tab; switching tabs keeps entered notes mounted. Tab URLs retain the real study
+  path, selected version, and saved run. Reloading an imported report reopens the
+  selected tab and recovers its saved draft notes.

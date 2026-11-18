@@ -35,10 +35,11 @@ const baseUrl = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch(process.env.BROWSER_EXECUTABLE ? { executablePath: process.env.BROWSER_EXECUTABLE } : { channel: 'chrome' });
 
 async function scenario(name, run, options = {}) {
+  if (process.env.SCENARIO && !name.includes(process.env.SCENARIO)) return;
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const state = { studies: structuredClone(studies), delay: 0, fail: false, calls: [], ...options };
   const errors = [];
-  if (!options.signedOut) await context.addInitScript(({ key, session }) => localStorage.setItem(key, JSON.stringify(session)), { key: storageKey, session: { access_token: token, refresh_token: 'synthetic-refresh', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, token_type: 'bearer', user } });
+  if (!options.signedOut) await context.addInitScript(({ key, session }) => { localStorage.setItem(key, JSON.stringify(session)); localStorage.setItem('eduthemes.studyLayout','grid'); }, { key: storageKey, session: { access_token: token, refresh_token: 'synthetic-refresh', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, token_type: 'bearer', user } });
   await context.route('**/*', async (route) => {
     const request = route.request(); const url = new URL(request.url());
     if (url.hostname === '127.0.0.1') return route.continue();
@@ -115,29 +116,23 @@ try {
     await expect(page.getByRole('button', { name: 'Drafts', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('.study-list-card')).toHaveCount(1);
   });
-  await scenario('mobile navigation traps focus, restores focus, closes on navigation, and fits small screens', async (page) => {
+  await scenario('mobile top bar keeps account controls accessible and fits small screens', async (page) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(baseUrl);
     await expect(page.locator('.study-list-card')).toHaveCount(4);
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-    await page.screenshot({ path: path.join(output, 'dashboard-mobile.png'), fullPage: true, animations: 'disabled' });
-    await page.getByRole('button', { name: 'Open navigation' }).click();
-    const drawer = page.getByRole('dialog', { name: 'Workspace navigation' });
-    await expect(drawer).toBeVisible();
-    await expect(drawer.getByRole('link', { name: 'EduThemes home' })).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
-    await expect(drawer.getByRole('link', { name: 'Help & documentation' })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(drawer.getByRole('link', { name: 'EduThemes home' })).toBeFocused();
-    await page.keyboard.press('Escape');
-    await expect(drawer).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Open navigation' })).toBeFocused();
-    await page.getByRole('button', { name: 'Open navigation' }).click();
-    await page.getByRole('link', { name: 'Drafts', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Open navigation' })).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.locator('.study-list-card')).toHaveCount(1);
-    await page.setViewportSize({ width: 320, height: 650 });
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    const header = page.getByRole('banner', { name: 'Researcher navigation' });
+    await expect(page.locator('.workspace-sidebar')).toHaveCount(0);
+    await expect(header.getByRole('link', { name: 'Studies', exact: true })).toHaveCount(0);
+    const account = header.getByRole('button', { name: 'Account menu', exact: true });
+    await account.focus(); await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('menuitem', { name: 'Sign out', exact: true })).toBeFocused();
+    await page.keyboard.press('Escape'); await expect(account).toBeFocused();
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await page.screenshot({ path: path.join(output, `topbar-mobile-${width}.png`), fullPage: true, animations: 'disabled' });
+    }
   });
   await scenario('loading uses content skeletons without flashing empty studies', async (page) => {
     await page.goto(baseUrl);
@@ -218,19 +213,22 @@ try {
     await page.getByRole('button', { name: 'Try again' }).click();
     await expect(page.locator('.study-list-card')).toHaveCount(4);
   }, { fail: true });
-  await scenario('sidebar collapse retains named navigation and restores the workspace', async (page) => {
+  await scenario('top bar replaces the sidebar and returns home without duplicate navigation', async (page) => {
     await page.goto(baseUrl);
-    await page.getByRole('button', { name: 'Collapse sidebar' }).click();
-    await expect(page.locator('.workspace-sidebar')).toHaveAttribute('data-collapsed', 'true');
-    await expect(page.getByRole('link', { name: 'Drafts', exact: true })).toBeVisible();
-    await page.getByRole('link', { name: 'Drafts', exact: true }).click();
-    await expect(page.locator('.study-list-card')).toHaveCount(1);
-    await page.getByRole('button', { name: 'Expand sidebar' }).click();
-    await expect(page.locator('.workspace-sidebar')).toHaveAttribute('data-collapsed', 'false');
-    await page.getByRole('link', { name: 'File analysis', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Your analysis workspace' })).toBeVisible();
-    await expect(page.locator('.sidebar-link[aria-current="page"]')).toHaveAttribute('href', '/analysis');
-    await page.screenshot({ path: path.join(output, 'analysis-start.png'), fullPage: true, animations: 'disabled' });
+    const header = page.getByRole('banner', { name: 'Researcher navigation' });
+    await expect(header.getByRole('link', { name: 'EduThemes home', exact: true })).toHaveAttribute('href', '/');
+    await expect(page.locator('.workspace-sidebar')).toHaveCount(0);
+    await expect(header.getByRole('link', { name: 'Studies', exact: true })).toHaveCount(0);
+    await expect(header.getByRole('button', { name: 'Studies', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Create study', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Create study', exact: true })).toBeVisible();
+    await header.getByRole('link', { name: 'EduThemes home', exact: true }).click();
+    await expect(page).toHaveURL(baseUrl + '/');
+    await expect(page.getByRole('heading', { name: 'Studies', exact: true })).toBeVisible();
+    await page.goto(baseUrl + '/analysis');
+    await expect(page.getByRole('heading', { name: 'Import responses', exact: true })).toBeVisible();
+    await expect(header).toBeVisible();
+    await page.screenshot({ path: path.join(output, 'topbar-import.png'), fullPage: true, animations: 'disabled' });
   });
   await scenario('sign-in and account creation keep entered values and communicate failures', async (page) => {
     await page.goto(baseUrl);
@@ -276,8 +274,8 @@ try {
       await page.screenshot({ path: path.join(output, `${route}-mobile.png`), fullPage: true, animations: 'disabled' });
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.getByRole('tab', { name: 'Visualizations' }).click();
-    await expect(page.getByText('Theme Distribution', { exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: 'Charts' }).click();
+    await expect(page.getByRole('heading', { name: 'Responses by theme', exact: true })).toBeVisible();
     await page.screenshot({ path: path.join(output, 'results-charts.png'), fullPage: true, animations: 'disabled' });
   });
 } finally { await browser.close(); await new Promise((resolve) => server.close(resolve)); }

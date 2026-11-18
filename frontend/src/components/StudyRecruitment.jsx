@@ -2,64 +2,133 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import { applicationIsStale, recruitmentCounts, recruitmentStatuses } from '../utils/recruitment';
-
-export default function StudyRecruitment({ study, role, onRefreshed }) {
-  const [data,setData] = useState(null), [filter,setFilter] = useState('all'), [selected,setSelected] = useState(null);
-  const [note,setNote] = useState(''), [decision,setDecision] = useState('eligible'), [busy,setBusy] = useState(false);
-  const [refreshing,setRefreshing] = useState(false), [error,setError] = useState(''), [notice,setNotice] = useState('');
+import { Button } from "@eduthemes/ui/components/button";
+import { Card } from "@eduthemes/ui/components/card";
+import { Label } from "@eduthemes/ui/components/label";
+import { NativeSelect, NativeSelectOption } from "@eduthemes/ui/components/native-select";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@eduthemes/ui/components/table";
+import { Textarea } from "@eduthemes/ui/components/textarea";
+import { ContextHelp } from '@eduthemes/ui/workbench';
+export default function StudyRecruitment({
+  study,
+  role,
+  onRefreshed,
+  screeningEnabled,
+  onOpenResponses
+}) {
+  const [data, setData] = useState(null),
+    [filter, setFilter] = useState('all'),
+    [selected, setSelected] = useState(null);
+  const [note, setNote] = useState(''),
+    [decision, setDecision] = useState('eligible'),
+    [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false),
+    [error, setError] = useState(''),
+    [notice, setNotice] = useState('');
   const generation = useRef(0);
-  const canEdit = ['owner','researcher'].includes(role);
+  const reviewPanel = useRef(null);
+  const canEdit = ['owner', 'researcher'].includes(role);
   const load = useCallback(async () => {
-    const request = ++generation.current; setRefreshing(true);
+    const request = ++generation.current;
+    setRefreshing(true);
     try {
-      const result = await supabase.rpc('get_study_recruitment',{p_study_id:study.id});
+      const result = await supabase.rpc('get_study_recruitment', {
+        p_study_id: study.id
+      });
       if (request !== generation.current) return;
       if (result.error) throw result.error;
       setData(result.data);
-    } catch(failure) { if(request === generation.current) setError(failure.message || 'Could not load recruitment.'); }
-    finally { if(request === generation.current) setRefreshing(false); }
-  },[study.id]);
-  useEffect(() => { setData(null); setSelected(null); setError(''); load(); return () => { generation.current += 1; }; },[load]);
-  const open = applicant => { setSelected(applicant); setNote(applicant.review_note); setDecision(applicant.decision === 'invited' ? 'invited' : 'eligible'); setError(''); setNotice(''); };
+    } catch (failure) {
+      if (request === generation.current) setError(failure.message || 'Could not load recruitment.');
+    } finally {
+      if (request === generation.current) setRefreshing(false);
+    }
+  }, [study.id]);
+  useEffect(() => {
+    setData(null);
+    setSelected(null);
+    setError('');
+    load();
+    return () => {
+      generation.current += 1;
+    };
+  }, [load]);
+  const open = applicant => {
+    setSelected(applicant);
+    setNote(applicant.review_note);
+    setDecision(applicant.decision === 'invited' ? 'invited' : 'eligible');
+    setError('');
+    setNotice('');
+    requestAnimationFrame(() => {
+      if (window.matchMedia('(max-width: 1100px)').matches) reviewPanel.current?.scrollIntoView({block:'start',behavior:'instant'});
+      reviewPanel.current?.focus({preventScroll:true});
+    });
+  };
   const save = async event => {
-    event.preventDefault(); if(busy) return; setBusy(true); setError(''); setNotice('');
-    const current=selected;
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    const current = selected;
     try {
-      const result=await supabase.rpc('review_study_applicant',{p_applicant_id:current.id,p_status:decision,p_note:note,p_expected_revision:current.revision});
-      if(result.error) throw result.error;
-      setSelected({...current,decision,status:decision,review_note:note,revision:result.data});
+      const result = await supabase.rpc('review_study_applicant', {
+        p_applicant_id: current.id,
+        p_status: decision,
+        p_note: note,
+        p_expected_revision: current.revision
+      });
+      if (result.error) throw result.error;
+      setSelected({
+        ...current,
+        decision,
+        status: decision,
+        review_note: note,
+        revision: result.data
+      });
       setNotice(`${current.reference}: ${recruitmentStatuses[decision].toLowerCase()} recorded. Participants see their status in their private hub.`);
       await load();
-    } catch(failure) { setError(failure.message || 'Could not record this review. Your note is still here.'); }
-    finally { setBusy(false); }
+    } catch (failure) {
+      setError(failure.message || 'Could not record this review. Your note is still here.');
+    } finally {
+      setBusy(false);
+    }
   };
-  const latest=selected && data?.applicants.find(a=>a.id===selected.id);
-  const stale=applicationIsStale(selected,latest);
-  const counts=data ? recruitmentCounts(data.applicants) : {};
-  const filtered=data?.applicants.filter(a=>filter==='all'||a.status===filter) || [];
+  const latest = selected && data?.applicants.find(a => a.id === selected.id);
+  const stale = applicationIsStale(selected, latest);
+  const counts = data ? recruitmentCounts(data.applicants) : {};
+  const filtered = data?.applicants.filter(a => filter === 'all' || a.status === filter) || [];
   return <section className="study-recruitment" aria-labelledby="recruitment-heading">
-    <div className="study-section-heading"><div><span className="study-eyebrow">Recruitment</span><h2 id="recruitment-heading">From screening to participation</h2><p>Review eligibility, manage a waitlist, and invite participants to their private study hub.</p></div><button type="button" className="study-secondary" disabled={refreshing||busy} aria-busy={refreshing} onClick={async()=>{setError('');await load();onRefreshed?.();}}>{refreshing ? <><Skeleton className="edu-skeleton--button"/>Refreshing…</> : 'Refresh recruitment'}</button></div>
+    <div className="participant-records-toolbar"><h3 id="recruitment-heading">Applications{data?.applicants.length > 0 && <span className="record-count">{data.applicants.length}</span>}</h3>
+      <div className="study-actions">{data?.applicants.length > 0 && <NativeSelect aria-label="Filter recruitment status" value={filter} onChange={event => setFilter(event.target.value)}><NativeSelectOption value="all">All applications ({data.applicants.length})</NativeSelectOption>{Object.entries(recruitmentStatuses).map(([status, label]) => <NativeSelectOption key={status} value={status}>{label} ({counts[status]})</NativeSelectOption>)}</NativeSelect>}
+        <Button type="button" className="study-secondary" aria-label="Refresh recruitment" disabled={refreshing || busy} aria-busy={refreshing} onClick={async () => {
+          setError(''); await load(); onRefreshed?.();
+        }} variant="outline" size="auto">{refreshing ? <><Skeleton className="edu-skeleton--button" />Refreshing…</> : 'Refresh'}</Button>
+      </div>
+    </div>
     {error && <p className="study-error" role="alert">{error}</p>}{notice && <p className="study-note" role="status">{notice}</p>}
-    {!data ? refreshing || !error ? <LoadingSkeleton variant="results" label="Loading screening applications and recruitment progress…"/> : <button className="study-secondary" onClick={load}>Retry recruitment</button> : <>
-      {refreshing && <LoadingSkeleton variant="inline" label="Refreshing recruitment…"/>}
-      <div className="recruitment-funnel" aria-label="Current recruitment stages">{Object.entries(recruitmentStatuses).map(([status,label])=><button type="button" key={status} aria-pressed={filter===status} onClick={()=>setFilter(filter===status?'all':status)}><strong>{counts[status]}</strong><span>{label}</span></button>)}</div>
-      <p className="study-help">Counts show current application stages, not unique people across studies. Invitations enable joining in the private hub; they do not send email. {data.target > 0 && `Recruitment target: ${data.target}. Targets do not automatically invite or reject volunteers.`}</p>
-      <div className="recruitment-workspace"><section className="study-panel"><div className="study-section-heading"><h3>Applications · {filtered.length}</h3><label>Show<select aria-label="Filter recruitment status" value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All applications</option>{Object.entries(recruitmentStatuses).map(([s,l])=><option key={s} value={s}>{l}</option>)}</select></label></div>
-        {filtered.length ? <div className="study-table-scroll"><table className="recruitment-table"><caption className="visually-hidden">Screening applications and current recruitment status</caption><thead><tr><th scope="col">Reference</th><th scope="col">Status</th><th scope="col">Rules</th><th scope="col">Review</th></tr></thead><tbody>{filtered.map(a=><tr key={a.id}><td><strong>{a.reference}</strong><small>Version {a.version_number}{!a.current_version?' · earlier version':''}</small><small>{new Date(a.screened_at).toLocaleDateString()}</small></td><td>{recruitmentStatuses[a.status]}</td><td>{a.rule_result==='matches'?'Matches configured criteria':'Needs closer review'}</td><td><button className="study-secondary" disabled={busy} onClick={()=>open(a)}>Open {a.reference}</button></td></tr>)}</tbody></table></div> : <p>{data.applicants.length ? 'No applications at this stage.' : 'No screening applications yet. Share an open study with screening enabled to receive applications.'}</p>}
-      </section><section className="study-panel recruitment-review" aria-labelledby="application-review-heading"><h3 id="application-review-heading">{selected ? selected.reference : 'Application review'}</h3>{!selected ? <p>Select an application to review its screening answers and record a decision.</p> : <>
-        <p>Version {selected.version_number} · {recruitmentStatuses[latest?.status || selected.status]}</p><p className="study-help">Rule checks support your review. They do not decide eligibility.</p>
-        <dl className="screening-answer-list">{selected.questions.filter(q=>selected.answers[q.id]).map(q=><div key={q.id}><dt>{q.prompt}</dt><dd>{q.options.find(o=>o.id===selected.answers[q.id])?.label || 'Recorded choice'}</dd></div>)}</dl>
-        {stale && <p className="study-note">This application has changed. Your note is preserved. Open the latest version before recording another decision.</p>}
-        {!selected.current_version && <p className="study-note">This application belongs to an earlier study version. It cannot receive a new invitation to the current version.</p>}
-        {canEdit && !['enrolled','completed'].includes(latest?.status || selected.status) && <form onSubmit={save}><fieldset className="study-unframed-fieldset" disabled={busy}>
-          <div className="study-field"><label htmlFor="recruitment-decision">Review decision</label><select id="recruitment-decision" value={decision} onChange={e=>setDecision(e.target.value)}>{['eligible','waitlisted','not_eligible','awaiting_review',...(selected.decision==='eligible'||selected.decision==='invited'?['invited']:[])].map(s=><option key={s} value={s}>{recruitmentStatuses[s]}</option>)}</select></div>
-          <div className="study-field"><label htmlFor="recruitment-note">Private review note (optional)</label><textarea id="recruitment-note" value={note} maxLength={2000} rows={3} onChange={e=>setNote(e.target.value)}/><p className="study-help">Visible to the study team. Excluded from participant status and research analysis.</p></div>
-          <button className="study-primary" type="submit" disabled={Boolean(stale)|| (decision==='invited'&&(!selected.current_version||study.status!=='open'))} aria-busy={busy}>{busy?<><Skeleton className="edu-skeleton--button"/>Recording review…</>:'Record decision'}</button>
-          {!['eligible','invited'].includes(selected.decision)&&<p className="study-help">Record eligibility first. You can then invite this volunteer.</p>}
+    {!data ? refreshing || !error ? <LoadingSkeleton variant="cards" rows={1} label="Loading screening applications…" /> : <Button className="study-secondary" onClick={load} variant="outline" size="auto">Retry recruitment</Button> : <>
+      {refreshing && <LoadingSkeleton variant="inline" label="Refreshing recruitment…" />}
+      {data.applicants.length > 0 && <ul className="participant-records-summary" aria-label="Application summary"><li><strong>{counts.awaiting_review}</strong> awaiting review</li><li><strong>{counts.invited}</strong> invited</li><li><strong>{counts.enrolled + counts.completed}</strong> joined</li></ul>}
+      <div className={`recruitment-workspace${selected ? ' has-selection' : ''}`}><Card className="study-panel recruitment-applications" as="section" aria-label="Application list">
+        {filtered.length ? <div className="study-table-scroll"><Table className="recruitment-table" containerClassName="contents"><TableCaption className="sr-only">Screening applications and current recruitment status</TableCaption><TableHeader><TableRow><TableHead scope="col">Reference</TableHead><TableHead scope="col">Status</TableHead><TableHead scope="col">Rule check</TableHead><TableHead scope="col">Review</TableHead></TableRow></TableHeader><TableBody>{filtered.map(applicant => <TableRow key={applicant.id}><TableCell><strong>{applicant.reference}</strong><small>Version {applicant.version_number}{!applicant.current_version ? ' · earlier version' : ''}</small><small>{new Date(applicant.screened_at).toLocaleDateString()}</small></TableCell><TableCell>{recruitmentStatuses[applicant.status]}</TableCell><TableCell>{applicant.rule_result === 'matches' ? 'Matches criteria' : 'Needs review'}</TableCell><TableCell><Button className="study-secondary" disabled={busy} aria-label={`Open ${applicant.reference}`} onClick={() => open(applicant)} variant="outline" size="auto">Review</Button></TableCell></TableRow>)}</TableBody></Table></div>
+          : <div className="participant-empty-state"><p>{data.applicants.length ? 'No applications at this stage.' : 'No applications yet.'}</p><p className="study-help">{data.applicants.length ? 'Choose another status to see more applications.' : screeningEnabled ? 'Applications appear after volunteers submit screening answers.' : 'Screening is off for this version. Submitted answers are under Responses.'}</p>{!data.applicants.length && <Button variant="outline" size="auto" onClick={onOpenResponses}>{screeningEnabled && study.status === 'open' ? 'Share study' : 'View responses'}</Button>}</div>}
+      </Card>{selected && <Card ref={reviewPanel} tabIndex={-1} className="study-panel recruitment-review" aria-labelledby="application-review-heading" as="section"><div><h3 id="application-review-heading">{selected.reference}</h3>
+        <p className="application-review-meta">Version {selected.version_number} · {recruitmentStatuses[latest?.status || selected.status]}</p></div>
+        <dl className="screening-answer-list">{selected.questions.filter(question => selected.answers[question.id]).map(question => <div key={question.id}><dt>{question.prompt}</dt><dd>{question.options.find(option => option.id === selected.answers[question.id])?.label || 'Recorded choice'}</dd></div>)}</dl>
+        {stale && <p className="study-note">This application changed. Your note is preserved; open the latest application before recording a decision.</p>}
+        {!selected.current_version && <p className="study-note">This earlier-version application cannot receive an invitation to the current version.</p>}
+        {canEdit && !['enrolled', 'completed'].includes(latest?.status || selected.status) && <form onSubmit={save}><fieldset className="study-unframed-fieldset" disabled={busy}>
+          <div className="study-field"><Label htmlFor="recruitment-decision">Review decision</Label><NativeSelect id="recruitment-decision" value={decision} onChange={event => setDecision(event.target.value)}>{['eligible', 'waitlisted', 'not_eligible', 'awaiting_review', ...(selected.decision === 'eligible' || selected.decision === 'invited' ? ['invited'] : [])].map(status => <NativeSelectOption key={status} value={status}>{recruitmentStatuses[status]}</NativeSelectOption>)}</NativeSelect></div>
+          <div className="study-field"><Label htmlFor="recruitment-note">Private review note (optional)</Label><Textarea id="recruitment-note" value={note} maxLength={2000} rows={3} onChange={event => setNote(event.target.value)} /><p className="study-help">Team only; excluded from participant updates and research analysis.</p></div>
+          {decision === 'invited' && <p className="study-help">Inviting enables access in the private hub. No email is sent.</p>}
+          <Button className="study-primary" type="submit" disabled={Boolean(stale) || decision === 'invited' && (!selected.current_version || study.status !== 'open')} aria-busy={busy} size="auto">{busy ? <><Skeleton className="edu-skeleton--button" />Recording review…</> : 'Record decision'}</Button>
+          {!['eligible', 'invited'].includes(selected.decision) && <p className="study-help">Record eligibility before inviting this volunteer.</p>}
         </fieldset></form>}
-        {stale && latest && <button className="study-secondary" disabled={busy} onClick={()=>open(latest)}>Open latest application</button>}
-        {latest?.events?.length > 0 && <details><summary>Review history · {latest.events.length}</summary><ol>{latest.events.map((event,index)=><li key={index}><strong>{recruitmentStatuses[event.status]}</strong> · {new Date(event.recorded_at).toLocaleString()}{event.note&&<p>{event.note}</p>}</li>)}</ol></details>}
-      </>}</section></div>
+        {stale && latest && <Button className="study-secondary" disabled={busy} onClick={() => open(latest)} variant="outline" size="auto">Open latest application</Button>}
+        <ContextHelp title="About screening decisions"><p>Rule checks support review; a researcher decides eligibility. Invitations enable joining but do not send email. {data.target > 0 && `The enrollment target is ${data.target}; it does not automatically invite or reject volunteers.`}</p></ContextHelp>
+        {latest?.events?.length > 0 && <details><summary>Review history · {latest.events.length}</summary><ol>{latest.events.map((event, index) => <li key={index}><strong>{recruitmentStatuses[event.status]}</strong> · {new Date(event.recorded_at).toLocaleString()}{event.note && <p>{event.note}</p>}</li>)}</ol></details>}
+      </Card>}</div>
     </>}
   </section>;
 }

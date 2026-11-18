@@ -2,6 +2,40 @@ const cloneClassifications = (classifications = {}) => Object.fromEntries(
   Object.entries(classifications).map(([name, indices]) => [name, [...(indices || [])]])
 );
 
+export function reviewedDataset({ classifications, dataset, labels }) {
+  const themesByResponse = dataset.map(() => []);
+  const unclassified = labels.find(theme => theme.name === 'Unclassified');
+
+  for (const theme of labels) {
+    if (theme.name === 'Unclassified') continue;
+    for (const index of new Set(classifications[theme.name] || [])) {
+      const entry = dataset[index];
+      if (entry?.review_decisions?.[theme.name]?.action !== 'approve') continue;
+      const existing = entry.themes?.find(item => item.name === theme.name);
+      themesByResponse[index].push(existing || {
+        name: theme.name,
+        color: theme.color,
+        description: theme.description || '',
+      });
+    }
+  }
+
+  return dataset.map((entry, index) => ({
+    ...entry,
+    themes: themesByResponse[index].length || !unclassified ? themesByResponse[index] : [unclassified],
+  }));
+}
+
+export function classificationsFromDataset(dataset, labels) {
+  const classifications = Object.fromEntries(labels.map(theme => [theme.name, []]));
+  dataset.forEach((entry, index) => {
+    for (const name of new Set((entry.themes || []).map(theme => theme.name))) {
+      if (Object.hasOwn(classifications, name)) classifications[name].push(index);
+    }
+  });
+  return classifications;
+}
+
 export const addThemeAssignment = ({ classifications, dataset, theme, responseIndex }) => {
   if (!theme?.name || theme.name === 'Unclassified' || !dataset?.[responseIndex]) {
     return { classifications, dataset };

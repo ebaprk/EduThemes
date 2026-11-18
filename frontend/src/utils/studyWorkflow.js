@@ -20,7 +20,7 @@ export function studyActivities(snapshot = {}, questions = []) {
 export function studySnapshot(study, selectedVersion, questions = [], view = 'draft') {
   const source = view === 'draft' ? study : selectedVersion;
   if (!source) return null;
-  const snapshot = { ...source, recruitment: view === 'draft' ? source.recruitment_draft || source.recruitment : source.recruitment,
+  const snapshot = { ...source, source_type: study.source_type, recruitment: view === 'draft' ? source.recruitment_draft || source.recruitment : source.recruitment,
     questions: source.questions || questions, isDraft: view === 'draft' };
   return { ...snapshot, activities: studyActivities(snapshot, snapshot.questions) };
 }
@@ -71,7 +71,7 @@ export function nextStudyAction({study,view,role,readiness,work}) {
     : {section:work.some(item=>item.count)?'collect':'design',label:work.some(item=>item.count)?'View responses':'View study design',detail:'Your reviewer access lets you inspect the study and its saved work.'};
   if(study.status==='draft'&&view==='draft'){
     const missing=readiness.find(item=>item.required&&!item.done);
-    if(missing)return {section:'design',setup:missing.setup,label:'Continue study design',detail:`Next: ${missing.title.toLowerCase()}.`};
+    if(missing)return {section:'design',setup:missing.setup,label:`Complete ${missing.title.toLowerCase()}`,detail:`Add the required ${missing.title.toLowerCase()}, save your draft, and return here to review readiness.`};
     return role==='owner' ? {kind:'publish',label:'Publish study',detail:'The required design and participation information is ready. Preview the participant experience, then publish when you are ready.'}
       : {section:'design',label:'Review study design',detail:'The study is ready for the owner to review and publish.'};
   }

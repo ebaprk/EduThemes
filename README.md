@@ -22,7 +22,7 @@ The first test found that 11 accepted assignments were lost between Review and F
 
 The independent-coding and reconciliation workflow was verified with two scripted test accounts. A real two-coder exercise and a researcher usability session remain open. A known review limitation is that researchers can only add themes through the Unclassified picker. The project report and demo have drafts, and the final demo still needs to reflect the current import and review flow.
 
-**Source status.** This README describes the hosted application. The latest hosted researcher UI and imported-study migrations include changes awaiting a separate source release on this branch.
+**Source status.** This source release includes the hosted researcher UI, shared UI package, and imported-study migrations described here.
 
 ## Development
 

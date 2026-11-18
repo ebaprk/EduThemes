@@ -26,5 +26,12 @@ test('brief reports actual collaborative coding process without copying round no
  const collaboration={round:{state:'finalized',responses:[{id:'r',original:'Private round answer'}],codebook:[{name:'A'}]},assignments:[{coder_id:'c1',response_ids:['r'],submitted_at:'now',ballot:{r:{themes:['A'],note:'Private coder note'}}},{coder_id:'c2',response_ids:['r'],submitted_at:'now',ballot:{r:{themes:[]}}}],decisions:[{response_id:'r',themes:['A'],rationale:'Private adjudication rationale'}]};
  const text=researchBrief({title:'Study'},{prompt:'Why?'},{labels:[],coded_responses:[],results:{}},{review:emptyReview(),collaboration});
  assert.ok(text.includes('0/1 coder-pair comparisons (0.0%)'));assert.ok(text.includes('1/1 disagreements have a recorded adjudication'));
+ assert.ok(text.includes('- A: kappa 0.000'));assert.equal(text.includes('| Theme |'),false);
  for(const value of ['Private round answer','Private coder note','Private adjudication rationale'])assert.equal(text.includes(value),false);
+});
+test('imported-file reports do not invent anonymous participation, consent, or independent approval',()=>{
+ const text=researchBrief({title:'File',source_type:'file',research_question:'Why?'},{prompt:'Why?'},
+  {coded_responses:[{original:'Private passage'}],labels:[],results:{summary:'Finding.'}}, {review:{...emptyReview(),methods:'Imported classroom responses'}});
+ assert.match(text,/Source: Imported file analysis/);assert.match(text,/DRAFT/);assert.match(text,/not inferred/);
+ for(const value of ['Anonymous / private study link','Consent required: Yes','Private passage'])assert.equal(text.includes(value),false);
 });

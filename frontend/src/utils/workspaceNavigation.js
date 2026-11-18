@@ -1,4 +1,4 @@
-const sections = { overview:'Overview', design:'Study design', recruit:'Recruitment', collect:'Responses', analysis:'Analysis', 'team-coding':'Team coding', findings:'Findings', 'participant-results':'Participant results', settings:'Team & settings' };
+const sections = { overview:'Overview', design:'Study setup', recruit:'Participants', collect:'Responses', analysis:'Analysis', 'team-coding':'Team coding', findings:'Findings', 'participant-results':'Participant results', settings:'Team & settings' };
 export function studySearchUrl(query) {
   const text = String(query || '').trim();
   return text ? `/?${new URLSearchParams({ q:text })}` : '/';

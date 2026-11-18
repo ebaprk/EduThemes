@@ -1,668 +1,492 @@
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Button, Card, Row, Col, Modal, Badge, Alert, ProgressBar, Nav, Tab, Form, ListGroup, OverlayTrigger} from 'react-bootstrap';
 import { FaCheck, FaTimes, FaUndo } from 'react-icons/fa';
+import { LuChevronDown } from 'react-icons/lu';
 import axios, { all } from 'axios';
 import LabelCreationWindow from './LabelCreationWindow';
 import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowHeader from './WorkflowHeader';
 import WorkflowAlert from './WorkflowAlert';
 import useAnalysisJob from '../hooks/useAnalysisJob';
-import { addThemeAssignment, rejectThemeAssignments, removeThemeAssignment } from '../utils/themeAssignments';
+import { addThemeAssignment, classificationsFromDataset, rejectThemeAssignments, removeThemeAssignment, reviewedDataset } from '../utils/themeAssignments';
 import { recordReviewDecision } from '../utils/reviewDecisions';
 //import ReviewModal from './ReviewModal';
-
+import { Notice, WorkbenchColumn, WorkbenchRow } from "@eduthemes/ui/workbench";
+import { Card, CardContent, CardFooter, CardHeader } from "@eduthemes/ui/components/card";
+import { Label } from "@eduthemes/ui/components/label";
+import { NativeSelect, NativeSelectOption } from "@eduthemes/ui/components/native-select";
+import { Button } from "@eduthemes/ui/components/button";
+import { Progress } from "@eduthemes/ui/components/progress";
+import { Badge } from "@eduthemes/ui/components/badge";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@eduthemes/ui/components/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@eduthemes/ui/components/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@eduthemes/ui/components/tabs";
 const getReadableTextColor = (color = '#000000') => {
-    const hex = color.replace('#', '');
-    if (!/^[0-9a-f]{6}$/i.test(hex)) return '#ffffff';
-    const [red, green, blue] = [0, 2, 4].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
-    return ((red * 299 + green * 587 + blue * 114) / 1000) > 150 ? '#172b4d' : '#ffffff';
+  const hex = color.replace('#', '');
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return '#ffffff';
+  const [red, green, blue] = [0, 2, 4].map(offset => parseInt(hex.slice(offset, offset + 2), 16));
+  return (red * 299 + green * 587 + blue * 114) / 1000 > 150 ? '#172b4d' : '#ffffff';
 };
-
-const Review = ({ sessionId, ensureSession, analysisSource, beforeJob, labels, setLabels, setResults, dataset, setDataset, claudeData, setClaudeData, onAdvanceStage, projectMetadata }) => {
-    const [currentThemeIndex, setCurrentThemeIndex] = useState(() => Math.min(Number(sessionStorage.getItem(`review-position:${sessionId}`)) || 0, Math.max(labels.length-1,0)));
-    useEffect(() => { sessionStorage.setItem(`review-position:${sessionId}`, String(currentThemeIndex)); }, [currentThemeIndex, sessionId]);
-    const [responseActions, setResponseActions] = useState({});
-    const active = useRef(true);
-    useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-    const [requestLoading, setIsLoading] = useState(false);
-    const job = useAnalysisJob(analysisSource, 'findings', saved => {
-        setDataset(saved.payload.dataset); setLabels(saved.payload.labels);
-        setResults(saved.result); onAdvanceStage();
-    }, beforeJob);
-    const isLoading = requestLoading || job.busy;
-    const [error, setError] = useState(null);
-    const [showReassignModal, setShowReassignModal] = useState(false);
-    const [rejectedEntries, setRejectedEntries] = useState([]);
-    const [showEditLabels, setShowEditLabels] = useState(false);
-    const [unclassifiedSelections, setUnclassifiedSelections] = useState({});
-    const [suggestedThemes, setSuggestedThemes] = useState([]);
-    const [showSuggestions, setShowSuggestions] = useState(false);
-    const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-    const [suggestionError, setSuggestionError] = useState(null);
-    const [tempUncCat, setTempUncCat] = useState({});
-    const [aiLoading, setAiLoading] = useState(false);
-    const [allThemes, setAllThemes] = useState([...labels])
-
-
-    const unclassifiedTheme = {
-        name: "Unclassified",
-        description: "Responses that don't fit any other theme",
-        color: "#cccccc"
+const Review = ({
+  sessionId,
+  ensureSession,
+  analysisSource,
+  importSaveAction,
+  beforeJob,
+  labels,
+  setLabels,
+  setResults,
+  dataset,
+  setDataset,
+  claudeData,
+  setClaudeData,
+  onAdvanceStage,
+  projectMetadata
+}) => {
+  const [currentThemeIndex, setCurrentThemeIndex] = useState(() => Math.min(Number(sessionStorage.getItem(`review-position:${sessionId}`)) || 0, Math.max(labels.length - 1, 0)));
+  useEffect(() => {
+    sessionStorage.setItem(`review-position:${sessionId}`, String(currentThemeIndex));
+  }, [currentThemeIndex, sessionId]);
+  const responseList = useRef(null);
+  const themeHeading = useRef(null);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
     };
+  }, []);
+  const [requestLoading, setIsLoading] = useState(false);
+  const openFindings = (finalDataset, finalLabels, findings) => {
+    setDataset(finalDataset);
+    setLabels(finalLabels);
+    setClaudeData(classificationsFromDataset(finalDataset, finalLabels));
+    setResults(findings);
+    onAdvanceStage();
+  };
+  const job = useAnalysisJob(analysisSource, 'findings', saved => {
+    openFindings(saved.payload.dataset, saved.payload.labels, saved.result);
+  }, beforeJob);
+  const isLoading = requestLoading || job.busy;
+  const [error, setError] = useState(null);
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [rejectedEntries, setRejectedEntries] = useState([]);
+  const [showEditLabels, setShowEditLabels] = useState(false);
+  const [unclassifiedSelections, setUnclassifiedSelections] = useState({});
+  const [suggestedThemes, setSuggestedThemes] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [suggestionError, setSuggestionError] = useState(null);
+  const [tempUncCat, setTempUncCat] = useState({});
+  const [aiLoading, setAiLoading] = useState(false);
+  const [allThemes, setAllThemes] = useState([...labels]);
+  const unclassifiedTheme = {
+    name: "Unclassified",
+    description: "Responses that don't fit any other theme",
+    color: "#cccccc"
+  };
+  const hasUnclassifiedTheme = labels.some(label => label.name === "Unclassified");
+  //let allThemes = hasUnclassifiedTheme ? labels : [...labels];
+  const currentTheme = allThemes[currentThemeIndex] || {
+    name: "None",
+    color: "#cccccc"
+  };
+  const themeResponses = claudeData?.[currentTheme.name] || [];
+  const currentActions = themeResponses.map(index => dataset[index]?.review_decisions?.[currentTheme.name]?.action || null);
+  useEffect(() => {
+    //console.log(dataset)
 
-    const hasUnclassifiedTheme = labels.some(label => label.name === "Unclassified");
-    //let allThemes = hasUnclassifiedTheme ? labels : [...labels];
-    const currentTheme = allThemes[currentThemeIndex] || { name: "None", color: "#cccccc" };
-    let themeResponses = claudeData?.[currentTheme.name] || [];
-
-    useEffect(() => {
-
-
-        //console.log(dataset)
-
-        if (!hasUnclassifiedTheme && claudeData && !claudeData["Unclassified"]) {
-            setClaudeData((previous) => ({ ...previous, Unclassified: [] }));
-        }
-    }, [claudeData, hasUnclassifiedTheme, setClaudeData]);
-
-    useEffect(() => {
-        setResponseActions(prev => ({ ...prev, [currentTheme.name]: themeResponses.map((index) =>
-            dataset[index]?.review_decisions?.[currentTheme.name]?.action || null) }));
-    }, [currentTheme.name, claudeData, dataset]);
-
-    const handleAction = (index, action) => {
-        setDataset((previous) => recordReviewDecision(previous, [themeResponses[index]], currentTheme.name, action));
-        const updatedActions = [...(responseActions[currentTheme.name] || [])];
-        updatedActions[index] = action;
-
-        setResponseActions(prev => ({
-            ...prev,
-            [currentTheme.name]: updatedActions
-        }));
-    };
-
-
-
-
-
-    const handleUndo = (index) => {
-        setDataset((previous) => recordReviewDecision(previous, [themeResponses[index]], currentTheme.name, null));
-        const updatedActions = [...(responseActions[currentTheme.name] || [])];
-        updatedActions[index] = null;
-
-        setResponseActions(prev => ({
-            ...prev,
-            [currentTheme.name]: updatedActions
-        }));
-    };
-
-    const handleAcceptAll = () => {
-        setDataset((previous) => recordReviewDecision(previous, themeResponses, currentTheme.name, 'approve'));
-        setResponseActions(prev => ({
-            ...prev,
-            [currentTheme.name]: Array(themeResponses.length).fill('approve')
-        }));
-    };
-
-    const handleRejectAll = () => {
-        setDataset((previous) => recordReviewDecision(previous, themeResponses, currentTheme.name, 'deny'));
-        setResponseActions(prev => ({
-            ...prev,
-            [currentTheme.name]: Array(themeResponses.length).fill('deny')
-        }));
-    };
-
-
-    const handleNextTheme = () => {
-        const rejectedIndices = (responseActions[currentTheme.name] || [])
-            .map((action, idx) => (action === 'deny' ? themeResponses[idx] : null))
-            .filter(index => index !== null);
-
-        if (rejectedIndices.length > 0) {
-            const updated = rejectThemeAssignments({classifications:claudeData,dataset,rejectedIndices,themeName:currentTheme.name,unclassifiedTheme});
-            setClaudeData(updated.classifications); setDataset(updated.dataset);
-            if (currentThemeIndex < allThemes.length-1) setCurrentThemeIndex(currentThemeIndex+1);
-            else handleSubmitFinalDataset(updated.classifications,updated.dataset);
-        } else if (currentThemeIndex < allThemes.length - 1) {
-
-            setCurrentThemeIndex(currentThemeIndex + 1);
-            //testing
-            //if (allThemes[currentThemeIndex] == "Unclassified"){
-
-            //}
-            //testing
-        } else {
-            handleSubmitFinalDataset();
-        }
-    };
-
-    const handleGetSuggestedThemes = async () => {
-        setLoadingSuggestions(true);
-        setSuggestionError(null);
-
-        try {
-            if (showSuggestions) {
-                setSuggestedThemes([]);
-            }
-            const responses = themeResponses.map(idx => dataset[idx]?.original || "Response not found").join('\n');
-            const activeSession = ensureSession ? await ensureSession() : sessionId;
-            const response = await axios.post(`${API_URL}/session/${activeSession}/suggest-themes`, {
-                response: responses,
-                specBool: 'true',
-                apiKey: projectMetadata.apiKey
-            });
-
-            if (!active.current) return;
-            if (response.data && response.data.suggested_themes) {
-                setSuggestedThemes(response.data.suggested_themes);
-                if (!showSuggestions) {
-                    setShowSuggestions(true);
-                }
-            } else {
-                setSuggestionError("No themes were generated. Try again or add one manually.");
-            }
-        } catch (error) {
-            console.error("Error getting suggested themes:", error.response?.data || error.message);
-            setSuggestionError(getApiErrorMessage(error, "We couldn't generate theme suggestions."));
-        } finally {
-            setLoadingSuggestions(false);
-        }
-    };
-
-    const handleFinishReassignment = () => {
-        const { classifications: updatedClassifications, dataset: reassignedDataset } = rejectThemeAssignments({
-            classifications: claudeData,
-            dataset,
-            rejectedIndices: rejectedEntries,
-            themeName: currentTheme.name,
-            unclassifiedTheme,
-        });
-        setClaudeData(updatedClassifications);
-        setDataset(reassignedDataset);
-
-        setShowReassignModal(false);
-
-        if (currentThemeIndex >= allThemes.length - 1) {
-            handleSubmitFinalDataset(updatedClassifications, reassignedDataset);
-        } else {
-            setCurrentThemeIndex(currentThemeIndex + 1);
-        }
-    };
-
-    const addThemeToCode = (theme, responseIndex) => {
-        const selectedThemeObj = allThemes.find((candidate) => candidate.name === theme);
-        if (!selectedThemeObj || theme === 'Unclassified' || !dataset[responseIndex]) return;
-        const updated = addThemeAssignment({
-            classifications: claudeData,
-            dataset,
-            theme: selectedThemeObj,
-            responseIndex,
-        });
-        setClaudeData(updated.classifications);
-        setDataset(updated.dataset);
+    if (!hasUnclassifiedTheme && claudeData && !claudeData["Unclassified"]) {
+      setClaudeData(previous => ({
+        ...previous,
+        Unclassified: []
+      }));
     }
+  }, [claudeData, hasUnclassifiedTheme, setClaudeData]);
+  const setReviewDecision = (responseIndices, action) => {
+    setDataset(previous => recordReviewDecision(previous, responseIndices, currentTheme.name, action));
+  };
+  const handleNextTheme = () => {
+    const rejectedIndices = themeResponses.filter((_, index) => currentActions[index] === 'deny');
+    if (rejectedIndices.length > 0) {
+      const updated = rejectThemeAssignments({
+        classifications: claudeData,
+        dataset,
+        rejectedIndices,
+        themeName: currentTheme.name,
+        unclassifiedTheme
+      });
+      setClaudeData(updated.classifications);
+      setDataset(updated.dataset);
+      if (currentThemeIndex < allThemes.length - 1) setCurrentThemeIndex(currentThemeIndex + 1);else handleSubmitFinalDataset(updated.classifications, updated.dataset);
+    } else if (currentThemeIndex < allThemes.length - 1) {
+      setCurrentThemeIndex(currentThemeIndex + 1);
+      //testing
+      //if (allThemes[currentThemeIndex] == "Unclassified"){
 
-    const removeThemeFromCode = (theme, responseIndex) => {
-        if (!theme || theme === 'Unclassified') return;
-        const updated = removeThemeAssignment({
-            classifications: claudeData,
-            dataset,
-            themeName: theme,
-            responseIndex,
+      //}
+      //testing
+    } else {
+      handleSubmitFinalDataset();
+    }
+  };
+  const handleGetSuggestedThemes = async () => {
+    setLoadingSuggestions(true);
+    setSuggestionError(null);
+    try {
+      if (showSuggestions) {
+        setSuggestedThemes([]);
+      }
+      const responses = themeResponses.map(idx => dataset[idx]?.original || "Response not found").join('\n');
+      const activeSession = ensureSession ? await ensureSession() : sessionId;
+      const response = await axios.post(`${API_URL}/session/${activeSession}/suggest-themes`, {
+        response: responses,
+        specBool: 'true',
+        apiKey: projectMetadata.apiKey
+      });
+      if (!active.current) return;
+      if (response.data && response.data.suggested_themes) {
+        setSuggestedThemes(response.data.suggested_themes);
+        if (!showSuggestions) {
+          setShowSuggestions(true);
+        }
+      } else {
+        setSuggestionError("No themes were generated. Try again or add one manually.");
+      }
+    } catch (error) {
+      console.error("Error getting suggested themes:", error.response?.data || error.message);
+      setSuggestionError(getApiErrorMessage(error, "We couldn't generate theme suggestions."));
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+  const handleFinishReassignment = () => {
+    const {
+      classifications: updatedClassifications,
+      dataset: reassignedDataset
+    } = rejectThemeAssignments({
+      classifications: claudeData,
+      dataset,
+      rejectedIndices: rejectedEntries,
+      themeName: currentTheme.name,
+      unclassifiedTheme
+    });
+    setClaudeData(updatedClassifications);
+    setDataset(reassignedDataset);
+    setShowReassignModal(false);
+    if (currentThemeIndex >= allThemes.length - 1) {
+      handleSubmitFinalDataset(updatedClassifications, reassignedDataset);
+    } else {
+      setCurrentThemeIndex(currentThemeIndex + 1);
+    }
+  };
+  const addThemeToCode = (theme, responseIndex) => {
+    const selectedThemeObj = allThemes.find(candidate => candidate.name === theme);
+    if (!selectedThemeObj || theme === 'Unclassified' || !dataset[responseIndex]) return;
+    const updated = addThemeAssignment({
+      classifications: claudeData,
+      dataset,
+      theme: selectedThemeObj,
+      responseIndex
+    });
+    setClaudeData(updated.classifications);
+    setDataset(updated.dataset);
+  };
+  const removeThemeFromCode = (theme, responseIndex) => {
+    if (!theme || theme === 'Unclassified') return;
+    const updated = removeThemeAssignment({
+      classifications: claudeData,
+      dataset,
+      themeName: theme,
+      responseIndex
+    });
+    setClaudeData(updated.classifications);
+    setDataset(updated.dataset);
+  };
+  const queryAI = async () => {
+    let sent = themeResponses.map((responseIndex, idx) => {
+      return dataset[responseIndex]?.original;
+    });
+    setAiLoading(true);
+    setError(null);
+    try {
+      const activeSession = ensureSession ? await ensureSession() : sessionId;
+      const response = await axios.post(`${API_URL}/session/${activeSession}/submit-manual-coding`, {
+        labels: allThemes,
+        response: sent,
+        specBool: 'true',
+        apiKey: projectMetadata.apiKey
+      });
+      if (!active.current) return;
+      const dataReturned = response.data.claude_data;
+      let updated = {
+        classifications: claudeData,
+        dataset
+      };
+      Object.keys(dataReturned).forEach(key => {
+        for (var x = 0; x < dataReturned[key].length; x++) {
+          const selectedTheme = allThemes.find(theme => theme.name === key);
+          if (selectedTheme) {
+            updated = addThemeAssignment({
+              ...updated,
+              theme: selectedTheme,
+              responseIndex: themeResponses[dataReturned[key][x]]
+            });
+          }
+        }
+      });
+      setClaudeData(updated.classifications);
+      setDataset(updated.dataset);
+    } catch (error) {
+      console.error("Error querying AI:", error.response?.data || error.message);
+      setError(getApiErrorMessage(error, "We couldn't classify these responses."));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+  const addTheme = theme => {
+    if (!theme?.name || allThemes.some(item => item.name.toLowerCase() === theme.name.toLowerCase())) return;
+    if (allThemes.filter(item => item.name !== 'Unclassified').length >= 10) {
+      setSuggestionError('You can create up to 10 themes.');
+      return;
+    }
+    setAllThemes(previous => [...previous, theme]);
+    setLabels(previous => [...previous.filter(item => item.name !== 'Unclassified'), theme]);
+    setClaudeData(previous => ({
+      ...previous,
+      [theme.name]: previous[theme.name] || []
+    }));
+
+    // Update dataset entries to include the new theme structure if needed
+    setDataset(prevDataset => prevDataset.map(entry => ({
+      ...entry,
+      themes: entry.themes || [] // Ensure themes array exists
+    })));
+  };
+  const handleSubmitFinalDataset = async (classificationsOverride = claudeData, datasetOverride = dataset) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const updatedDataset = reviewedDataset({
+        classifications: classificationsOverride,
+        dataset: datasetOverride,
+        labels: allThemes,
+      });
+      const payload = { dataset: updatedDataset, labels: allThemes, ...projectMetadata };
+      if (job.canStart(payload)) {
+        await job.start(payload);
+        return;
+      }
+      await beforeJob?.();
+      const activeSession = ensureSession ? await ensureSession() : sessionId;
+      const response = await axios.post(`${API_URL}/session/${activeSession}/submit-final-dataset`, {
+        dataset: updatedDataset,
+        labels: allThemes,
+        apiKey: projectMetadata.apiKey
+      });
+      if (!active.current) return;
+      if (response.status === 200) {
+        openFindings(updatedDataset, allThemes, {
+          themes: response.data.themes || [],
+          summary: response.data.summary || ''
         });
-        setClaudeData(updated.classifications);
-        setDataset(updated.dataset);
+      } else {
+        setError('Error submitting final dataset: ' + (response.data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      setError(getApiErrorMessage(error, "We couldn't submit the final dataset."));
+    } finally {
+      setIsLoading(false);
     }
-
-    const queryAI = async () => {
-        let sent = themeResponses.map((responseIndex, idx) => {
-            return dataset[responseIndex]?.original;
-        })
-        setAiLoading(true);
-        setError(null);
-
-        try {
-            const activeSession = ensureSession ? await ensureSession() : sessionId;
-            const response = await axios.post(`${API_URL}/session/${activeSession}/submit-manual-coding`, {
-                labels: allThemes,
-                response: sent,
-                specBool: 'true',
-                apiKey: projectMetadata.apiKey
-            });
-
-            if (!active.current) return;
-            const dataReturned = response.data.claude_data;
-
-            let updated = { classifications: claudeData, dataset };
-            Object.keys(dataReturned).forEach(key => {
-                for (var x=0; x<dataReturned[key].length; x++){
-                    const selectedTheme = allThemes.find((theme) => theme.name === key);
-                    if (selectedTheme) {
-                        updated = addThemeAssignment({
-                            ...updated,
-                            theme: selectedTheme,
-                            responseIndex: themeResponses[dataReturned[key][x]],
-                        });
-                    }
-                }
-            });
-            setClaudeData(updated.classifications);
-            setDataset(updated.dataset);
-        } catch (error) {
-            console.error("Error querying AI:", error.response?.data || error.message);
-            setError(getApiErrorMessage(error, "We couldn't classify these responses."));
-        } finally {
-            setAiLoading(false);
-        }
-    }
-
-    const addTheme = (theme) => {
-        if (!theme?.name || allThemes.some((item) => item.name.toLowerCase() === theme.name.toLowerCase())) return;
-        if (allThemes.filter((item) => item.name !== 'Unclassified').length >= 10) {
-            setSuggestionError('You can create up to 10 themes.');
-            return;
-        }
-
-        setAllThemes((previous) => [...previous, theme]);
-        setLabels((previous) => [...previous.filter((item) => item.name !== 'Unclassified'), theme]);
-        setClaudeData((previous) => ({ ...previous, [theme.name]: previous[theme.name] || [] }));
-
-        // Initialize response actions for new theme
-        setResponseActions(prev => ({
-            ...prev,
-            [theme.name]: []
-        }));
-
-        // Update dataset entries to include the new theme structure if needed
-        setDataset(prevDataset =>
-            prevDataset.map(entry => ({
-                ...entry,
-                themes: entry.themes || []  // Ensure themes array exists
-            }))
-        );
-    };
-
-    const handleSubmitFinalDataset = async (classificationsOverride = claudeData, datasetOverride = dataset) => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            const updatedDataset = datasetOverride.map((entry) => ({
-                ...entry,
-                themes: [...(entry.themes || [])],
-            }));
-
-            Object.keys(responseActions).forEach(themeName => {
-                const themeActions = responseActions[themeName];
-                const themeResponseIndices = classificationsOverride[themeName] || [];
-
-                themeActions.forEach((action, idx) => {
-                    if (action === 'approve' || themeName === "Unclassified") {
-                        const responseIndex = themeResponseIndices[idx];
-                        if (responseIndex !== undefined && responseIndex < updatedDataset.length) {
-                            const theme = allThemes.find(label => label.name === themeName);
-
-                            if (theme) {
-                                if (!updatedDataset[responseIndex].themes) {
-                                    updatedDataset[responseIndex].themes = [];
-                                }
-
-                                const themeExists = updatedDataset[responseIndex].themes.some(
-                                    t => t.name === theme.name
-                                );
-
-                                if (!themeExists && (themeName !== 'Unclassified' || updatedDataset[responseIndex].themes.length === 0)) {
-                                    updatedDataset[responseIndex].themes.push({
-                                        name: theme.name,
-                                        color: theme.color,
-                                        description: theme.description || ""
-                                    });
-                                }
-                            }
-                        }
-                    }
-                });
-            });
-
-            setDataset(updatedDataset);
-            if (job.enabled) {
-                await job.start({dataset:updatedDataset, labels:allThemes, ...projectMetadata});
-                return;
-            }
-
-            const activeSession = ensureSession ? await ensureSession() : sessionId;
-            const response = await axios.post(
-                `${API_URL}/session/${activeSession}/submit-final-dataset`,
-                {
-                    dataset: updatedDataset,
-                    labels: allThemes,
-                    apiKey: projectMetadata.apiKey
-                }
-            );
-
-            if (!active.current) return;
-            if (response.status === 200) {
-                setResults({
-                    themes: response.data.themes || [],
-                    summary: response.data.summary || '',
-                });
-                onAdvanceStage();
-            } else {
-                setError('Error submitting final dataset: ' + (response.data.error || 'Unknown error'));
-            }
-        } catch (error) {
-            setError(getApiErrorMessage(error, "We couldn't submit the final dataset."));
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const currentActions = responseActions[currentTheme.name] || Array(themeResponses.length).fill(null);
-    const allActionsCompleted = currentTheme.name === "Unclassified" || currentActions.every(action => action !== null);
-
-    const totalThemes = allThemes.length;
-    const completedThemes = Object.keys(responseActions).filter(theme => {
-        const actions = responseActions[theme];
-        return actions && actions.every(action => action !== null);
-    }).length;
-
-    const totalAssignments = Object.entries(claudeData || {}).filter(([name]) => name !== 'Unclassified').reduce((n,[,indices]) => n+indices.length,0);
-    const reviewedAssignments = Object.entries(claudeData || {}).filter(([name]) => name !== 'Unclassified').reduce((n,[name,indices]) => n+indices.filter(i => dataset[i]?.review_decisions?.[name]?.action).length,0);
-    const progressPercentage = totalAssignments ? reviewedAssignments / totalAssignments * 100 : 0;
-    const formattedThemeName = `${currentTheme.name} (${themeResponses.length} ${themeResponses.length === 1 ? 'response' : 'responses'})`;
-    const pendingCount = currentTheme.name === "Unclassified"
-        ? 0
-        : currentActions.filter(action => action === null).length;
-
-    return (
-        <Container fluid className="workflow-page workflow-page--wide review-page">
-            <WorkflowHeader
-                currentStep={3}
-                eyebrow="Step 3 · Quality review"
-                title="Review classifications"
-                description="Accept or reject assignments. Responses can be assigned to more than one theme."
-            />
+  };
+  const allActionsCompleted = currentTheme.name === "Unclassified" || currentActions.every(action => action !== null);
+  const totalThemes = allThemes.length;
+  const totalAssignments = Object.entries(claudeData || {}).filter(([name]) => name !== 'Unclassified').reduce((n, [, indices]) => n + indices.length, 0);
+  const reviewedAssignments = Object.entries(claudeData || {}).filter(([name]) => name !== 'Unclassified').reduce((n, [name, indices]) => n + indices.filter(i => dataset[i]?.review_decisions?.[name]?.action).length, 0);
+  const progressPercentage = totalAssignments ? reviewedAssignments / totalAssignments * 100 : 0;
+  const formattedThemeName = `${currentTheme.name} (${themeResponses.length} ${themeResponses.length === 1 ? 'response' : 'responses'})`;
+  const pendingCount = currentTheme.name === "Unclassified" ? 0 : currentActions.filter(action => action === null).length;
+  const assignableThemes = allThemes.filter(theme => theme.name !== 'Unclassified');
+  const assignReviewedResponse = (themeName, responseIndex, position) => {
+    addThemeToCode(themeName, responseIndex);
+    requestAnimationFrame(() => {
+      const pickers = responseList.current?.querySelectorAll('[data-review-theme-trigger]');
+      const nextPicker = pickers?.[Math.min(position, pickers.length - 1)];
+      (nextPicker || themeHeading.current)?.focus();
+    });
+  };
+  return <main className="workflow-page workflow-page--wide review-page">
+            <WorkflowHeader currentStep={3} eyebrow="Step 3 · Quality review" title="Review classifications" question={projectMetadata?.researchQuestion} description="Check each theme assignment, then continue." actions={importSaveAction} />
 
             <WorkflowAlert message={error} onClose={() => setError(null)} />
 
             {job.panel}
-            {requestLoading && !job.enabled && <LoadingSkeleton variant="inline" label="Preparing findings…" />}
-            {(
-            <fieldset disabled={isLoading} className="study-unframed-fieldset"><Row className="g-4 align-items-stretch">
-                <Col lg={4} xl={3} className="review-sidebar">
+            {requestLoading && !job.busy && <LoadingSkeleton variant="inline" label="Preparing findings…" />}
+            {<fieldset disabled={isLoading} className="study-unframed-fieldset"><WorkbenchRow className="g-4 items-stretch">
+                <WorkbenchColumn lg={4} xl={3} className="review-sidebar">
                     <Card>
-                        <Card.Body>
+                        <CardContent className="card-body">
+                            <Label className="review-theme-select">Review theme · {currentThemeIndex + 1} of {totalThemes}<NativeSelect aria-label="Review theme" value={currentThemeIndex} onChange={event => setCurrentThemeIndex(Number(event.target.value))}>{allThemes.map((theme, index) => <NativeSelectOption value={index} key={theme.name}>{theme.name}</NativeSelectOption>)}</NativeSelect></Label>
                             <span className="sidebar-card__label">Current theme</span>
                             <div className="current-theme">
-                                <div
-                                    className="current-theme__dot"
-                                    style={{
-                                        backgroundColor: currentTheme.color
-                                    }}
-                                ></div>
+                                <span className="current-theme__dot" style={{ backgroundColor: currentTheme.color }} aria-hidden="true" />
                                 <h2>{currentTheme.name}</h2>
                             </div>
                             <p className="current-theme__description">{currentTheme.description || "No description available"}</p>
 
-                        </Card.Body>
-                    </Card>
-                    <Card>
-                        <Card.Body>
+                            <div className="review-theme-navigation">
                             <span className="sidebar-card__label">Theme · {currentThemeIndex + 1} of {totalThemes}</span>
                             <div className="review-theme-list">
                                 {allThemes.map((label, index) => {
-                                    const isComplete = responseActions[label.name] &&
-                                        responseActions[label.name].every(action => action !== null);
-
-                                    return (
-                                        <button type="button" onClick={() => setCurrentThemeIndex(index)} aria-current={index === currentThemeIndex ? 'step' : undefined}
-                                            key={index}
-                                            className={`review-theme-list__item${index === currentThemeIndex ? ' is-current' : ''}`}
-                                        >
-                                            <div
-                                                className={`review-theme-list__status${isComplete ? ' is-complete' : ''}`}
-                                            ></div>
-                                            <span>
-                                                {label.name}
-                                            </span>
-                                        </button>
-                                    );
+                                    const assignments = claudeData?.[label.name] || [];
+                                    const isComplete = label.name !== 'Unclassified' && assignments.length > 0 &&
+                                        assignments.every(row => dataset[row]?.review_decisions?.[label.name]?.action);
+                                    return <Button type="button" onClick={() => setCurrentThemeIndex(index)} aria-current={index === currentThemeIndex ? 'step' : undefined} key={label.name} className={`review-theme-list__item${index === currentThemeIndex ? ' is-current' : ''}`} variant="ghost" size="auto">
+                                        <span className="review-theme-swatch" style={{ backgroundColor: label.color }} aria-hidden="true" />
+                                        <span className="review-theme-list__name">{label.name}</span>
+                                        {isComplete && <>
+                                            <FaCheck className="review-theme-list__check" aria-hidden="true" />
+                                            <span className="sr-only">(Reviewed)</span>
+                                        </>}
+                                    </Button>;
                                 })}
                             </div>
-                        </Card.Body>
+                            </div>
+                        </CardContent>
                     </Card>
-                </Col>
+                </WorkbenchColumn>
 
-                <Col lg={8} xl={9} className="review-main">
+                <WorkbenchColumn lg={8} xl={9} className="review-main">
                     <Card className="workflow-panel">
-                        <Card.Header>
+                        <CardHeader className="card-header">
                             <div className="workflow-toolbar">
-                                <h5 className="mb-0">
+                                <h5 ref={themeHeading} tabIndex={-1} className="mb-0">
                                     {formattedThemeName}
                                 </h5>
                                 <div className="workflow-toolbar__group">
-                                {currentTheme.name === "Unclassified" && (<Button
-                                variant="primary"
-                                onClick={() => queryAI()}
-                                disabled={aiLoading || themeResponses.length === 0}
-                                aria-busy={aiLoading}
-                                >
+                                {currentTheme.name === "Unclassified" && <Button variant="outline" onClick={() => queryAI()} disabled={aiLoading || themeResponses.length === 0} aria-busy={aiLoading}>
 
-                                    {aiLoading ? (
-                                        <>
+                                    {aiLoading ? <>
                                             <Skeleton className="edu-skeleton--button" />
                                             &nbsp;&nbsp;Reassigning...
-                                        </>
-                                    ) : (
-                                        'Reassign responses'
-                                    )}
+                                        </> : 'Reassign responses'}
 
-                                </Button>)}
-                                <Button
-                                    variant="outline-primary"
-                                    onClick={() => setShowEditLabels(true)}
-                                >
+                                </Button>}
+                                <Button variant="outline" onClick={() => setShowEditLabels(true)}>
 
                                     Edit themes
 
                                 </Button>
-                                <Button
-                                    variant="primary"
-                                    onClick={handleNextTheme}
-                                    aria-busy={isLoading}
-                                    disabled={(!allActionsCompleted || isLoading || (currentThemeIndex >= allThemes.length-1 && reviewedAssignments < totalAssignments))}
-                                >
-                                    {isLoading ? (
-                                        <>
-                                            <Skeleton className="edu-skeleton--button" />
-                                            &nbsp;&nbsp;Processing...
-                                        </>
-                                    ) : (
-                                        currentThemeIndex >= allThemes.length - 1 ? (themeResponses.length && currentTheme.name === 'Unclassified' ? 'Finish with unclassified responses' : 'Finish analysis') : 'Next theme'
-                                    )}
-                                </Button>
+
                                 </div>
                             </div>
-                        </Card.Header>
+                        </CardHeader>
 
                         <div className="review-progress-strip">
                             <div className="review-progress-track">
                                 <span>
-                                    {currentTheme.name === "Unclassified"
-                                        ? `${reviewedAssignments} of ${totalAssignments} assignments reviewed · ${themeResponses.length} unclassified`
-                                        : `${pendingCount} ${pendingCount === 1 ? 'response' : 'responses'} left to review`}
+                                    {currentTheme.name === "Unclassified" ? `${reviewedAssignments} of ${totalAssignments} assignments reviewed · ${themeResponses.length} unclassified` : `${pendingCount} ${pendingCount === 1 ? 'response' : 'responses'} left to review`}
                                 </span>
-                                <ProgressBar
-                                    now={progressPercentage}
-                                    label={`${Math.round(progressPercentage)}%`}
-                                    className="mb-0"
-                                />
+                                <Progress className="mb-0" value={progressPercentage} />
                             </div>
-                            <div className="review-bulk-actions">
-                                <Button
-                                    variant="success"
-                                    size="sm"
-                                    onClick={handleAcceptAll}
-                                    disabled={currentTheme.name === "Unclassified"}
-                                >
+                            {currentTheme.name !== "Unclassified" && <div className="review-bulk-actions">
+                                <Button variant="default" size="sm" onClick={() => setReviewDecision(themeResponses, 'approve')}>
                                     Accept all
                                 </Button>
-                                <Button
-                                    variant="danger"
-                                    size="sm"
-                                    onClick={handleRejectAll}
-                                    disabled={currentTheme.name === "Unclassified"}
-                                >
+                                <Button variant="destructive" size="sm" onClick={() => setReviewDecision(themeResponses, 'deny')}>
                                     Reject all
                                 </Button>
-                            </div>
+                            </div>}
                         </div>
-                        <Card.Body>
-                            <div className="review-response-list">
+                        <CardContent className="card-body">
+                            <div className="review-response-list" ref={responseList}>
 
-                                {aiLoading ? <LoadingSkeleton label="Reassigning responses to your themes…" rows={6} /> : themeResponses.length > 0 ? (
-                                    themeResponses.map((responseIndex, idx) => {
-                                        const responseText = responseIndex < dataset.length ?
-                                            dataset[responseIndex].original :
-                                            "Response not found";
-                                            {/*border-bottom*/}
-                                        return (
-                                            <div
-                                                key={`${currentTheme.name}-${idx}`}
-                                                className={`review-response-card${currentActions[idx] === 'approve' ? ' is-approved' : ''}${currentActions[idx] === 'deny' ? ' is-rejected' : ''}`}
-                                            >
+                                {aiLoading ? <LoadingSkeleton label="Reassigning responses to your themes…" rows={6} /> : themeResponses.length > 0 ? themeResponses.map((responseIndex, idx) => {
+                  const responseText = responseIndex < dataset.length ? dataset[responseIndex].original : "Response not found";
+                  {/*border-bottom*/}
+                  return <div key={`${currentTheme.name}-${responseIndex}`} className={`review-response-card${currentActions[idx] === 'approve' ? ' is-approved' : ''}${currentActions[idx] === 'deny' ? ' is-rejected' : ''}`}>
                                                 <span>
                                                     {responseText}
                                                 </span>
-                                                <div
-                                                    className="review-response-actions"
-                                                >
-                                                    {currentActions[idx] === null && currentTheme.name !== "Unclassified" && (
-                                                        <>
-                                                            <Button
-                                                                variant="success"
-                                                                className="d-flex align-items-center"
-                                                                size="sm"
-                                                                onClick={() => handleAction(idx, 'approve')}
-                                                                aria-label={`Accept response ${responseIndex + 1}`}
-                                                                title="Accept response"
-                                                            >
-                                                                <FaCheck/>
+                                                <div className="review-response-actions">
+                                                    {currentActions[idx] === null && currentTheme.name !== "Unclassified" && <>
+                                                            <Button variant="default" className="flex items-center" size="sm" onClick={() => setReviewDecision([responseIndex], 'approve')} aria-label={`Accept response ${responseIndex + 1}`} title="Accept response">
+                                                                <FaCheck />
                                                             </Button>
-                                                            <Button
-                                                                variant="danger"
-                                                                className="d-flex align-items-center"
-                                                                size="sm"
-                                                                onClick={() => handleAction(idx, 'deny')}
-                                                                aria-label={`Reject response ${responseIndex + 1}`}
-                                                                title="Reject response"
-                                                            >
-                                                                <FaTimes/>
+                                                            <Button variant="destructive" className="flex items-center" size="sm" onClick={() => setReviewDecision([responseIndex], 'deny')} aria-label={`Reject response ${responseIndex + 1}`} title="Reject response">
+                                                                <FaTimes />
                                                             </Button>
-                                                        </>
-                                                    )}
-                                                    {currentActions[idx] !== null && currentTheme.name !== "Unclassified" && (
-                                                        <>
+                                                        </>}
+                                                    {currentActions[idx] !== null && currentTheme.name !== "Unclassified" && <>
                                                             <span className={`review-response-status ${currentActions[idx] === 'approve' ? 'is-approved' : 'is-rejected'}`}>
                                                                 {currentActions[idx] === 'approve' ? 'Accepted' : 'Rejected'}
                                                             </span>
-                                                            <Button
-                                                                variant="secondary"
-                                                                className="d-flex align-items-center"
-                                                                size="sm"
-                                                                onClick={() => handleUndo(idx)}
-                                                                aria-label={`Undo decision for response ${idx + 1}`}
-                                                                title="Undo decision"
-                                                            >
-                                                                <FaUndo/>
+                                                            <Button variant="outline" className="flex items-center" size="sm" onClick={() => setReviewDecision([responseIndex], null)} aria-label={`Undo decision for response ${responseIndex + 1}`} title="Undo decision">
+                                                                <FaUndo />
                                                             </Button>
-                                                        </>
-                                                    )}
-                                                    {currentTheme.name === "Unclassified" && (
-                                                        <Form.Group
-                                                            controlId={`formThemes-${idx}`}
-                                                            className="review-theme-picker"
-                                                        >
-                                                            <Form.Select
-                                                                value=""
-                                                                className="mt-2"
-                                                                aria-label={`Assign theme to unclassified response ${idx + 1}`}
-                                                                onChange={(event) => addThemeToCode(event.target.value, responseIndex)}
-                                                            >
-                                                                <option value="">Assign a theme…</option>
-                                                                {allThemes.filter(theme => theme.name !== "Unclassified").map((theme) => (
-                                                                    <option key={theme.name} value={theme.name}>{theme.name}</option>
-                                                                ))}
-                                                            </Form.Select>
-                                                            {(dataset[responseIndex].themes || []).filter((theme) => theme.name !== 'Unclassified').map((theme, i) => {
-                                                                const themeColor = theme.color || '#000000';
-
-                                                                    return (
-                                                                        <div key={i} >
-                                                                            <Badge
-                                                                                bg="light"
-                                                                                text="dark"
-                                                                                style={{
-
-                                                                                    marginRight: '5px',
-                                                                                    marginTop: '0px',
-
-                                                                                }}
-                                                                                onClick={() => removeThemeFromCode(theme.name, responseIndex)}
-                                                                            >
+                                                        </>}
+                                                    {currentTheme.name === "Unclassified" && <div className="review-theme-picker">
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button type="button" variant="outline" data-review-theme-trigger="" disabled={isLoading || !assignableThemes.length} aria-label={`Assign a theme to response ${responseIndex + 1}`}>
+                                                                        Assign a theme <LuChevronDown aria-hidden="true" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end" collisionPadding={12} className="coding-theme-menu">
+                                                                    {assignableThemes.map(theme => <DropdownMenuItem key={theme.name} textValue={theme.name} onSelect={() => assignReviewedResponse(theme.name, responseIndex, idx)}>
+                                                                        <span className="review-theme-swatch" style={{ backgroundColor: theme.color }} aria-hidden="true" />
+                                                                        <span>{theme.name}</span>
+                                                                    </DropdownMenuItem>)}
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                            {(dataset[responseIndex].themes || []).filter(theme => theme.name !== 'Unclassified').map((theme, i) => {
+                          const themeColor = theme.color || '#000000';
+                          return <div key={i}>
+                                                                            <Badge style={{
+                              marginRight: '5px',
+                              marginTop: '0px'
+                            }} onClick={() => removeThemeFromCode(theme.name, responseIndex)} variant="secondary">
                                                                                 <p style={{
-                                                                                    backgroundColor: themeColor,
-                                                                                    padding: '4px',
-                                                                                    margin: '0px',
-
-                                                                                    color: getReadableTextColor(themeColor),
-                                                                                    borderRadius: '5px'
-                                                                                }}
-                                                                                role="button"
-                                                                                tabIndex="0"
-                                                                                aria-label={`Remove ${theme.name} from this response`}
-                                                                                onKeyDown={(event) => {
-                                                                                    if (event.key === 'Enter' || event.key === ' ') {
-                                                                                        event.preventDefault();
-                                                                                        removeThemeFromCode(theme.name, responseIndex);
-                                                                                    }
-                                                                                }}
-                                                                            >{theme.name}</p>
+                                backgroundColor: themeColor,
+                                padding: '4px',
+                                margin: '0px',
+                                color: getReadableTextColor(themeColor),
+                                borderRadius: '5px'
+                              }} role="button" tabIndex="0" aria-label={`Remove ${theme.name} from this response`} onKeyDown={event => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  removeThemeFromCode(theme.name, responseIndex);
+                                }
+                              }}>{theme.name}</p>
                                                                             </Badge>
-                                                                        </div>
-                                                                    );
-
-                                                                })
-                                                            }
-                                                        </Form.Group>
-                                                    )}
+                                                                        </div>;
+                        })}
+                                                        </div>}
                                                 </div>
-                                            </div>
-                                        );
-                                    })
-                                ) : (
-                                    <p className="workflow-empty mb-0">
+                                            </div>;
+                }) : <p className="workflow-empty mb-0">
                                         No responses were classified with this theme.
-                                    </p>
-                                )}
+                                    </p>}
                             </div>
 
-                        </Card.Body>
+                        </CardContent>
+                        <CardFooter className="workflow-action-bar card-footer"><div><strong>Theme {currentThemeIndex + 1} of {allThemes.length}</strong><p className="study-help" id="review-next-step">{!allActionsCompleted ? `Accept or reject the ${pendingCount} remaining assignments in this theme.` : currentThemeIndex >= allThemes.length - 1 && reviewedAssignments < totalAssignments ? 'Review the remaining theme assignments before generating findings.' : currentThemeIndex >= allThemes.length - 1 ? themeResponses.length && currentTheme.name === 'Unclassified' ? `${themeResponses.length} responses will remain unclassified. You can assign them above or keep them in the final dataset.` : 'Coding review is complete. Generate findings from the reviewed dataset.' : 'This theme is reviewed. Continue to the next theme.'}</p></div><div className="workflow-action-bar__action">                                <Button variant="default" onClick={handleNextTheme} aria-busy={isLoading} aria-describedby="review-next-step" disabled={!allActionsCompleted || isLoading || currentThemeIndex >= allThemes.length - 1 && reviewedAssignments < totalAssignments}>
+                                    {isLoading ? <>
+                                            <Skeleton className="edu-skeleton--button" />
+                                            &nbsp;&nbsp;Preparing findings…
+                                        </> : currentThemeIndex >= allThemes.length - 1 ? themeResponses.length && currentTheme.name === 'Unclassified' ? 'Keep unclassified & generate findings' : 'Generate findings' : 'Next theme'}
+                                </Button></div></CardFooter>
                     </Card>
-                </Col>
-            </Row></fieldset>
-            )}
+                </WorkbenchColumn>
+            </WorkbenchRow></fieldset>}
 
-            <Modal
-                show={showReassignModal}
-                onHide={() => setShowReassignModal(false)}
-                centered
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Rejected Classifications</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
+            <Dialog open={showReassignModal} onOpenChange={open => {
+      if (!open) (() => setShowReassignModal(false))();
+    }}><DialogContent className="modal-content ui-workbench-dialog">
+                <DialogHeader className="modal-header">
+                    <DialogTitle>Rejected Classifications</DialogTitle>
+                </DialogHeader>
+                <div className="modal-body">
                     <p>
                         You've rejected {rejectedEntries.length} {rejectedEntries.length === 1 ? 'classification' : 'classifications'} for the theme "{currentTheme.name}".
                         Rejected items will move to the "Unclassified" category if they have no other assignments.
@@ -670,164 +494,115 @@ const Review = ({ sessionId, ensureSession, analysisSource, beforeJob, labels, s
                     <p>
                         Continue to {currentThemeIndex >= allThemes.length - 1 ? 'finish the review' : 'the next theme'}?
                     </p>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowReassignModal(false)}>
+                </div>
+                <DialogFooter className="modal-footer">
+                    <Button variant="outline" onClick={() => setShowReassignModal(false)}>
                         Go Back
                     </Button>
-                    <Button variant="primary" onClick={handleFinishReassignment}>
+                    <Button variant="default" onClick={handleFinishReassignment}>
                         {currentThemeIndex >= allThemes.length - 1 ? 'Finish Review' : 'Next Theme'}
                     </Button>
-                </Modal.Footer>
-            </Modal>
+                </DialogFooter>
+            </DialogContent></Dialog>
             {/*EDIT LABELS*/}
-            <Modal
-                show={showEditLabels}
-                onHide={() => setShowEditLabels(false)}
-                centered
-                size="lg"
-                scrollable
-            >
-                <Modal.Header closeButton>
-                <Modal.Title>Add Themes</Modal.Title>
-                </Modal.Header>
+            <Dialog open={showEditLabels} onOpenChange={open => {
+      if (!open) (() => setShowEditLabels(false))();
+    }}><DialogContent className="modal-content ui-workbench-dialog ui-dialog-lg">
+                <DialogHeader className="modal-header">
+                <DialogTitle>Edit themes</DialogTitle>
+                </DialogHeader>
 
-                <Modal.Body>
-                    {suggestionError && (
-                        <Alert variant="danger" role="alert" dismissible onClose={() => setSuggestionError(null)}>
+                <div className="modal-body">
+                    {suggestionError && <Notice variant="danger" role="alert" dismissible onClose={() => setSuggestionError(null)}>
                             {suggestionError}
-                        </Alert>
-                    )}
-                    <Row>
-                    <Tab.Container id="left-tabs-example" defaultActiveKey="first">
+                        </Notice>}
+                    <WorkbenchRow>
+                    <Tabs id="left-tabs-example" defaultValue="first" className="workbench-codebook-tabs">
 
-                        <Col sm={3}>
-                        <Nav variant="pills" className="review-theme-tabs flex-column">
-                            <Nav.Item>
-                            <Nav.Link eventKey="first">Cur. Themes</Nav.Link>
-                            </Nav.Item>
-                            <Nav.Item>
-                            <Nav.Link eventKey="second">Add Theme</Nav.Link>
-                            </Nav.Item>
-                            <Nav.Item>
-                            <Nav.Link eventKey="third">LLM Process</Nav.Link>
-                            </Nav.Item>
-                        </Nav>
-                        </Col>
-                        <Col sm={9}>
-                        <Tab.Content>
-                            <Tab.Pane eventKey="first">
+
+                        <TabsList className="review-theme-tabs  workbench-codebook-tab-list">
+                            <div>
+                            <TabsTrigger value="first">Current themes</TabsTrigger>
+                            </div>
+                            <div>
+                            <TabsTrigger value="second">Add theme</TabsTrigger>
+                            </div>
+                            <div>
+                            <TabsTrigger value="third">AI suggestions</TabsTrigger>
+                            </div>
+                        </TabsList>
+
+
+                        <div>
+                            <TabsContent value="first" forceMount>
                                 {allThemes.map((label, index) => {
-                                    //console.log(label);
-                                    const isComplete = responseActions[label.name] &&
-                                        responseActions[label.name].every(action => action !== null);
-
-                                    return (
-                                        <div
-                                            key={index}
-                                            className=" align-items-center mb-2"
-                                            style={{ opacity: index === currentThemeIndex ? 1 : 0.7 }}
-                                        >
-                                            <div
-
-                                            ></div>
+                    return <div key={index} className=" items-center mb-2" style={{
+                      opacity: index === currentThemeIndex ? 1 : 0.7
+                    }}>
+                                            <div></div>
                                             <span style={{
-                                                    borderRadius: '10px',
-                                                    padding: '5px',
-                                                    color: getReadableTextColor(label.color),
-                                                    backgroundColor: label.color,
-
-                                                }}>
+                        borderRadius: '10px',
+                        padding: '5px',
+                        color: getReadableTextColor(label.color),
+                        backgroundColor: label.color
+                      }}>
                                                 {label.name}
                                             </span>
                                             <p style={{
-                                                marginTop: '5px',
-                                                marginLeft: '15px'
-                                            }}>{label.description}</p>
-                                        </div>
-                                    );
-                                })}
+                        marginTop: '5px',
+                        marginLeft: '15px'
+                      }}>{label.description}</p>
+                                        </div>;
+                  })}
 
-                            </Tab.Pane>
-                            <Tab.Pane eventKey="second">
-                                <LabelCreationWindow
-                                    labels={allThemes.filter((theme) => theme.name !== 'Unclassified')}
-                                    setLabels={addTheme}
-                                    addOnly
-                                />
-                            </Tab.Pane>
-                            <Tab.Pane eventKey="third">
+                            </TabsContent>
+                            <TabsContent value="second" forceMount>
+                                <LabelCreationWindow labels={allThemes.filter(theme => theme.name !== 'Unclassified')} setLabels={addTheme} addOnly />
+                            </TabsContent>
+                            <TabsContent value="third" forceMount>
 
                                 <div className="suggestions-toolbar">
                                 <span>
-                                    {suggestedThemes.length > 0 ?
-                                        `Found ${suggestedThemes.length} theme suggestions` :
-                                        "Generate themes"}
+                                    {suggestedThemes.length > 0 ? `Found ${suggestedThemes.length} theme suggestions` : "Generate themes"}
                                 </span>
-                                <Button
-                                    variant="outline-primary"
-                                    size="sm"
-                                    onClick={handleGetSuggestedThemes}
-                                    disabled={loadingSuggestions || !sessionId || dataset?.length === 0}
-                                >
-                                    {loadingSuggestions ? (
-                                        <>
+                                <Button variant="outline" size="sm" onClick={handleGetSuggestedThemes} disabled={loadingSuggestions || !sessionId || dataset?.length === 0}>
+                                    {loadingSuggestions ? <>
                                             <Skeleton className="edu-skeleton--button" />
                                             &nbsp;&nbsp;Refreshing...
-                                        </>
-                                    ) : (
-                                        'Refresh Suggestions'
-                                    )}
+                                        </> : 'Refresh Suggestions'}
                                 </Button>
                             </div>
 
-                            {loadingSuggestions ? (
-                                <LoadingSkeleton variant="suggestions" label="Generating theme suggestions…" />
-                            ) : suggestedThemes.length > 0 ? (
-                                <ListGroup>
+                            {loadingSuggestions ? <LoadingSkeleton variant="suggestions" label="Generating theme suggestions…" /> : suggestedThemes.length > 0 ? <div className="workbench-list">
                                     {suggestedThemes.map((theme, index) => {
-                                        const alreadyAdded = allThemes.some(l => l.name === theme.name);
-                                        return (
-                                            <ListGroup.Item
-                                                key={index}
-                                                className={`suggestion-item ${alreadyAdded ? 'bg-light' : ''}`}
-                                            >
+                      const alreadyAdded = allThemes.some(l => l.name === theme.name);
+                      return <div key={index} className={`suggestion-item ${alreadyAdded ? 'bg-light' : ''}` + " list-group-item"}>
                                                 <div>
                                                     <h5>{theme.name} {alreadyAdded}</h5>
-                                                    <p className="text-muted mb-0">{theme.description}</p>
+                                                    <p className="text-muted-foreground mb-0">{theme.description}</p>
                                                 </div>
-                                                <Button
-                                                    variant={alreadyAdded ? "outline-secondary" : "outline-primary"}
-                                                    onClick={() => {addTheme(theme);}}
-                                                    disabled={alreadyAdded}
-                                                    className="suggestion-item__action"
-                                                >
+                                                <Button variant="outline" onClick={() => {
+                          addTheme(theme);
+                        }} disabled={alreadyAdded} className="suggestion-item__action">
                                                     {alreadyAdded ? 'Added' : 'Add Theme'}
                                                 </Button>
-                                            </ListGroup.Item>
-                                        );
-                                    })}
-                                </ListGroup>
-                            ) : (
-                                <p className="text-center text-muted">Click "Refresh Suggestions" to generate new themes.</p>
-                            )}
+                                            </div>;
+                    })}
+                                </div> : <p className="text-center text-muted-foreground">Click "Refresh Suggestions" to generate new themes.</p>}
 
-                            </Tab.Pane>
-                        </Tab.Content>
-                        </Col>
+                            </TabsContent>
+                        </div>
 
-                    </Tab.Container>
 
-                </Row>
-                </Modal.Body>
+                    </Tabs>
 
-                <Modal.Footer>
-                <Button variant="secondary" onClick={() => setShowEditLabels(false)}>Close</Button>
-                {/*<Button variant="primary">Save changes</Button>*/}
-                </Modal.Footer>
-            </Modal>
-        </Container>
-    );
+                </WorkbenchRow>
+                </div>
+
+                <DialogFooter className="modal-footer">
+                <Button variant="outline" onClick={() => setShowEditLabels(false)}>Close</Button>
+                </DialogFooter>
+            </DialogContent></Dialog>
+        </main>;
 };
-
 export default Review;

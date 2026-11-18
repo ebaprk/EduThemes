@@ -23,6 +23,45 @@ export function codingAgreement(context) {
 export function codingDecisionDrafts(context) {
   return Object.fromEntries(responseComparison(context).map(row=>[row.id,{themes:row.finalThemes,rationale:row.decision?.rationale || ''}]));
 }
+export function codingReliabilityPairs(context) {
+  if (!['comparison','finalized'].includes(context?.round?.state)) return [];
+  const coders=(context.assignments || []).filter(a=>a.submitted_at);
+  return coders.flatMap((a,i)=>coders.slice(i+1).map(b=>[a.coder_id,b.coder_id]));
+}
+export function codingReliability(context,pair=codingReliabilityPairs(context)[0]) {
+  if (!codingReliabilityPairs(context).some(ids=>ids[0]===pair?.[0]&&ids[1]===pair?.[1])) return null;
+  const coders=pair.map(id=>context.assignments.find(a=>a.coder_id===id));
+  const shared=context.round.responses.filter(row=>coders.every(a=>a.response_ids.includes(row.id)&&Array.isArray(a.ballot?.[row.id]?.themes)));
+  const themes=context.round.codebook.map(theme=>{
+    let both=0,firstOnly=0,secondOnly=0,neither=0;
+    for(const row of shared){
+      const [a,b]=coders.map(coder=>coder.ballot[row.id].themes.includes(theme.name));
+      if(a&&b)both++;else if(a)firstOnly++;else if(b)secondOnly++;else neither++;
+    }
+    const n=shared.length, matches=both+neither, firstIncluded=both+firstOnly, secondIncluded=both+secondOnly;
+    const expectedNumerator=firstIncluded*secondIncluded+(n-firstIncluded)*(n-secondIncluded);
+    const denominator=n*n-expectedNumerator;
+    return {name:theme.name,n,matches,firstIncluded,secondIncluded,both,firstOnly,secondOnly,neither,
+      observed:n?matches/n:null,expected:n?expectedNumerator/(n*n):null,
+      kappa:n&&denominator?(matches*n-expectedNumerator)/denominator:null,
+      unavailable:!n?'No shared coded responses':!denominator?'No variation in either coder’s choices':null};
+  });
+  return {pair,coders:coders.map(a=>({id:a.coder_id,label:`Coder ${context.assignments.indexOf(a)+1}`})),shared:shared.length,themes};
+}
+export function codingReliabilityReport(context,format='table') {
+  const pairs=codingReliabilityPairs(context);
+  if(!pairs.length)return 'Cohen’s kappa requires two submitted coders with shared responses. No eligible coder pair is available.';
+  return ['Cohen’s kappa is calculated separately for each theme and each fixed pair of human coders, using original submitted choices before adjudication. No pooled or overall multilabel kappa is claimed. Agreement does not establish interpretive validity.',
+    ...pairs.flatMap(pair=>{
+      const r=codingReliability(context,pair);
+      return [`### ${r.coders.map(c=>c.label).join(' and ')} · ${r.shared} shared responses`,
+        format==='list'?r.themes.map(t=>`- ${md(t.name)}: kappa ${t.kappa===null?`not calculated (${t.unavailable})`:t.kappa.toFixed(3)}; observed agreement ${t.n?`${t.matches}/${t.n} (${(100*t.observed).toFixed(1)}%)`:'not calculated (no overlap)'}; ${r.coders[0].label} includes ${t.firstIncluded}/${t.n}; ${r.coders[1].label} includes ${t.secondIncluded}/${t.n}.`).join('\n'):
+        ['| Theme | Kappa | Observed agreement | First coder includes | Second coder includes |',
+        '| --- | --- | --- | --- | --- |',
+        ...r.themes.map(t=>`| ${md(t.name)} | ${t.kappa===null?`Not calculated: ${t.unavailable}`:t.kappa.toFixed(3)} | ${t.n?`${t.matches}/${t.n} (${(100*t.observed).toFixed(1)}%)`:'No overlap'} | ${t.firstIncluded}/${t.n} | ${t.secondIncluded}/${t.n} |`)].join('\n'),
+        'Expected agreement uses each coder’s inclusion/exclusion frequencies on these shared responses. Explicit no-match coding is included; missing coding is excluded. A constant identical choice makes kappa undefined, even with perfect observed agreement.']
+    })].join('\n\n');
+}
 export function codingMethods(context) {
   if (!['comparison','finalized'].includes(context?.round?.state)) return 'Coding comparison is not open.';
   const a=codingAgreement(context);
@@ -35,6 +74,7 @@ export function codingRoundReport(context) {
     '## Coding and reconciliation process',codingMethods(context),
     'Missing assignments are excluded from agreement. A completed response with no matching theme is an explicit empty theme set. With more than two coders, each pair sharing a response contributes one comparison. Per-theme agreement counts both joint inclusion and joint exclusion.',
     '## Agreement before adjudication',...a.themes.map(t=>`${md(t.name)}: ${t.pairs?`${t.matches}/${t.pairs} pairs (${(100*t.matches/t.pairs).toFixed(1)}%)`:'Not calculated'}`),
+    '## Chance corrected agreement',codingReliabilityReport(context),
     '## Final coding counts (resolved responses)',...r.codebook.map(t=>`${md(t.name)}: ${rows.filter(row=>row.finalThemes?.includes(t.name)).length}`),`No matching theme: ${rows.filter(row=>Array.isArray(row.finalThemes)&&!row.finalThemes.length).length}`,`Unresolved final decisions: ${rows.filter(row=>row.finalThemes===null).length}`,
     '## Codebook',...r.codebook.flatMap(t=>[`### ${md(t.name)}`,`Definition: ${md(t.description || 'Not recorded')}`,`Include when: ${md(t.include_when || 'Not recorded')}`,`Exclude when: ${md(t.exclude_when || 'Not recorded')}`,`Example: ${md(t.example || 'Not recorded')}`]),
     '## Export boundaries','This report excludes response text, coder notes, email addresses, and adjudication rationales. Inspect the round inside EduThemes to review individual decisions. Only finalized consensus can be applied to a new analysis; earlier findings remain preserved.'

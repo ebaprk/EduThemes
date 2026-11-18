@@ -1,40 +1,66 @@
-import React, { useState, useEffect } from "react";
-import { Button, Container, OverlayTrigger, Card, Row, Col, Tab, Tabs, Tooltip } from "react-bootstrap";
-import { Chart as ChartJS, ArcElement, Legend, Tooltip as ChartTooltip , CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
-import { Bar, Doughnut } from "react-chartjs-2";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import "./Analyze.css";
 import ReactMarkdown from 'react-markdown';
-import { FaDownload, FaRedo } from 'react-icons/fa';
+import { LuArrowRight, LuChevronDown, LuDownload } from 'react-icons/lu';
 import { API_URL, getApiErrorMessage } from '../api';
 import { csvCell } from '../utils/participantData';
 import StudyEvidence from './StudyEvidence';
+import ThemeFrequencyChart from './ThemeFrequencyChart';
 import WorkflowHeader from './WorkflowHeader';
 import WorkflowAlert from './WorkflowAlert';
-import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
+import LoadingSkeleton from './LoadingSkeleton';
 import RunReview from './RunReview';
+import FileResearchBrief from './FileResearchBrief';
+import FileStudyTransfer from './FileStudyTransfer';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { findingsTabUrl } from '../utils/analysisWorkflow';
+import { Button } from "@eduthemes/ui/components/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@eduthemes/ui/components/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@eduthemes/ui/components/tabs";
+import { Card, CardContent } from "@eduthemes/ui/components/card";
 
-ChartJS.register(
-  ChartTooltip,
-  ArcElement,
-  Legend,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title
-);
+const summaryHeadings = { h1: 'h3', h2: 'h3', h3: 'h4' };
+const findingsViews = [['summary', 'Summary'], ['themes', 'Evidence'], ['visualization', 'Charts'], ['report', 'Report']];
 
-const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0, analysisSource, dataset = [], beforeSave }) => {
+const Analyze = ({
+  labels,
+  results,
+  onAdvanceStage,
+  sessionId,
+  uploadSummary,
+  responseCount = 0,
+  analysisSource,
+  dataset = [],
+  classifications,
+  beforeSave,
+  projectMetadata
+}) => {
   const [summary, setSummary] = useState(results?.summary || "");
   const [error, setError] = useState(null);
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const tabList = useRef(null);
+  const requestedTab = params.get('tab');
+  const activeTab = findingsViews.some(([tab]) => tab === requestedTab) ? requestedTab : 'summary';
+  const setActiveTab = tab => {
+    if (tab === activeTab) return;
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    navigate(findingsTabUrl(analysisSource, params, tab), { replace: true });
+  };
+  const continueTo = tab => {
+    setActiveTab(tab);
+    requestAnimationFrame(() => tabList.current?.querySelector(`[data-view="${tab}"]`)?.focus({ preventScroll: true }));
+  };
   const [isSummaryLoading, setIsSummaryLoading] = useState(!results?.summary);
-  const [isDownloading, setIsDownloading] = useState(false);
-
   useEffect(() => {
     if (results && results.summary) {
       setSummary(results.summary);
       setIsSummaryLoading(false);
-    } else if (sessionId?.startsWith('study:')) { setSummary(''); setIsSummaryLoading(false); } else {
+    } else if (sessionId?.startsWith('study:')) {
+      setSummary('');
+      setIsSummaryLoading(false);
+    } else {
       const fetchSummary = async () => {
         setIsSummaryLoading(true);
         try {
@@ -49,17 +75,36 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0,
           setIsSummaryLoading(false);
         }
       };
-
       fetchSummary();
     }
   }, [results, sessionId]);
-
-  const download = (content, name, type) => { const url=URL.createObjectURL(new Blob([content],{type})); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url); };
-  const handleDownloadJSON = () => download(JSON.stringify({study:analysisSource?.title,question:analysisSource?.prompt,version:analysisSource?.versionId,results,labels,responses:dataset},null,2),'coded-responses.json','application/json');
-  const downloadCsv = () => { const quote = csvCell; download(['Response,Themes', ...dataset.map(entry => [entry.original,entry.themes?.map(t=>t.name).join('; ')].map(quote).join(','))].join('\n'),'coded-responses.csv','text/csv'); };
+  const download = (content, name, type) => {
+    const url = URL.createObjectURL(new Blob([content], {
+      type
+    }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const handleDownloadJSON = () => download(JSON.stringify({
+    study: analysisSource?.title,
+    question: analysisSource?.prompt,
+    version: analysisSource?.versionId,
+    results,
+    labels,
+    responses: dataset
+  }, null, 2), 'coded-responses.json', 'application/json');
+  const downloadCsv = () => {
+    const quote = csvCell;
+    download(['Response,Themes', ...dataset.map(entry => [entry.original, entry.themes?.map(t => t.name).join('; ')].map(quote).join(','))].join('\n'), 'coded-responses.csv', 'text/csv');
+  };
   const handleDownloadSummary = () => {
     if (summary) {
-      const blob = new Blob([summary], { type: "text/plain" });
+      const blob = new Blob([summary], {
+        type: "text/plain"
+      });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -68,225 +113,86 @@ const Analyze = ({labels, results, onAdvanceStage, sessionId, responseCount = 0,
       URL.revokeObjectURL(url);
     }
   };
-
-
-  const labelMap = React.useMemo(() => {
-    const map = {};
-    if (labels && Array.isArray(labels)) {
-      labels.forEach(label => {
-        map[label.name] = label.definition || label.description || "No definition available.";
-      });
-    }
-    return map;
-  }, [labels]);
-
   const themeData = Array.isArray(results) ? results : results?.themes || [];
-  const totalMentions = themeData.reduce((total, item) => total + Number(item.frequency || 0), 0);
-  const leadingTheme = themeData.length > 0
-    ? themeData.reduce((leading, item) => Number(item.frequency || 0) > Number(leading.frequency || 0) ? item : leading)
-    : null;
-  const unclassifiedCount = Number(themeData.find((item) => item.name === 'Unclassified')?.frequency || 0);
-
-  return (
-    <Container fluid className="workflow-page analysis-page">
-      <WorkflowHeader
-        currentStep={4}
-        eyebrow="Step 4 · Analysis complete"
-        title="Findings"
-        readOnly={analysisSource?.readOnly}
-        description=""
-      />
+  const themeCount = themeData.filter(theme => theme.name !== 'Unclassified').length;
+  const unclassifiedCount = Number(themeData.find(item => item.name === 'Unclassified')?.frequency || 0);
+  const nextView = activeTab === 'summary' ? ['themes', 'Review evidence']
+    : activeTab === 'themes' ? ['report', 'Prepare report'] : null;
+  const importedStudy = analysisSource?.studySnapshot?.source_type === 'file';
+  return <main className="workflow-page analysis-page">
+      <WorkflowHeader currentStep={4} title="Findings" readOnly={analysisSource?.readOnly} question={projectMetadata?.researchQuestion} compact
+        actions={<DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline"><LuDownload aria-hidden="true" />Download data<LuChevronDown aria-hidden="true" /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" collisionPadding={12}>
+            <DropdownMenuItem onSelect={downloadCsv}>Coded responses (.csv)</DropdownMenuItem>
+            <DropdownMenuItem onSelect={handleDownloadJSON}>Full analysis (.json)</DropdownMenuItem>
+            <DropdownMenuItem onSelect={handleDownloadSummary} disabled={!summary || isSummaryLoading}>Summary (.txt)</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>}>
+        <ul className="findings-run-totals" role="list" aria-label="Analysis totals">
+          <li><strong>{responseCount}</strong> {responseCount === 1 ? 'response' : 'responses'} analyzed</li>
+          <li><strong>{themeCount}</strong> {themeCount === 1 ? 'theme' : 'themes'}</li>
+          <li><strong>{unclassifiedCount}</strong> unclassified</li>
+        </ul>
+      </WorkflowHeader>
 
       <WorkflowAlert message={error} onClose={() => setError(null)} />
 
-      <div className="analysis-metrics">
-        <div className="analysis-metric">
-          <span>Themes discovered</span>
-          <strong>{themeData.filter(t => t.name !== 'Unclassified').length}</strong>
-        </div>
-        <div className="analysis-metric">
-          <span>Responses analyzed</span>
-          <strong>{responseCount}</strong>
-        </div>
-
-        <div className="analysis-metric">
-          <span>Still unclassified</span>
-          <strong>{unclassifiedCount}</strong>
-        </div>
-
-      </div>
-
-      <div className="study-actions findings-exports"><button className="study-secondary" onClick={handleDownloadSummary}>Download summary</button><button className="study-secondary" onClick={downloadCsv}>Download coded CSV</button><button className="study-secondary" onClick={handleDownloadJSON}>Download full analysis</button></div>
-      {analysisSource && <RunReview key={`${analysisSource.runId}:${analysisSource.viewRun}`} source={analysisSource} beforeSave={beforeSave} snapshot={analysisSource.studySnapshot || {title:analysisSource.title,version_number:analysisSource.versionNumber}} question={{prompt:analysisSource.prompt}} run={{labels,coded_responses:dataset,response_count:responseCount,results:{...results,_run_id:results?._run_id || analysisSource.savedRunKey || analysisSource.runId}}}/>}
-      <Tabs defaultActiveKey="summary" className="analysis-tabs">
-        <Tab eventKey="summary" title="Summary">
-          <Card className="workflow-panel analysis-panel">
-            <Card.Body>
-
+      <Tabs id="findings-tabs" className="analysis-tabs" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList variant="line" aria-label="Findings views" ref={tabList}>
+          {findingsViews.map(([tab, label]) => <TabsTrigger key={tab} value={tab} data-view={tab}>{label}</TabsTrigger>)}
+        </TabsList>
+        <TabsContent value="summary" forceMount>
+          <Card as="article" className="workflow-panel analysis-panel findings-summary">
+            <CardContent className="card-body">
+              <h2 className="findings-summary-title">Analysis summary</h2>
               <div className="summary-content">
-                {isSummaryLoading ? <LoadingSkeleton label="Loading your analysis summary…" rows={8} /> : <ReactMarkdown>{summary || "No summary was saved for this run."}</ReactMarkdown>}
+                {isSummaryLoading ? <LoadingSkeleton label="Loading your analysis summary…" rows={8} /> : summary
+                  ? <ReactMarkdown components={summaryHeadings}>{summary}</ReactMarkdown>
+                  : !error && <p className="study-help">No summary was saved for this run.</p>}
               </div>
-            </Card.Body>
+            </CardContent>
           </Card>
-        </Tab>
-
-        <Tab eventKey="visualization" title="Visualizations">
-          <Row className="g-4">
-            <Col md={6}>
-              <Card className="analysis-chart-card h-100">
-                <Card.Header>Theme Distribution</Card.Header>
-                <Card.Body>
-                  <div className="analysis-chart">
-                    <Doughnut
-                      data={{
-                        labels: themeData.map((item) => item.name),
-                        datasets: [
-                          {
-                            label: "Count",
-                            data: themeData.map((item) => item.frequency),
-                            backgroundColor: themeData.map((item) => item.color),
-                            borderColor: themeData.map((item) => item.color),
-                          },
-                        ],
-                      }}
-                      options={{
-                        plugins: {
-                          legend: {
-                            display: false,
-
-                            position: "bottom",
-                          },
-                          title: {
-                            display: false,
-                            text: "Hover over to see which theme it is!",
-                          },
-                        },
-                      }}
-                    />
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-
-            <Col md={6}>
-              <Card className="analysis-chart-card h-100">
-                <Card.Header>Theme Frequency</Card.Header>
-                <Card.Body>
-                <div className="analysis-chart">
-                  <Bar
-
-                    data={{
-                      labels: themeData.map((item) => item.name),
-                      datasets: [
-                        {
-                          label: "Response Count",
-                          data: themeData.map((item) => item.frequency),
-                          backgroundColor: themeData.map((item) => item.color),
-                          borderColor: themeData.map((item) => item.color),
-                          borderRadius: 5,
-                        },
-                      ],
-                    }}
-                    options={{
-                      indexAxis: 'x',
-                      plugins: {
-                        legend: {
-                          display: false,
-                        },
-                      },
-
-                    }}
-                  />
-                  <table className="visually-hidden">
-                    <caption>Theme frequencies</caption>
-                    <thead><tr><th>Theme</th><th>Response count</th></tr></thead>
-                    <tbody>
-                      {themeData.map((item) => <tr key={item.name}><td>{item.name}</td><td>{item.frequency}</td></tr>)}
-                    </tbody>
-                  </table>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
-        </Tab>
-
-        <Tab eventKey="themes" title="Themes & evidence">
-          <Card className="workflow-panel analysis-panel">
-            <Card.Body>
-
-
-              <div>
-                {themeData && themeData.length > 0 ? (
-                  <div className="analysis-theme-grid">
-                    {themeData.map((item, index) => (
-                      <OverlayTrigger
-                        key={index}
-                        delay={{ hide: 450, show: 300 }}
-                        overlay={(props) => (
-                          <Tooltip {...props} >
-                            <div style={{ fontSize: '1.2em',  borderRadius: '5px' }}>
-                              Definition - {labelMap[item.name] || "No description available"}
-                            </div>
-                          </Tooltip>
-                        )}
-                        placement="bottom"
-                      >
-                        <div
-                          key={index}
-                          className="analysis-theme-card"
-                          style={{ '--theme-color': item.color || '#8d95a5' }}
-                        >
-                          <div className="analysis-theme-card__topline">
-                            <span className="analysis-theme-card__dot" aria-hidden="true" />
-                            <h3>{item.name}</h3>
-                          </div>
-                          <p>
-                            <strong>{item.frequency}</strong> responses
-                          </p>
-                          <p className="analysis-theme-card__description">{labelMap[item.name] || 'No description available.'}</p>
-                        </div>
-                      </OverlayTrigger>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="workflow-empty">No themes available.</p>
-                )}
-              </div>
-            </Card.Body>
-          </Card>
-        </Tab>
-
+        </TabsContent>
+        <TabsContent value="themes" forceMount>
+          <StudyEvidence dataset={dataset} labels={labels} themes={themeData}
+            sourceBase={analysisSource ? `/studies/${analysisSource.studyId}?section=collect&version=${analysisSource.versionId}` : null}
+            selectedTheme={activeTab === 'themes' ? params.get('theme') : null} />
+        </TabsContent>
+        <TabsContent value="visualization" forceMount>
+          <ThemeFrequencyChart themes={themeData} responseCount={responseCount} evidenceHref={theme => findingsTabUrl(analysisSource, params, 'themes', theme)} />
+        </TabsContent>
+        <TabsContent value="report" forceMount>
+      {analysisSource && <RunReview key={`${analysisSource.runId}:${analysisSource.viewRun}`} source={analysisSource} beforeSave={beforeSave} snapshot={analysisSource.studySnapshot || {
+          title: analysisSource.title,
+          version_number: analysisSource.versionNumber
+        }} question={{
+          prompt: analysisSource.prompt
+        }} run={{
+          labels,
+          coded_responses: dataset,
+          response_count: responseCount,
+          results: {
+            ...results,
+            _run_id: results?._run_id || analysisSource.savedRunKey || analysisSource.runId
+          }
+        }} />}
+      {!analysisSource && <FileResearchBrief key={sessionId} sessionId={sessionId} metadata={projectMetadata} dataset={dataset} labels={labels} results={{
+          ...results,
+          summary
+        }} loading={isSummaryLoading} />}
+        </TabsContent>
       </Tabs>
 
-      <StudyEvidence analysis={{coded_responses:dataset,labels}} responses={[]} sourceBase={analysisSource ? `/studies/${analysisSource.studyId}?section=collect&version=${analysisSource.versionId}` : null} questionId={analysisSource?.questionId} />
-      <div className="analysis-new-action">
-        <Button
-          variant="primary"
-          size="lg"
-          onClick={() => onAdvanceStage()}
-        >
-          <FaRedo className="me-2" aria-hidden="true" />
-          {analysisSource ? 'Back to study analysis' : 'Import another dataset'}
-        </Button>
-      </div>
-    </Container>
-  );
+      {(nextView || !analysisSource?.readOnly || importedStudy) && <div className="findings-actions">
+        {!analysisSource?.readOnly && <Button variant="link" onClick={onAdvanceStage}>{analysisSource ? 'Back to study analysis' : 'Import another dataset'}</Button>}
+        {!analysisSource && <FileStudyTransfer importId={uploadSummary?.importId || sessionId} metadata={projectMetadata} dataset={dataset} labels={labels}
+          results={{ ...results, summary }} classifications={classifications} uploadSummary={uploadSummary} loading={isSummaryLoading} />}
+        {importedStudy && <Button asChild variant="outline"><Link to={`/studies/${analysisSource.studyId}?section=team-coding&version=${analysisSource.versionId}`}>Compare independent coding</Link></Button>}
+        {nextView && <Button className="findings-continue" onClick={() => continueTo(nextView[0])}>{nextView[1]}<LuArrowRight aria-hidden="true" /></Button>}
+      </div>}
+    </main>;
 };
-
-function isDarkColor(color) {
-  let hex = color.replace('#', '');
-  if (hex.length === 3) {
-    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-  }
-
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-
-  return luminance < 0.5;
-}
-
 export default Analyze;

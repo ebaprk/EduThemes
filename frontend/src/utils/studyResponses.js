@@ -23,3 +23,16 @@ export function attachResponseSources(dataset, sources) {
 export function responsesToCsv(responses) {
   return `Response\n${responses.map((answer) => `"${answer.replaceAll('"', '""')}"`).join('\n')}`;
 }
+
+export async function readStudySubmissions(client, columns, studyId) {
+  const pageSize = 1000;
+  const submissions = [];
+  for (let offset = 0; ; offset += pageSize) {
+    let query = client.from('study_submissions').select(columns);
+    if (studyId) query = query.eq('study_id', studyId);
+    const { data, error } = await query.order('created_at').order('id').range(offset, offset + pageSize - 1);
+    if (error) return { data: null, error };
+    submissions.push(...data);
+    if (data.length < pageSize) return { data: submissions, error: null };
+  }
+}

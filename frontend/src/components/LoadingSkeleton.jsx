@@ -1,8 +1,9 @@
 import React from 'react';
 import './LoadingSkeleton.css';
+import {Skeleton as UISkeleton} from '@eduthemes/ui/components/skeleton';
 
 export function Skeleton({ className = '', style }) {
-  return <span className={`edu-skeleton ${className}`} style={style} aria-hidden="true" />;
+  return <UISkeleton as="span" className={`edu-skeleton ${className}`} style={style} aria-hidden="true" />;
 }
 
 function Lines({ count = 3 }) {
