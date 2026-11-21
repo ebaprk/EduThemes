@@ -12,8 +12,44 @@ from src.llm.serve_llm import serve_llm
 from src.llm.openai_analysis import NavigatorError
 from dataset_utils import preprocess_dataframe
 from study_access import StudyAccessError, require_study_access
+from research_paper import PaperError, options as paper_options, saved_evidence, file_evidence, generate_paper
 
 routes_bp = Blueprint('routes', __name__)
+
+
+@routes_bp.post('/studies/<study_id>/research-paper')
+def study_research_paper(study_id):
+    try:
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            raise PaperError('Paper settings and saved findings are required.')
+        settings = paper_options(data.get('paper'))
+        return jsonify(generate_paper(saved_evidence(study_id, data), settings))
+    except StudyAccessError as exc:
+        return error_response(str(exc), exc.status, 'STUDY_ACCESS_DENIED')
+    except PaperError as exc:
+        return error_response(str(exc), exc.status, exc.code)
+    except NavigatorError as exc:
+        return navigator_error_response(exc)
+
+
+@routes_bp.post('/session/<session_id>/research-paper')
+def file_research_paper(session_id):
+    session, failure = require_session(session_id)
+    if failure:
+        return failure
+    try:
+        if session['study_id']:
+            raise PaperError('Open this saved study’s Findings section to generate its paper.')
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            raise PaperError('Paper settings and report evidence are required.')
+        settings = paper_options(data.get('paper'))
+        return jsonify(generate_paper(file_evidence(data), settings))
+    except PaperError as exc:
+        return error_response(str(exc), exc.status, exc.code)
+    except NavigatorError as exc:
+        return navigator_error_response(exc)
 
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)

@@ -42,10 +42,10 @@ def _create_client(api_key=None):
     )
 
 
-def _chat_completion(client, prompt, max_tokens=None, response_format=None):
+def _chat_completion(client, prompt, max_tokens=None, response_format=None, system_prompt=None):
     request = {
         'model': NAVIGATOR_MODEL,
-        'messages': [{'role': 'user', 'content': prompt}],
+        'messages': ([{'role': 'system', 'content': system_prompt}] if system_prompt else []) + [{'role': 'user', 'content': prompt}],
     }
     if max_tokens is not None:
         request['max_tokens'] = max_tokens
