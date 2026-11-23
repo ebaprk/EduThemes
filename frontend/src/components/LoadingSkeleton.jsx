@@ -30,7 +30,7 @@ function ResponseLayout({ rows }) {
   </div>;
 }
 
-export default function LoadingSkeleton({ variant = 'text', label = 'Loading…', rows = 3, className = '' }) {
+export default function LoadingSkeleton({ variant = 'text', label = 'Loading…', rows = 3, className = '', children }) {
   if (variant === 'count') return <span className={`edu-loading edu-loading--count ${className}`} role="status" aria-label={label}><Skeleton className="edu-skeleton--number" /></span>;
   if (variant === 'inline') return <span className={`edu-loading edu-loading--inline ${className}`} role="status">
     <span>{label}</span><span className="edu-loading__inline-bars" aria-hidden="true"><Skeleton /><Skeleton /><Skeleton /></span>
@@ -68,6 +68,6 @@ export default function LoadingSkeleton({ variant = 'text', label = 'Loading…'
   }
   return <div className={`edu-loading edu-loading--${variant} ${className}`} role="status">
     <span className="edu-loading__label">{label}</span>
-    <div aria-hidden="true">{content}</div>
+    <div aria-hidden="true">{children ?? content}</div>
   </div>;
 }
