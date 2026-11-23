@@ -1181,6 +1181,40 @@
     white-space: normal;
 }
 
+.modal-content.review-response-editor {
+    width: min(640px, calc(100vw - 32px));
+    max-width: 640px;
+}
+
+.review-editor-body {
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.review-editor-response {
+    margin: 0;
+    padding: 12px 16px;
+    border-left: 3px solid var(--border);
+    overflow-wrap: anywhere;
+}
+
+.review-editor-choices {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.review-editor-choice {
+    align-items: flex-start;
+    padding: 10px 0;
+}
+
+.review-editor-definition {
+    display: block;
+    margin-top: 4px;
+    font-weight: 400;
+}
+
 /* Analysis */
 .analysis-panel .card-body {
     padding: clamp(22px, 4vw, 36px);

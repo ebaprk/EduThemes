@@ -22,7 +22,19 @@ function ThemeChoices({
   label
 }) {
   const names = Array.isArray(value) ? value : [];
-  return <fieldset className="coding-theme-choices" disabled={disabled}><legend>{label}</legend>{codebook.map(theme => <Label key={theme.name}><Checkbox type="checkbox" checked={names.includes(theme.name)} onChange={event => onChange(event.target.checked ? [...names, theme.name] : names.filter(name => name !== theme.name))} /><span><strong>{theme.name}</strong><small>{theme.description}</small></span></Label>)}<Label><Checkbox type="checkbox" checked={Array.isArray(value) && !value.length} onChange={event => onChange(event.target.checked ? [] : null)} />No matching theme</Label></fieldset>;
+  return <fieldset className="coding-theme-choices" disabled={disabled}>
+    <legend>{label}</legend>
+    <div className="coding-theme-options">
+      {codebook.map(theme => <Label className="coding-theme-choice" data-selected={names.includes(theme.name)} key={theme.name}>
+        <Checkbox type="checkbox" checked={names.includes(theme.name)} onChange={event => onChange(event.target.checked ? [...names, theme.name] : names.filter(name => name !== theme.name))} />
+        <span><strong>{theme.name}</strong>{theme.description && <small>{theme.description}</small>}</span>
+      </Label>)}
+      <Label className="coding-theme-choice" data-selected={Array.isArray(value) && !value.length}>
+        <Checkbox type="checkbox" checked={Array.isArray(value) && !value.length} onChange={event => onChange(event.target.checked ? [] : null)} />
+        <span>No matching theme</span>
+      </Label>
+    </div>
+  </fieldset>;
 }
 export default function TeamCoding({
   study,
@@ -253,6 +265,7 @@ export default function TeamCoding({
   const r = context?.round,
     editable = mine && context.can_code && r.state === 'coding' && !mine.submitted_at;
   const complete = mine?.response_ids.every(id => Array.isArray(ballot[id]?.themes));
+  const waitingForCoders = context?.assignments.some(assignment => !assignment.submitted_at);
   return <section className="team-coding">
     <div className="study-section-heading"><div><h2>Team coding and adjudication</h2><p>Code independently, then compare original choices.</p></div>{owner && <div className="study-actions">{coders.length < 2 && <Button variant="outline" onClick={openTeamSettings}>Invite a researcher</Button>}<Button className="study-primary" disabled={busy} onClick={() => setShowCreate(!showCreate)} variant="default" size="auto">{showCreate ? 'Hide round setup' : 'Create coding round'}</Button></div>}</div>
     <ContextHelp title="How independent coding works"><p>Assign a frozen sample, collect separate coding choices, then compare and reconcile. Choices are hidden from other coders within a round until comparison opens.</p><p>To keep the coding independent, ask both coders to submit their choices before consulting prior findings or discussing the responses. The round uses human coding.</p></ContextHelp>
@@ -299,7 +312,28 @@ export default function TeamCoding({
                   }
                 }));
                 setConfirmSubmit(false);
-              }} /></div></article>)}{editable && <><Label className="study-check-choice"><Checkbox type="checkbox" checked={confirmSubmit} disabled={busy || loading} onChange={e => setConfirmSubmit(e.target.checked)} />I completed my assigned responses and am ready to lock these choices for comparison.</Label><div className="study-actions"><Button className="study-secondary" disabled={!dirty || busy || loading} aria-busy={busy} onClick={() => saveBallot(false)} variant="outline" size="auto">{busy && <Skeleton className="edu-skeleton--button" />}Save my coding draft</Button><Button className="study-primary" disabled={!complete || !confirmSubmit || busy || loading} aria-busy={busy} onClick={() => saveBallot(true)} variant="default" size="auto">{busy && <Skeleton className="edu-skeleton--button" />}Submit and lock my coding</Button></div></>}</> : <p>{owner ? 'You can follow submission progress here. Other coders’ choices stay hidden until comparison opens.' : 'You do not have a coding assignment in this round.'}</p>}{owner && <div className="study-actions"><Button className="study-primary" disabled={busy || loading || context.assignments.some(a => !a.submitted_at) || dirty} aria-busy={busy} onClick={() => transition('comparison')} variant="default" size="auto">{busy && <Skeleton className="edu-skeleton--button" />}Open team comparison</Button><Button className="study-text-button" disabled={busy || loading} aria-busy={busy} onClick={() => transition('cancelled')} variant="link" size="auto">{busy && <Skeleton className="edu-skeleton--button" />}Cancel round</Button></div>}</>}
+              }} /></div></article>)}
+        {editable && <section className="coding-submit-panel" aria-labelledby="coding-submit-heading">
+          <h4 id="coding-submit-heading">Submit your coding</h4>
+          <Label className="study-check-choice coding-submit-confirmation">
+            <Checkbox type="checkbox" checked={confirmSubmit} disabled={busy || loading} onChange={e => setConfirmSubmit(e.target.checked)} />
+            <span>I completed my assigned responses and am ready to lock these choices for comparison.</span>
+          </Label>
+          <p className="study-help">{!complete ? 'Choose themes or “No matching theme” for every assigned response before submitting.' : !confirmSubmit ? 'Confirm that you have finished to enable submission. You can save a draft at any time.' : 'Submitting locks your choices for comparison with the other coders.'}</p>
+          <div className="study-actions coding-submit-actions">
+            <Button className="study-secondary" disabled={!dirty || busy || loading} aria-busy={busy} onClick={() => saveBallot(false)} variant="outline" size="auto">{busy && <Skeleton className="edu-skeleton--button" />}Save my coding draft</Button>
+            <Button className="study-primary" disabled={!complete || !confirmSubmit || busy || loading} aria-busy={busy} onClick={() => saveBallot(true)} variant="default" size="auto">{busy && <Skeleton className="edu-skeleton--button" />}Submit and lock my coding</Button>
+          </div>
+        </section>}
+      </> : <p>{owner ? 'You can follow submission progress here. Other coders’ choices stay hidden until comparison opens.' : 'You do not have a coding assignment in this round.'}</p>}
+      {owner && <section className="coding-round-management" aria-labelledby="coding-management-heading">
+        <div><h4 id="coding-management-heading">Round management</h4><p className="study-help">{waitingForCoders ? 'Team comparison opens after every assigned coder submits and locks their choices.' : dirty ? 'Save your coding draft before opening team comparison.' : 'All coders have submitted. You can open team comparison.'}</p></div>
+        <div className="study-actions coding-management-actions">
+          <Button className="study-primary" disabled={busy || loading || waitingForCoders || dirty} aria-busy={busy} onClick={() => transition('comparison')} variant="default" size="auto">{busy && <Skeleton className="edu-skeleton--button" />}Open team comparison</Button>
+          <Button className="study-text-button" disabled={busy || loading} aria-busy={busy} onClick={() => transition('cancelled')} variant="link" size="auto">{busy && <Skeleton className="edu-skeleton--button" />}Cancel round</Button>
+        </div>
+      </section>}
+      </>}
       {['comparison', 'finalized'].includes(r.state) && <><div className="coding-agreement-summary"><h3>Agreement before adjudication</h3><p><strong>{agreement.percent === null ? 'No shared comparisons' : `${agreement.percent.toFixed(1)}% exact theme-set agreement`}</strong> · {agreement.matches}/{agreement.pairs} coder-pair comparisons across {agreement.shared} shared responses.</p><p>{agreement.singleCoded} responses have one coder. {agreement.resolved}/{agreement.disagreements} disagreements resolved. Agreement is descriptive and is not corrected for chance.</p><details><summary>Per-theme agreement and calculation</summary><p>Each pair of coders sharing a response contributes one comparison. Per-theme agreement includes joint inclusion and joint exclusion. Missing coding is excluded; an explicit no-match choice is included.</p><ul>{agreement.themes.map(t => <li key={t.name}>{t.name}: {t.matches}/{t.pairs} pairs{t.pairs ? ` (${(100 * t.matches / t.pairs).toFixed(1)}%)` : ''}</li>)}</ul></details></div>
       <CodingReliability context={context} />
       {rows.map((row, index) => {

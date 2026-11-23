@@ -8,6 +8,14 @@ Develop the complete researcher-directed qualitative analysis workflow described
 
 This brief applies the [literature review](../outputs/research-report-2026-11-16/ai-automated-research-literature-review.md) to development. It does not claim a novel contribution or evaluated benefit. The contribution section will be written after the app is finalized and evaluated.
 
+## November 20 correction and delivery revision
+
+Review now offers **Edit themes** for every displayed response. Researchers select the complete supported theme set beside the source text and codebook rules. Saving accepts those selections together; Cancel leaves the prior coding intact. The change supports missing second themes, multiple additions to unclassified responses, and explicit removal of all themes without losing source text or identifiers.
+
+The user selected a simulation using two test accounts. A fresh local rehearsal uses fabricated responses, predetermined model suggestions, the actual CSV parser, and a disposable database. It checks saved corrections, separate submissions, original agreement before reconciliation, unchanged original ballots afterward, and report export. It must be described as software verification; actual human reliability and usability remain unevaluated.
+
+The revised academic report and demo are prepared in `outputs/professor-delivery-2026-11-20`. The report explicitly states the implementation contribution and its evidence limits. The historical Waterloo brief has a separate editorial revision that preserves the November 17 counts and removes unsupported interpretations. It remains unsigned by the study team. See [current correction release notes](professor-correction-release-2026-11-20.md) for validation and delivery status. Earlier dated implementation and deployment notes below are historical.
+
 ## November 17 closeout
 
 The researcher site and Render backend are live. **Import & continue** saves the file as a private study and opens coding. The study appears under **Imported** in Studies. From Findings, **Compare independent coding** opens Team coding for that same study, where a researcher can assign a shared sample and reconcile differences. The database changes are in `202611170001_imported_studies.sql` and `202611170002_save_import_on_upload.sql`.

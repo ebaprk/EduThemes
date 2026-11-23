@@ -1,13 +1,13 @@
+import { FeatureHelp } from '@eduthemes/ui/components/feature-help';
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LuChevronDown, LuCircleHelp, LuLogOut } from 'react-icons/lu';
+import { LuChevronDown, LuLogOut } from 'react-icons/lu';
 import { supabase } from '../supabase';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import './Header.css';
 import { Button } from '@eduthemes/ui/components/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '@eduthemes/ui/components/dropdown-menu';
 
-const HELP_URL = 'https://github.com/ebaprk/EduThemes#research-studies-and-participant-responses';
 const Brand = ({ onClick, busy = false }) => <Link className="site-brand" to="/" aria-label="EduThemes home" aria-busy={busy || undefined} onClick={onClick}>
   <img src="/eduthemes-mark.svg" alt="" width="28" height="28" />
   {busy && <Skeleton className="edu-skeleton--button" />}
@@ -81,7 +81,7 @@ export default function Header({ analysisSource, beforeNavigate }) {
         <Brand onClick={followHome} busy={navigating} />
         <div className="workspace-topbar__actions">
           {checking ? <LoadingSkeleton className="header-auth-check" label="Checking account…" rows={1} /> : user ? <>
-            <a className="header-help" href={HELP_URL} target="_blank" rel="noreferrer" aria-label="Help & documentation" title="Help & documentation"><LuCircleHelp aria-hidden="true" /><span>Help</span></a>
+            <FeatureHelp className="header-help" label="Help" />
             <DropdownMenu open={accountOpen} onOpenChange={setAccountOpen}>
               <DropdownMenuTrigger asChild><Button type="button" className="workspace-account-trigger" variant="ghost" size="auto" aria-label="Account menu">
                 <span className="header-avatar" aria-hidden="true">{initials}</span>
@@ -97,7 +97,7 @@ export default function Header({ analysisSource, beforeNavigate }) {
                 {signOutError && <p className="workspace-account-error" role="alert">{signOutError}</p>}
               </DropdownMenuContent>
             </DropdownMenu>
-          </> : <a className="header-help header-about" href={HELP_URL} target="_blank" rel="noreferrer">About EduThemes</a>}
+          </> : <FeatureHelp className="header-help header-about" label="Help" />}
         </div>
       </div>
     </header>

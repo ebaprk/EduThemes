@@ -1,3 +1,4 @@
+import { FeatureHelp } from '@eduthemes/ui/components/feature-help';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { studyLink } from '../appUrls';
@@ -82,7 +83,7 @@ function AuthForm({
               setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
               setMessage('');
             }} variant="link" size="auto">{mode === 'sign-in' ? 'Create an account' : 'Sign in'}</Button></p>
-      </form></div></section>
+      </form><FeatureHelp guide="study-library#sign-in" label="Help signing in" /></div></section>
     </main>;
 }
 export default function Researcher({

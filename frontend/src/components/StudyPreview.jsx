@@ -1,3 +1,4 @@
+import { FeatureHelp } from '@eduthemes/ui/components/feature-help';
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { LuX } from 'react-icons/lu';
 import { visiblePreviewQuestions } from '../utils/studyWorkflow';
@@ -42,6 +43,7 @@ export default function StudyPreview({
     <Button type="button" className="study-preview-close" aria-label="Close participant preview" onClick={onHide} variant="ghost" size="icon"><LuX aria-hidden="true" /></Button>
     <div ref={body} className="modal-body">
       <DialogTitle className="study-preview-title">Participant preview</DialogTitle>
+      <FeatureHelp guide="create-study#preview-and-save" label="What to check in participant preview" />
       <p className="preview-notice" role="note">Preview only · No responses or consent decisions are saved.{study.isDraft ? ' You are viewing the draft.' : ` Published version ${study.version_number || ''}.`}</p>
       <nav className="preview-steps" aria-label="Participant preview steps" style={{
           '--preview-step-count': steps.length

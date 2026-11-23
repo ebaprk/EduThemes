@@ -1,3 +1,4 @@
+import { FeatureHelp } from '@eduthemes/ui/components/feature-help';
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
@@ -68,7 +69,7 @@ export default function CodebookLibrary({
     }
   };
   return <section className="codebook-library" aria-label="Reusable codebooks">
-    <div className="codebook-file-section"><h3>Codebook file</h3><p>JSON preserves theme definitions, coding rules, and examples.</p>
+    <div className="codebook-file-section"><h3>Codebook file</h3><FeatureHelp guide="code-responses#codebook" label="Help with codebooks" /><p>JSON preserves theme definitions, coding rules, and examples.</p>
       <div className="codebook-file-actions"><Label className="quality-file-label codebook-upload-button">{reading && <Skeleton className="edu-skeleton--button" />}{reading ? 'Reading codebook…' : 'Import JSON codebook'}<Input type="file" accept=".json,application/json" aria-label="Import codebook JSON" disabled={reading} aria-busy={reading} onChange={upload}/></Label>
         <Button type="button" variant="outline" size="auto" disabled={!labels.length} onClick={()=>{try{downloadText(codebookFile(labels),'eduthemes-codebook.json','application/json');setError('');}catch(e){setError(e.message);}}}>Download JSON</Button>
       </div>

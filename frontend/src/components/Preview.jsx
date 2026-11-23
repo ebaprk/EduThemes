@@ -206,9 +206,7 @@ const Preview = ({
                   setShowSuggestions(true);
                   handleGetSuggestedThemes();
                 }} disabled={loadingSuggestions} aria-busy={loadingSuggestions}>
-                                    {loadingSuggestions && <Skeleton className="edu-skeleton--button" />}
-                                    <FaTags className="mr-2" aria-hidden="true" />
-                                    Suggest themes
+                                    {loadingSuggestions ? <><Skeleton className="edu-skeleton--button" />Suggesting themes…</> : <><FaTags className="mr-2" aria-hidden="true" />Suggest themes</>}
                                 </Button>
               </div>
                         </CardContent>
@@ -250,7 +248,7 @@ const Preview = ({
                             </> : <p className="workflow-empty">No responses available. Import a file or return to the study’s responses.</p>}
                         </CardContent>
                         <CardFooter className="workflow-action-bar card-footer"><div><strong>{codedCount} of {totalResponses} {totalResponses === 1 ? 'response' : 'responses'} coded as examples</strong><p id="coding-next-step" className="study-help">{!labels.length ? 'Add at least one theme to begin.' : !codedCount ? 'Assign themes or choose “No matching theme” for an example.' : codedCount === totalResponses ? 'All responses are coded. Continue to review your assignments.' : 'AI codes the remaining responses. Your examples stay fixed.'}</p></div><div className="workflow-action-bar__action"><Button onClick={handleReview} aria-busy={isLoading} disabled={labels.length === 0 || codedCount === 0 || !sessionId || isLoading} aria-describedby="coding-next-step">
-                            {isLoading ? <><Skeleton className="edu-skeleton--button" />Preparing review…</> : <>{codedCount === totalResponses ? 'Review coded responses' : 'Classify responses'}<FaArrowRight aria-hidden="true" /></>}
+                            {isLoading ? <><Skeleton className="edu-skeleton--button" />{job.busyLabel || 'Preparing review…'}</> : <>{codedCount === totalResponses ? 'Review coded responses' : 'Classify responses'}<FaArrowRight aria-hidden="true" /></>}
                         </Button></div></CardFooter>
                     </Card>
                 </WorkbenchColumn>

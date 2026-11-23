@@ -11,6 +11,16 @@
     ],
     "redirects": [
       {
+        "source": "/help{,/}",
+        "destination": "https://eduthemes-help-abepark.web.app/",
+        "type": 301
+      },
+      {
+        "source": "/help/:path*",
+        "destination": "https://eduthemes-help-abepark.web.app/:path",
+        "type": 301
+      },
+      {
         "source": "/join/:code",
         "destination": "https://eduthemes-participant-abepark.web.app/join/:code",
         "type": 301

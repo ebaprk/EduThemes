@@ -130,10 +130,11 @@ export default function useAnalysisJob(source, kind, onComplete, beforeJob) {
   };
   const pending = job && ['queued', 'running'].includes(job.status);
   const busy = checking || saving || Boolean(pending);
+  const busyLabel = checking ? 'Checking saved analysis…' : saving ? 'Saving analysis job…' : pending ? job.status === 'queued' ? 'Analysis queued…' : 'Analysis in progress…' : null;
   const panel = source && (checking || saving || job || error) ? <Card className="study-panel" aria-label="Saved analysis job" style={{
     marginBottom: 20
   }} as="section">
-    {checking || saving || pending ? <LoadingSkeleton variant="inline" label={checking ? 'Checking saved analysis…' : saving ? 'Saving analysis job…' : job.status === 'queued' ? 'Analysis queued…' : 'Analysis in progress…'} /> : null}
+    {busy && <LoadingSkeleton variant="inline" label={busyLabel} />}
     {pending && <p>You can close this tab. Return to this question to check progress. Processing uses your submitted responses and themes.</p>}
     {error && <p role="alert">{error}</p>}
     {job?.status === 'failed' && <><p role="alert">{job.error}</p><Button className="study-primary" disabled={saving} aria-busy={saving} onClick={retry} variant="default" size="auto">{saving && <Skeleton className="edu-skeleton--button" />}Retry saved analysis</Button></>}
@@ -143,6 +144,7 @@ export default function useAnalysisJob(source, kind, onComplete, beforeJob) {
     canStart: payload => enabled && (source?.studySnapshot?.source_type !== 'file'
       || new Blob([JSON.stringify(payload)]).size <= MAX_IMPORTED_JOB_BYTES),
     busy,
+    busyLabel,
     panel,
     start
   };

@@ -1,14 +1,13 @@
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import React, { useState, useEffect, useRef } from 'react';
 import { FaCheck, FaTimes, FaUndo } from 'react-icons/fa';
-import { LuChevronDown } from 'react-icons/lu';
 import axios, { all } from 'axios';
 import LabelCreationWindow from './LabelCreationWindow';
 import { API_URL, getApiErrorMessage } from '../api';
 import WorkflowHeader from './WorkflowHeader';
 import WorkflowAlert from './WorkflowAlert';
 import useAnalysisJob from '../hooks/useAnalysisJob';
-import { addThemeAssignment, classificationsFromDataset, rejectThemeAssignments, removeThemeAssignment, reviewedDataset } from '../utils/themeAssignments';
+import { addThemeAssignment, classificationsFromDataset, rejectThemeAssignments, reviewedDataset, reviewResponseThemes } from '../utils/themeAssignments';
 import { recordReviewDecision } from '../utils/reviewDecisions';
 //import ReviewModal from './ReviewModal';
 import { Notice, WorkbenchColumn, WorkbenchRow } from "@eduthemes/ui/workbench";
@@ -17,9 +16,8 @@ import { Label } from "@eduthemes/ui/components/label";
 import { NativeSelect, NativeSelectOption } from "@eduthemes/ui/components/native-select";
 import { Button } from "@eduthemes/ui/components/button";
 import { Progress } from "@eduthemes/ui/components/progress";
-import { Badge } from "@eduthemes/ui/components/badge";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@eduthemes/ui/components/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@eduthemes/ui/components/dropdown-menu";
+import { Checkbox } from "@eduthemes/ui/components/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@eduthemes/ui/components/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@eduthemes/ui/components/tabs";
 const getReadableTextColor = (color = '#000000') => {
   const hex = color.replace('#', '');
@@ -49,6 +47,7 @@ const Review = ({
   }, [currentThemeIndex, sessionId]);
   const responseList = useRef(null);
   const themeHeading = useRef(null);
+  const editorTrigger = useRef(null);
   const active = useRef(true);
   useEffect(() => {
     active.current = true;
@@ -80,6 +79,8 @@ const Review = ({
   const [tempUncCat, setTempUncCat] = useState({});
   const [aiLoading, setAiLoading] = useState(false);
   const [allThemes, setAllThemes] = useState([...labels]);
+  const [editingResponse, setEditingResponse] = useState(null);
+  const [selectedThemes, setSelectedThemes] = useState([]);
   const unclassifiedTheme = {
     name: "Unclassified",
     description: "Responses that don't fit any other theme",
@@ -134,9 +135,6 @@ const Review = ({
     setLoadingSuggestions(true);
     setSuggestionError(null);
     try {
-      if (showSuggestions) {
-        setSuggestedThemes([]);
-      }
       const responses = themeResponses.map(idx => dataset[idx]?.original || "Response not found").join('\n');
       const activeSession = ensureSession ? await ensureSession() : sessionId;
       const response = await axios.post(`${API_URL}/session/${activeSession}/suggest-themes`, {
@@ -179,29 +177,6 @@ const Review = ({
     } else {
       setCurrentThemeIndex(currentThemeIndex + 1);
     }
-  };
-  const addThemeToCode = (theme, responseIndex) => {
-    const selectedThemeObj = allThemes.find(candidate => candidate.name === theme);
-    if (!selectedThemeObj || theme === 'Unclassified' || !dataset[responseIndex]) return;
-    const updated = addThemeAssignment({
-      classifications: claudeData,
-      dataset,
-      theme: selectedThemeObj,
-      responseIndex
-    });
-    setClaudeData(updated.classifications);
-    setDataset(updated.dataset);
-  };
-  const removeThemeFromCode = (theme, responseIndex) => {
-    if (!theme || theme === 'Unclassified') return;
-    const updated = removeThemeAssignment({
-      classifications: claudeData,
-      dataset,
-      themeName: theme,
-      responseIndex
-    });
-    setClaudeData(updated.classifications);
-    setDataset(updated.dataset);
   };
   const queryAI = async () => {
     let sent = themeResponses.map((responseIndex, idx) => {
@@ -307,13 +282,21 @@ const Review = ({
   const formattedThemeName = `${currentTheme.name} (${themeResponses.length} ${themeResponses.length === 1 ? 'response' : 'responses'})`;
   const pendingCount = currentTheme.name === "Unclassified" ? 0 : currentActions.filter(action => action === null).length;
   const assignableThemes = allThemes.filter(theme => theme.name !== 'Unclassified');
-  const assignReviewedResponse = (themeName, responseIndex, position) => {
-    addThemeToCode(themeName, responseIndex);
-    requestAnimationFrame(() => {
-      const pickers = responseList.current?.querySelectorAll('[data-review-theme-trigger]');
-      const nextPicker = pickers?.[Math.min(position, pickers.length - 1)];
-      (nextPicker || themeHeading.current)?.focus();
+  const openResponseEditor = (responseIndex, trigger) => {
+    editorTrigger.current = trigger;
+    setSelectedThemes(assignableThemes.filter(theme =>
+      claudeData?.[theme.name]?.includes(responseIndex) && dataset[responseIndex]?.review_decisions?.[theme.name]?.action !== 'deny'
+    ).map(theme => theme.name));
+    setEditingResponse(responseIndex);
+  };
+  const saveResponseThemes = () => {
+    const updated = reviewResponseThemes({
+      classifications: claudeData, dataset, labels: [...assignableThemes, unclassifiedTheme],
+      responseIndex: editingResponse, selectedNames: selectedThemes,
     });
+    setClaudeData(updated.classifications);
+    setDataset(updated.dataset);
+    setEditingResponse(null);
   };
   return <main className="workflow-page workflow-page--wide review-page">
             <WorkflowHeader currentStep={3} eyebrow="Step 3 · Quality review" title="Review classifications" question={projectMetadata?.researchQuestion} description="Check each theme assignment, then continue." actions={importSaveAction} />
@@ -322,7 +305,7 @@ const Review = ({
 
             {job.panel}
             {requestLoading && !job.busy && <LoadingSkeleton variant="inline" label="Preparing findings…" />}
-            {<fieldset disabled={isLoading} className="study-unframed-fieldset"><WorkbenchRow className="g-4 items-stretch">
+            {<fieldset disabled={isLoading || aiLoading} className="study-unframed-fieldset"><WorkbenchRow className="g-4 items-stretch">
                 <WorkbenchColumn lg={4} xl={3} className="review-sidebar">
                     <Card>
                         <CardContent className="card-body">
@@ -399,9 +382,10 @@ const Review = ({
                             </div>}
                         </div>
                         <CardContent className="card-body">
+                            {aiLoading && <LoadingSkeleton variant="inline" label="Reassigning responses to your themes…" />}
                             <div className="review-response-list" ref={responseList}>
 
-                                {aiLoading ? <LoadingSkeleton label="Reassigning responses to your themes…" rows={6} /> : themeResponses.length > 0 ? themeResponses.map((responseIndex, idx) => {
+                                {themeResponses.length > 0 ? themeResponses.map((responseIndex, idx) => {
                   const responseText = responseIndex < dataset.length ? dataset[responseIndex].original : "Response not found";
                   {/*border-bottom*/}
                   return <div key={`${currentTheme.name}-${responseIndex}`} className={`review-response-card${currentActions[idx] === 'approve' ? ' is-approved' : ''}${currentActions[idx] === 'deny' ? ' is-rejected' : ''}`}>
@@ -425,43 +409,9 @@ const Review = ({
                                                                 <FaUndo />
                                                             </Button>
                                                         </>}
-                                                    {currentTheme.name === "Unclassified" && <div className="review-theme-picker">
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button type="button" variant="outline" data-review-theme-trigger="" disabled={isLoading || !assignableThemes.length} aria-label={`Assign a theme to response ${responseIndex + 1}`}>
-                                                                        Assign a theme <LuChevronDown aria-hidden="true" />
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent align="end" collisionPadding={12} className="coding-theme-menu">
-                                                                    {assignableThemes.map(theme => <DropdownMenuItem key={theme.name} textValue={theme.name} onSelect={() => assignReviewedResponse(theme.name, responseIndex, idx)}>
-                                                                        <span className="review-theme-swatch" style={{ backgroundColor: theme.color }} aria-hidden="true" />
-                                                                        <span>{theme.name}</span>
-                                                                    </DropdownMenuItem>)}
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                            {(dataset[responseIndex].themes || []).filter(theme => theme.name !== 'Unclassified').map((theme, i) => {
-                          const themeColor = theme.color || '#000000';
-                          return <div key={i}>
-                                                                            <Badge style={{
-                              marginRight: '5px',
-                              marginTop: '0px'
-                            }} onClick={() => removeThemeFromCode(theme.name, responseIndex)} variant="secondary">
-                                                                                <p style={{
-                                backgroundColor: themeColor,
-                                padding: '4px',
-                                margin: '0px',
-                                color: getReadableTextColor(themeColor),
-                                borderRadius: '5px'
-                              }} role="button" tabIndex="0" aria-label={`Remove ${theme.name} from this response`} onKeyDown={event => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                  event.preventDefault();
-                                  removeThemeFromCode(theme.name, responseIndex);
-                                }
-                              }}>{theme.name}</p>
-                                                                            </Badge>
-                                                                        </div>;
-                        })}
-                                                        </div>}
+                                                    <Button type="button" variant="outline" data-review-theme-trigger="" disabled={isLoading || !assignableThemes.length} aria-label={`Edit themes for response ${responseIndex + 1}`} onClick={event => openResponseEditor(responseIndex, event.currentTarget)}>
+                                                        Edit themes
+                                                    </Button>
                                                 </div>
                                             </div>;
                 }) : <p className="workflow-empty mb-0">
@@ -473,12 +423,39 @@ const Review = ({
                         <CardFooter className="workflow-action-bar card-footer"><div><strong>Theme {currentThemeIndex + 1} of {allThemes.length}</strong><p className="study-help" id="review-next-step">{!allActionsCompleted ? `Accept or reject the ${pendingCount} remaining assignments in this theme.` : currentThemeIndex >= allThemes.length - 1 && reviewedAssignments < totalAssignments ? 'Review the remaining theme assignments before generating findings.' : currentThemeIndex >= allThemes.length - 1 ? themeResponses.length && currentTheme.name === 'Unclassified' ? `${themeResponses.length} responses will remain unclassified. You can assign them above or keep them in the final dataset.` : 'Coding review is complete. Generate findings from the reviewed dataset.' : 'This theme is reviewed. Continue to the next theme.'}</p></div><div className="workflow-action-bar__action">                                <Button variant="default" onClick={handleNextTheme} aria-busy={isLoading} aria-describedby="review-next-step" disabled={!allActionsCompleted || isLoading || currentThemeIndex >= allThemes.length - 1 && reviewedAssignments < totalAssignments}>
                                     {isLoading ? <>
                                             <Skeleton className="edu-skeleton--button" />
-                                            &nbsp;&nbsp;Preparing findings…
+                                            {job.busyLabel || 'Preparing findings…'}
                                         </> : currentThemeIndex >= allThemes.length - 1 ? themeResponses.length && currentTheme.name === 'Unclassified' ? 'Keep unclassified & generate findings' : 'Generate findings' : 'Next theme'}
                                 </Button></div></CardFooter>
                     </Card>
                 </WorkbenchColumn>
             </WorkbenchRow></fieldset>}
+
+            <Dialog open={editingResponse !== null} onOpenChange={open => { if (!open) setEditingResponse(null); }}>
+                <DialogContent className="modal-content ui-workbench-dialog review-response-editor" aria-describedby="review-response-editor-description" onCloseAutoFocus={event => {
+                  event.preventDefault();
+                  const target = editorTrigger.current?.isConnected ? editorTrigger.current : responseList.current?.querySelector('[data-review-theme-trigger]') || themeHeading.current;
+                  target?.focus();
+                }}>
+                    <DialogHeader>
+                        <DialogTitle>Edit themes for response {editingResponse === null ? '' : editingResponse + 1}</DialogTitle>
+                        <DialogDescription id="review-response-editor-description">Select every theme supported by the original response. Saving accepts the selected themes. Clear all themes to leave the response unclassified.</DialogDescription>
+                    </DialogHeader>
+                    <div className="modal-body review-editor-body">
+                    <blockquote className="review-editor-response">{dataset[editingResponse]?.original}</blockquote>
+                    <fieldset className="study-unframed-fieldset review-editor-choices" disabled={isLoading || aiLoading}>
+                        <legend className="sr-only">Reviewed themes</legend>
+                        {assignableThemes.map(theme => <Label key={theme.name} className="study-check-choice review-editor-choice">
+                            <Checkbox checked={selectedThemes.includes(theme.name)} onChange={event => setSelectedThemes(previous => event.target.checked ? [...new Set([...previous, theme.name])] : previous.filter(name => name !== theme.name))} />
+                            <span><strong>{theme.name}</strong>{theme.description && <span className="study-help review-editor-definition">{theme.description}</span>}{theme.include_when && <span className="study-help review-editor-definition">Include when: {theme.include_when}</span>}{theme.exclude_when && <span className="study-help review-editor-definition">Exclude when: {theme.exclude_when}</span>}</span>
+                        </Label>)}
+                    </fieldset>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setEditingResponse(null)}>Cancel</Button>
+                        <Button type="button" variant="default" disabled={isLoading || aiLoading} onClick={saveResponseThemes}>Save reviewed themes</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={showReassignModal} onOpenChange={open => {
       if (!open) (() => setShowReassignModal(false))();
@@ -565,7 +542,7 @@ const Review = ({
                                 <span>
                                     {suggestedThemes.length > 0 ? `Found ${suggestedThemes.length} theme suggestions` : "Generate themes"}
                                 </span>
-                                <Button variant="outline" size="sm" onClick={handleGetSuggestedThemes} disabled={loadingSuggestions || !sessionId || dataset?.length === 0}>
+                                <Button variant="outline" size="sm" onClick={handleGetSuggestedThemes} disabled={loadingSuggestions || !sessionId || dataset?.length === 0} aria-busy={loadingSuggestions}>
                                     {loadingSuggestions ? <>
                                             <Skeleton className="edu-skeleton--button" />
                                             &nbsp;&nbsp;Refreshing...
@@ -573,7 +550,8 @@ const Review = ({
                                 </Button>
                             </div>
 
-                            {loadingSuggestions ? <LoadingSkeleton variant="suggestions" label="Generating theme suggestions…" /> : suggestedThemes.length > 0 ? <div className="workbench-list">
+                            {loadingSuggestions && <LoadingSkeleton variant="suggestions" label="Generating theme suggestions…" />}
+                            {suggestedThemes.length > 0 ? <div className="workbench-list">
                                     {suggestedThemes.map((theme, index) => {
                       const alreadyAdded = allThemes.some(l => l.name === theme.name);
                       return <div key={index} className={`suggestion-item ${alreadyAdded ? 'bg-light' : ''}` + " list-group-item"}>
@@ -588,7 +566,7 @@ const Review = ({
                                                 </Button>
                                             </div>;
                     })}
-                                </div> : <p className="text-center text-muted-foreground">Click "Refresh Suggestions" to generate new themes.</p>}
+                                </div> : !loadingSuggestions && <p className="text-center text-muted-foreground">Click "Refresh Suggestions" to generate new themes.</p>}
 
                             </TabsContent>
                         </div>

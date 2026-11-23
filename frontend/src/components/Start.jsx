@@ -1,3 +1,4 @@
+import { FeatureHelp } from '@eduthemes/ui/components/feature-help';
 import React, { useState } from 'react';
 import axios from 'axios';
 import { FaArrowRight } from 'react-icons/fa';
@@ -71,6 +72,7 @@ const Start = ({
                 <header className="start-heading">
 
                     <h1>Import responses</h1>
+                    <FeatureHelp guide="import-responses" label="Help with importing responses" />
 
                 </header>
 

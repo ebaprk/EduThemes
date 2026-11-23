@@ -3,7 +3,7 @@ import './LoadingSkeleton.css';
 import {Skeleton as UISkeleton} from '@eduthemes/ui/components/skeleton';
 
 export function Skeleton({ className = '', style }) {
-  return <UISkeleton as="span" className={`edu-skeleton ${className}`} style={style} aria-hidden="true" />;
+  return <UISkeleton as="span" variant={className.split(/\s+/).includes('edu-skeleton--button') ? 'activity' : 'surface'} className={`edu-skeleton ${className}`} style={style} aria-hidden="true" />;
 }
 
 function Lines({ count = 3 }) {
@@ -32,8 +32,8 @@ function ResponseLayout({ rows }) {
 
 export default function LoadingSkeleton({ variant = 'text', label = 'Loading…', rows = 3, className = '', children }) {
   if (variant === 'count') return <span className={`edu-loading edu-loading--count ${className}`} role="status" aria-label={label}><Skeleton className="edu-skeleton--number" /></span>;
-  if (variant === 'inline') return <span className={`edu-loading edu-loading--inline ${className}`} role="status">
-    <span>{label}</span><span className="edu-loading__inline-bars" aria-hidden="true"><Skeleton /><Skeleton /><Skeleton /></span>
+  if (variant === 'inline') return <span className={`edu-loading edu-loading--inline ${className}`} role="status" aria-live="polite" aria-atomic="true">
+    <UISkeleton as="span" variant="activity" aria-hidden="true" /><span>{label}</span>
   </span>;
 
   let content;
@@ -66,8 +66,8 @@ export default function LoadingSkeleton({ variant = 'text', label = 'Loading…'
     default:
       content = <Lines count={rows} />;
   }
-  return <div className={`edu-loading edu-loading--${variant} ${className}`} role="status">
-    <span className="edu-loading__label">{label}</span>
+  return <div className={`edu-loading edu-loading--${variant} ${className}`} role="status" aria-live="polite" aria-atomic="true">
+    <span className="edu-loading__label"><UISkeleton as="span" variant="activity" aria-hidden="true" /><span>{label}</span></span>
     <div aria-hidden="true">{children ?? content}</div>
   </div>;
 }

@@ -30,8 +30,9 @@
     "build": "vite build --outDir dist-researcher --emptyOutDir",
     "test": "node --test",
     "test:database": "node --test ../supabase/tests/*.test.mjs",
-    "test:browser": "node e2e/phase1.mjs && node e2e/research-ui.mjs && node e2e/study-library-loading.mjs",
+    "test:browser": "node e2e/phase1.mjs && node e2e/research-ui.mjs && node e2e/loading-states.mjs && node e2e/study-library-loading.mjs",
     "test:library-loading": "node e2e/study-library-loading.mjs",
+    "test:loading": "node e2e/loading-states.mjs",
     "test:ui": "node e2e/research-ui.mjs",
     "test:ui:audit": "node e2e/ui-audit.mjs",
     "eject": "react-scripts eject"

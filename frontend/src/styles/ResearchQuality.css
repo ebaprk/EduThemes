@@ -26,7 +26,19 @@
 .research-brief-document { padding:24px; background:#fff; max-width:850px; margin:auto; line-height:1.75; overflow-wrap:anywhere; }
 .research-brief-document h1 { font-size:1.9rem; }.research-brief-document h2 { margin-top:32px; }.research-brief-document blockquote { border-left:3px solid #b5b9c2; padding-left:20px; }
 @media(max-width:600px) { .quality-panel { padding:var(--edu-space-panel); }.quality-panel .study-section-heading { flex-direction:column; align-items:flex-start; }.research-brief-preview { padding:12px; }.research-brief-document { padding:18px; }.quality-panel .study-actions > button { white-space:normal; }.quality-panel .study-form-grid { grid-template-columns:1fr; } }
-@media print { body:has(.research-brief-document) * { visibility:hidden; } body:has(.research-brief-document) .research-brief-document,body:has(.research-brief-document) .research-brief-document * { visibility:visible; } .research-brief-document { position:absolute; left:0; top:0; width:100%; max-width:none; padding:0; color:#000; box-shadow:none; }.research-brief-document h1,.research-brief-document h2,.research-brief-document h3 { break-after:avoid; } .research-brief-document blockquote { break-inside:avoid; } }
+@media print {
+  @page { margin:18mm; }
+  html:has(.research-brief-document),body:has(.research-brief-document) { margin:0; background:#fff !important; }
+  body:has(.research-brief-document):not(:has(.paper-print-target)) *:not(.research-brief-document):not(.research-brief-document *):not(:has(.research-brief-document)) { display:none !important; }
+  body:has(.research-brief-document):not(:has(.paper-print-target)) *:has(.research-brief-document) { display:contents !important; position:static !important; transform:none !important; overflow:visible !important; }
+  .research-brief-document { display:block; position:static; width:auto; max-width:none; margin:0; padding:0; color:#000; background:#fff; border:0; box-shadow:none; font-size:11pt; line-height:1.5; }
+  .research-brief-document h1 { font-size:18pt; }
+  .research-brief-document h2 { margin-top:18pt; font-size:14pt; }
+  .research-brief-document h3 { margin-top:12pt; font-size:12pt; }
+  .research-brief-document h1,.research-brief-document h2,.research-brief-document h3 { break-after:avoid; }
+  .research-brief-document p,.research-brief-document li { orphans:3; widows:3; }
+  .research-brief-document blockquote { break-inside:avoid; }
+}
 
 /* Templates are optional; use one inset instead of nested card padding. */
 .App .study-form > .study-template-picker { margin:0 var(--edu-space-panel) 16px; padding:8px 12px; background:var(--edu-panel-soft); box-shadow:none; }

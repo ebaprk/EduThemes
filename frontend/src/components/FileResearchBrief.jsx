@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import ReportPreparation, { ReportFields } from './ReportPreparation';
+import ResearchPaperDraft from './ResearchPaperDraft';
+import { paperReview } from '../utils/researchPaper';
 import { emptyReview, researchBrief, downloadText } from '../utils/researchQuality';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import '../styles/ResearchQuality.css';
@@ -79,5 +81,7 @@ export default function FileResearchBrief({
     <details className="quality-response-review"><summary>Select supporting quotes · {dataset.length} {dataset.length === 1 ? 'response' : 'responses'}</summary><p>Check each original passage in context and for identifying details. Only selected passages enter the brief.</p>{dataset.map((entry, index) => <article className="quality-response" key={index}><h3>Response {index + 1}</h3><blockquote>{entry.original}</blockquote><p className="study-help">Themes: {entry.themes?.map(t => t.name).join(', ') || 'Unclassified'}</p><Label className="study-check-choice"><Checkbox type="checkbox" checked={form.quotes?.includes(index) || false} onChange={event => update('quotes', event.target.checked ? [...form.quotes, index] : form.quotes.filter(i => i !== index))} />Include response {index + 1} as a supporting quote</Label></article>)}</details>
     <div className="study-actions"><Button type="button" className="study-primary" disabled={loading} aria-busy={loading} onClick={() => downloadText(exportText, 'research-brief.md', 'text/markdown')} variant="default" size="auto">{loading && <Skeleton className="edu-skeleton--button" />}Download research brief</Button><Button type="button" className="study-secondary" disabled={loading} aria-busy={loading} onClick={() => setPreview(!preview)} variant="outline" size="auto">{loading && <Skeleton className="edu-skeleton--button" />}{preview ? 'Hide report preview' : 'Preview / print report'}</Button></div>
     {preview && <div className="research-brief-preview"><div className="study-actions"><Button type="button" className="study-secondary" onClick={() => window.print()} variant="outline" size="auto">Print / save as PDF</Button></div><article className="research-brief-document"><ReactMarkdown>{exportText}</ReactMarkdown></article></div>}
+    <ResearchPaperDraft scope={`file:${sessionId}`} sessionId={sessionId} title={metadata.title || 'Qualitative research study'} loading={loading}
+      evidence={{ metadata: { title: metadata.title || 'Qualitative research study', researchQuestion: metadata.researchQuestion || '', projectDescription: metadata.projectDescription || '', additionalContext: metadata.additionalContext || '' }, run: { labels, coded_responses: dataset.map(row => ({ original: row.original, themes: (row.themes || []).map(theme => ({ name: theme.name })) })), results: { summary: results?.summary || '' } }, review: paperReview(form) }} />
   </Card>;
 }

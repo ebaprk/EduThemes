@@ -1,3 +1,4 @@
+import { FeatureHelp } from '@eduthemes/ui/components/feature-help';
 import React, { useId, useLayoutEffect, useRef, useState, useEffect } from 'react';
 import { LuArrowLeft, LuArrowRight, LuSave, LuEye } from 'react-icons/lu';
 import { Skeleton } from './LoadingSkeleton';
@@ -30,6 +31,13 @@ const setupSections = [
   ['participation', 'Participation'],
   ['screening', 'Recruitment']
 ];
+const setupHelp = {
+  design: ['design', 'Help with study design and templates'],
+  activities: ['questions', 'Help with questions and activities'],
+  participation: ['participation', 'Help with consent and participation'],
+  screening: ['recruitment', 'Help with recruitment setup']
+};
+
 export default function StudyForm({
   initial = emptyForm,
   onSave,
@@ -182,6 +190,7 @@ export default function StudyForm({
       {setupSections.map(([key, title]) => <Button type="button" key={key} disabled={saving} variant="ghost"
         aria-current={activeSection === key ? 'step' : undefined} onClick={() => goTo(key)}>{title}</Button>)}
     </nav>
+    <FeatureHelp guide={`create-study#${setupHelp[activeSection][0]}`} label={setupHelp[activeSection][1]} />
     {validation && <p className="study-error study-form-validation" role="alert">{validation}</p>}
     <fieldset className="study-form-fields" disabled={saving}>
       <legend className="sr-only">Study setup</legend>
@@ -205,6 +214,7 @@ export default function StudyForm({
         <div className="study-field study-form-identity"><Label htmlFor={`${id}-participant-mode`}>Participant identity</Label><NativeSelect id={`${id}-participant-mode`} value={form.participant_mode} onChange={event => setField('participant_mode', event.target.value)} required aria-describedby={`${id}-identity-help`}>
           <NativeSelectOption value="" disabled>Choose how people participate</NativeSelectOption><NativeSelectOption value="anonymous">Anonymous responses</NativeSelectOption><NativeSelectOption value="canvas" disabled={form.activities.length > 1 || form.recruitment?.enabled}>Identified through Canvas</NativeSelectOption>
         </NativeSelect><p id={`${id}-identity-help`} className="study-help">Anonymous studies do not attach Canvas details. Multiple activities are linked with a private study code after the participant agrees. Canvas participation supports one activity.</p></div>
+        <FeatureHelp guide="canvas-participation" label="Set up Canvas participation" />
         {unsupportedCanvasPlan && <p className="study-error" role="alert">Choose anonymous participation for multiple activities, or keep a single Canvas activity.</p>}
         <div className="study-field"><Label htmlFor={`${id}-consent`}>Participant consent text</Label><Textarea id={`${id}-consent`} value={form.consent_text} onChange={event => setField('consent_text', event.target.value)} maxLength={20000} rows={5} placeholder="Paste the consent language appropriate to your approved study." aria-describedby={`${id}-consent-help`} /><p id={`${id}-consent-help`} className="study-help">You can save an unfinished draft. Add consent text before publishing. Each published version keeps its own consent record.</p></div>
         <div className="study-form-grid">

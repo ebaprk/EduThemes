@@ -4,6 +4,8 @@ import { supabase } from '../supabase';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import { emptyReview, reviewReady, researchBrief, downloadText } from '../utils/researchQuality';
 import ReportPreparation, { ReportFields } from './ReportPreparation';
+import ResearchPaperDraft from './ResearchPaperDraft';
+import { paperReview } from '../utils/researchPaper';
 import { Card } from "@eduthemes/ui/components/card";
 import { Button } from "@eduthemes/ui/components/button";
 import { Badge } from "@eduthemes/ui/components/badge";
@@ -161,6 +163,8 @@ export default function RunReview({
         downloadText(exportText, 'research-brief.md', 'text/markdown');
       }} variant="outline" size="auto">Download research brief</Button><Button type="button" className="study-secondary" onClick={() => setReport(!report)} variant="outline" size="auto">{report ? 'Hide report preview' : 'Preview / print report'}</Button><Button type="button" className="study-text-button" disabled={busy || loading} onClick={load} variant="link" size="auto">Reload saved review</Button></div>
     {report && <div className="research-brief-preview"><div className="study-actions"><Button type="button" className="study-secondary" onClick={() => window.print()} variant="outline" size="auto">Print / save as PDF</Button></div><article className="research-brief-document"><ReactMarkdown>{exportText}</ReactMarkdown></article></div>}
+    <ResearchPaperDraft scope={`${source.studyId}:${source.versionId}:${source.questionId}:${args.p_run_key}`} studyId={source.studyId} title={snapshot.title} canGenerate={state.can_edit} disabled={busy} loading={loading}
+      evidence={{ sources: [{ version_id: source.versionId, question_id: source.questionId, run_key: args.p_run_key, snapshot_hash: state.snapshot_hash, review: paperReview(form) }] }} />
     <details className="quality-history"><summary>Saved coding and review history</summary><p className="study-help">Up to 100 recent events for this run. History starts when this feature was enabled; earlier actions are not reconstructed.</p>{state.events?.length ? <ol>{state.events.map(event => <li key={event.id}><strong>{event.kind === 'review_approved' ? 'Findings signed off' : event.kind === 'review_saved' ? 'Review draft saved' : 'Coding saved'}</strong> · {new Date(event.recorded_at).toLocaleString()} · {event.actor_id ? `Team member ${event.actor_id.slice(0, 8)}` : 'System'}{event.details.codebook_changed && <details><summary>Codebook updated</summary>{['codebook_before', 'codebook_after'].map(key => <div key={key}><strong>{key === 'codebook_before' ? 'Before' : 'After'}</strong><ul>{(event.details[key] || []).map(label => <li key={label.name}>{label.name}: {label.description}{label.include_when && ` · Include: ${label.include_when}`}{label.exclude_when && ` · Exclude: ${label.exclude_when}`}{label.example && ` · Example: ${label.example}`}</li>)}</ul></div>)}</details>}{event.details.response_assignments?.length > 0 && <details><summary>{event.details.response_assignments.length} response assignments changed</summary><ul>{event.details.response_assignments.map(item => <li key={item.response}>Response {item.response}: {(item.before || []).map(t => t.name).join(', ') || 'None'} → {(item.after || []).map(t => t.name).join(', ') || 'None'}</li>)}</ul></details>}</li>)}</ol> : <p>No events recorded for this run yet.</p>}</details>
   </Card>;
 }

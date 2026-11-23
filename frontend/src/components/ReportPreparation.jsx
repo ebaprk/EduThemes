@@ -1,3 +1,4 @@
+import { FeatureHelp } from '@eduthemes/ui/components/feature-help';
 import React from 'react';
 import { Label } from "@eduthemes/ui/components/label";
 import { Textarea } from "@eduthemes/ui/components/textarea";
@@ -11,7 +12,7 @@ export function ReportFields({
   return <div className="study-form-grid report-fields">{reportSections.map(([key, label]) => <div className="study-field" key={key}><Label htmlFor={`${prefix}-${key}`}>{label}</Label><Textarea id={`${prefix}-${key}`} aria-describedby={`${prefix}-${key}-help`} value={value[key]} rows={3} maxLength={10000} onChange={event => onChange(key, event.target.value)} /><p className="study-help" id={`${prefix}-${key}-help`}>{hints[key]}</p></div>)}</div>;
 }
 export default function ReportPreparation() {
-  return <details className="report-preparation"><summary>Scientific reporting guide</summary><p>Describe the work actually performed. A completed report does not establish that its methods or interpretations are valid.</p><dl className="report-field-guidance">{reportSections.map(([key,label,help])=><div key={key}><dt>{label}</dt><dd>{help}</dd></div>)}</dl><ul>
+  return <details className="report-preparation"><summary>Scientific reporting guide</summary><FeatureHelp guide="research-reports#brief" label="How to prepare a research brief" /><p>Describe the work actually performed. A completed report does not establish that its methods or interpretations are valid.</p><dl className="report-field-guidance">{reportSections.map(([key,label,help])=><div key={key}><dt>{label}</dt><dd>{help}</dd></div>)}</dl><ul>
     <li>Connect the purpose and research question to the data collected and the qualitative approach.</li>
     <li>Describe sampling, setting, researcher perspectives, and relevant consent or privacy arrangements.</li>
     <li>Explain how the codebook developed, what one coded unit means, and who made or checked decisions.</li>

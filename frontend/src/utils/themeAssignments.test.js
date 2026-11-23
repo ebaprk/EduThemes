@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addThemeAssignment, classificationsFromDataset, rejectThemeAssignments, removeThemeAssignment, reviewedDataset } from './themeAssignments.js';
+import { addThemeAssignment, classificationsFromDataset, rejectThemeAssignments, removeThemeAssignment, reviewedDataset, reviewResponseThemes } from './themeAssignments.js';
 
 const themeA = { name: 'Access', color: '#315f9f', description: 'Access issues' };
 const unclassifiedTheme = { name: 'Unclassified', color: '#cccccc', description: 'No match' };
@@ -66,4 +66,43 @@ test('findings keep the approved rows after a rejection changes their positions'
   assert.deepEqual(finalDataset.map(row => row.review_decisions), dataset.map(row => row.review_decisions));
   assert.deepEqual(finalDataset.map(row => row.themes), [[unclassifiedTheme], [themeA, support], [themeA], [unclassifiedTheme]]);
   assert.deepEqual(classificationsFromDataset(finalDataset, labels), { Access: [1, 2], Support: [1], Unclassified: [0, 3] });
+});
+
+test('review can add a missing second theme and restore a rejected theme through final findings', () => {
+  const support = { name: 'Support', color: '#000000', description: 'Help from others' };
+  const labels = [themeA, support, unclassifiedTheme];
+  const original = {
+    classifications: { Access: [0, 1], Support: [1], Unclassified: [] },
+    dataset: [
+      { original: 'Both themes', submission_id: 'source-1', themes: [themeA], review_decisions: { Access: { action: 'approve' }, Support: { action: 'deny' } } },
+      { original: 'Keep this row unchanged', themes: [themeA, support], review_decisions: { Access: { action: 'approve' }, Support: { action: 'approve' } } },
+    ],
+  };
+  const result = reviewResponseThemes({ ...original, labels, responseIndex: 0, selectedNames: ['Access', 'Support', 'Support'], recordedAt: 'now' });
+  assert.deepEqual(result.classifications, { Access: [0, 1], Support: [1, 0], Unclassified: [] });
+  assert.equal(result.dataset[0].submission_id, 'source-1');
+  assert.equal(result.dataset[0].review_decisions.Support.action, 'approve');
+  assert.equal(result.dataset[0].review_decisions.Support.recorded_at, 'now');
+  assert.strictEqual(result.dataset[1], original.dataset[1]);
+  assert.deepEqual(original.dataset[0].themes, [themeA]);
+  const restored = JSON.parse(JSON.stringify(result));
+  const final = reviewedDataset({ ...restored, labels });
+  assert.deepEqual(classificationsFromDataset(final, labels), { Access: [0, 1], Support: [0, 1], Unclassified: [] });
+});
+
+test('review can assign several themes to an unclassified row and clear them without losing the response', () => {
+  const support = { name: 'Support', color: '#000000' };
+  const labels = [themeA, support, unclassifiedTheme];
+  const initial = { classifications: { Access: [], Support: [], Unclassified: [0] }, dataset: [{ original: 'Source text', submission_id: 'source', themes: [unclassifiedTheme] }] };
+  const assigned = reviewResponseThemes({ ...initial, labels, responseIndex: 0, selectedNames: ['Access', 'Support'] });
+  assert.deepEqual(assigned.classifications, { Access: [0], Support: [0], Unclassified: [] });
+  const cleared = reviewResponseThemes({ ...assigned, labels, responseIndex: 0, selectedNames: [] });
+  assert.deepEqual(cleared.classifications, { Access: [], Support: [], Unclassified: [0] });
+  assert.equal(cleared.dataset[0].review_decisions.Access.action, 'deny');
+  assert.equal(cleared.dataset[0].review_decisions.Support.action, 'deny');
+  assert.deepEqual(reviewedDataset({ ...cleared, labels })[0].themes, [unclassifiedTheme]);
+  assert.equal(cleared.dataset[0].original, 'Source text');
+  assert.equal(cleared.dataset[0].submission_id, 'source');
+  assert.throws(() => reviewResponseThemes({ ...assigned, labels, responseIndex: 0, selectedNames: ['Unknown theme'] }), /current codebook/);
+  assert.deepEqual(assigned.dataset[0].themes, [themeA, support]);
 });

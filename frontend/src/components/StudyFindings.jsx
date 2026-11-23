@@ -5,6 +5,7 @@ import { researchBrief } from '../utils/researchQuality';
 import { supabase } from '../supabase';
 import LoadingSkeleton, { Skeleton } from './LoadingSkeleton';
 import { findingsEntries, findingsUrl } from '../utils/studyWorkflow';
+import ResearchPaperDraft from './ResearchPaperDraft';
 import { Button } from "@eduthemes/ui/components/button";
 import { Card } from "@eduthemes/ui/components/card";
 import { Label } from "@eduthemes/ui/components/label";
@@ -115,6 +116,10 @@ export default function StudyFindings({
           Download findings report
         </Button>
       </div>
+      <ResearchPaperDraft key={`${study.id}:${view}:${history}`} scope={`study:${study.id}:${view}:${history ? 'history' : 'latest'}`} studyId={study.id} title={snapshot.title}
+        loading={checkingReviews} disabled={entries.some(({ question, key }) => reviews[`${question.id}:${key}`]?.error)}
+        canGenerate={checkingReviews || entries.every(({ question, key }) => reviews[`${question.id}:${key}`]?.error || reviews[`${question.id}:${key}`]?.can_edit)}
+        evidence={{ sources: entries.map(({ question, key }) => ({ version_id: view, question_id: question.id, run_key: key, snapshot_hash: reviews[`${question.id}:${key}`]?.snapshot_hash })) }} />
     </>}
   </section>;
 }

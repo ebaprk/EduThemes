@@ -1,3 +1,4 @@
+import { FeatureHelp } from '@eduthemes/ui/components/feature-help';
 import React, { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { LuArrowRight, LuChevronDown, LuEye, LuRefreshCw } from 'react-icons/lu';
@@ -22,6 +23,17 @@ import { NativeSelect, NativeSelectOption } from "@eduthemes/ui/components/nativ
 import { Card } from "@eduthemes/ui/components/card";
 import { ContextHelp } from '@eduthemes/ui/workbench';
 const sections = [['overview', 'Overview'], ['design', 'Study setup'], ['recruit', 'Participants'], ['collect', 'Responses'], ['analysis', 'Analysis'], ['team-coding', 'Team coding'], ['findings', 'Findings'], ['participant-results', 'Participant results'], ['settings', 'Team & settings']];
+const sectionHelp = {
+  overview: ['publish-and-version', 'Help with publishing and versions'],
+  design: ['create-study', 'Help with study setup'],
+  collect: ['collect-responses', 'Help with viewing or exporting responses'],
+  analysis: ['analysis-runs', 'Help with analysis runs'],
+  'team-coding': ['team-coding', 'How independent coding works'],
+  findings: ['read-findings', 'Help with findings and exports'],
+  'participant-results': ['share-participant-results', 'Help with releasing a summary'],
+  settings: ['team-access', 'Help with invitations and permissions']
+};
+
 const secondarySections = new Set(['team-coding', 'participant-results', 'settings']);
 const fileSections = sections.filter(([key]) => ['collect', 'analysis', 'team-coding', 'findings', 'settings'].includes(key));
 const fileSecondarySections = new Set(['settings']);
@@ -191,6 +203,9 @@ export default function StudyWorkspace({
       </div>
     </nav>
     <div className="study-workspace-content" ref={content}>
+      {sectionHelp[section] && !(section === 'design' && editingDraft) && (
+        <FeatureHelp guide={sectionHelp[section][0]} label={sectionHelp[section][1]} />
+      )}
       {section === 'overview' && <StudyOverview study={study} snapshot={snapshot} role={role} readiness={readiness} work={work} findings={findings} submissionCount={responses.length} nextAction={nextAction} onAction={action} onSelect={select} renderQuestionAction={item => questionAction(item, analysisTask(item).kind !== 'findings')} historical={historical} saving={saving} refreshing={refreshing} />}
       {section === 'design' && (study.status === 'draft' && view === 'draft' && canEdit ? <StudyForm key={`${study.id}:${study.draft_revision}`} initial={{
         ...study,
@@ -218,7 +233,7 @@ export default function StudyWorkspace({
       {section === 'team-coding' && <Suspense fallback={<LoadingSkeleton variant="responses" label="Opening team coding…" />}><TeamCoding key={`${study.id}:${view}`} study={study} view={view} questions={questions} responses={responses} analyses={analyses} members={members} user={user} role={role} launchAnalysis={launchAnalysis} openTeamSettings={() => select('settings')} /></Suspense>}
       {section === 'findings' && snapshot && <Suspense fallback={<LoadingSkeleton variant="results" label="Opening the findings workspace…" />}><StudyFindings key={`${study.id}:${view}`} study={study} snapshot={snapshot} view={view} work={work} refreshing={refreshing} onSelect={select} /></Suspense>}
       {section === 'participant-results' && <Suspense fallback={<LoadingSkeleton variant="form" label="Opening participant results…" />}><StudyResultsSharing key={`${study.id}:${view}`} study={study} view={view} work={work} role={role} /></Suspense>}
-      {section === 'settings' && <><div className="study-section-intro"><h2>Team & settings</h2><p>{fileStudy ? 'Manage access to imported responses and findings.' : 'Manage access, collection, and future versions.'}</p></div><StudyTeam study={study} members={members} role={role} onChanged={load} onError={setError} onNotice={setNotice} />{!fileStudy && role === 'owner' && <Card className="study-panel study-closeout" as="section"><h2>Collection and next version</h2><p>{study.status === 'open' ? 'Close collection to stop new submissions. Saved work remains available.' : study.status === 'closed' ? 'Reopen this version or prepare a new draft.' : 'The draft is private until published.'}</p><div className="study-actions">{study.status !== 'draft' && <Button className="study-secondary" disabled={saving} aria-busy={saving} onClick={() => setStatus(study.status === 'open' ? 'closed' : 'open')} variant="outline" size="auto">{saving ? <><Skeleton className="edu-skeleton--button" />Updating collection…</> : study.status === 'open' ? 'Close collection' : 'Reopen collection'}</Button>}{study.status === 'closed' && <Button className="study-primary" disabled={saving} aria-busy={saving} onClick={async () => {
+      {section === 'settings' && <><div className="study-section-intro"><h2>Team & settings</h2><p>{fileStudy ? 'Manage access to imported responses and findings.' : 'Manage access, collection, and future versions.'}</p></div><StudyTeam study={study} members={members} role={role} onChanged={load} onError={setError} onNotice={setNotice} />{!fileStudy && role === 'owner' && <Card className="study-panel study-closeout" as="section"><h2>Collection and next version</h2><FeatureHelp guide="publish-and-version#close-and-reopen" label="Help with collection and versions" /><p>{study.status === 'open' ? 'Close collection to stop new submissions. Saved work remains available.' : study.status === 'closed' ? 'Reopen this version or prepare a new draft.' : 'The draft is private until published.'}</p><div className="study-actions">{study.status !== 'draft' && <Button className="study-secondary" disabled={saving} aria-busy={saving} onClick={() => setStatus(study.status === 'open' ? 'closed' : 'open')} variant="outline" size="auto">{saving ? <><Skeleton className="edu-skeleton--button" />Updating collection…</> : study.status === 'open' ? 'Close collection' : 'Reopen collection'}</Button>}{study.status === 'closed' && <Button className="study-primary" disabled={saving} aria-busy={saving} onClick={async () => {
               if (await setStatus('draft')) {
                 setParams(previous => {
                   const next = new URLSearchParams(previous);

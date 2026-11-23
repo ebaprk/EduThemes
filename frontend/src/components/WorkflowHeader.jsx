@@ -1,3 +1,4 @@
+import { FeatureHelp } from '@eduthemes/ui/components/feature-help';
 import React, {useContext} from 'react';
 import {FaCheck} from 'react-icons/fa';
 import {Link} from 'react-router-dom';
@@ -6,6 +7,13 @@ import {analysisNavigation} from '../utils/analysisWorkflow';
 import LoadingSkeleton from './LoadingSkeleton';
 import {Notice} from '@eduthemes/ui/workbench';
 import {Button} from '@eduthemes/ui/components/button';
+
+const workflowHelp = {
+  1: ['import-responses', 'Help with importing responses'],
+  2: ['code-responses', 'Help with themes and coding examples'],
+  3: ['review-classifications', 'Help with reviewing classifications'],
+  4: ['read-findings', 'Help with findings and exports']
+};
 
 export default function WorkflowHeader({currentStep,title,description,readOnly=false,question,compact=false,actions,children}) {
   const source=useContext(AnalysisContext);
@@ -32,6 +40,7 @@ export default function WorkflowHeader({currentStep,title,description,readOnly=f
       {actions ? <div className="workflow-title-row"><h1>{title}</h1>{actions}</div> : <h1>{title}</h1>}
       {context&&<p className="workflow-question">{!compact&&<span>{source?'Question being analyzed':'Research question'}</span>}{context}</p>}
       {description&&<p className="workflow-description">{description}</p>}
+      {workflowHelp[currentStep] && <FeatureHelp guide={workflowHelp[currentStep][0]} label={workflowHelp[currentStep][1]} />}
       {children}
     </div>
     {!savedFindings && !compact && <ol className="workflow-stepper" data-steps={flow.steps.length} aria-label="Analysis progress">

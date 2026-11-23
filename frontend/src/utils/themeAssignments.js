@@ -2,6 +2,41 @@ const cloneClassifications = (classifications = {}) => Object.fromEntries(
   Object.entries(classifications).map(([name, indices]) => [name, [...(indices || [])]])
 );
 
+export function reviewResponseThemes({ classifications, dataset, labels, responseIndex, selectedNames, recordedAt = new Date().toISOString() }) {
+  if (!Number.isInteger(responseIndex) || !dataset?.[responseIndex]) {
+    return { classifications, dataset };
+  }
+  const available = labels.filter(theme => theme.name !== 'Unclassified');
+  const selected = new Set(selectedNames);
+  if ([...selected].some(name => !available.some(theme => theme.name === name))) {
+    throw new Error('Choose themes from the current codebook.');
+  }
+  const nextClassifications = cloneClassifications(classifications);
+  const decisions = { ...dataset[responseIndex].review_decisions };
+  for (const theme of available) {
+    const indices = nextClassifications[theme.name] || [];
+    const included = selected.has(theme.name);
+    nextClassifications[theme.name] = included
+      ? [...new Set([...indices, responseIndex])]
+      : indices.filter(index => index !== responseIndex);
+    if (included || indices.includes(responseIndex)) {
+      decisions[theme.name] = { action: included ? 'approve' : 'deny', recorded_at: recordedAt };
+    }
+  }
+  nextClassifications.Unclassified = (nextClassifications.Unclassified || []).filter(index => index !== responseIndex);
+  if (!selected.size) nextClassifications.Unclassified.push(responseIndex);
+  const themes = available.filter(theme => selected.has(theme.name)).map(theme => ({ ...theme }));
+  const unclassified = labels.find(theme => theme.name === 'Unclassified') || {
+    name: 'Unclassified', description: "Responses that don't fit any other theme", color: '#cccccc',
+  };
+  return {
+    classifications: nextClassifications,
+    dataset: dataset.map((entry, index) => index === responseIndex
+      ? { ...entry, themes: themes.length ? themes : [{ ...unclassified }], review_decisions: decisions }
+      : entry),
+  };
+}
+
 export function reviewedDataset({ classifications, dataset, labels }) {
   const themesByResponse = dataset.map(() => []);
   const unclassified = labels.find(theme => theme.name === 'Unclassified');

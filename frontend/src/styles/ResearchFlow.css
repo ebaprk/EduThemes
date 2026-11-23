@@ -270,7 +270,7 @@
 .App .preview-table :is(th,td) { padding:12px 16px; font-size:.875rem; line-height:1.55; }
 .App .coding-filters { padding:16px 16px; gap:12px; }
 /* Response text and coding actions share a compact, top-aligned row. */
-.App .preview-page .preview-main > [data-slot=card] { width:100%; }
+.App :is(.preview-main,.review-main) > [data-slot=card] { width:100%; min-width:0; flex:1 1 0%; }
 .App .coding-examples-heading { display:flex; align-items:center; flex-wrap:wrap; justify-content:space-between; gap:8px 16px; }
 .App .coding-examples-heading h2 { margin:0; }
 .coding-table-help[open] { flex-basis:100%; order:2; }
