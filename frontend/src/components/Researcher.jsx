@@ -352,7 +352,7 @@ export default function Researcher({
     {(saving || loadingData && studyId && study?.id === studyId) && <LoadingSkeleton variant="inline" label={startingQuestionId ? 'Preparing coding workspace…' : saving ? 'Saving study changes…' : 'Refreshing study…'} />}
     {!studyId ? <>
       <ResearchDashboard studies={studies} user={user} loading={loadingData} error={loadError} onCreate={() => navigate('/studies/new')} onRetry={load} creating={isNew} invitations={invitations} saving={saving} onAcceptInvitation={acceptInvitation} hasActiveAnalysis={hasActiveAnalysis} onResumeAnalysis={onResumeAnalysis}>
-      {isNew && <StudyForm draftKey={`${user.id}:new`} onSave={saveDraft} onCancel={() => navigate('/')} saving={saving} />}
+      {isNew && <StudyForm onSave={saveDraft} onCancel={() => navigate('/')} saving={saving} />}
       </ResearchDashboard>
     </> : <>
       {loadingData && study?.id !== studyId ? <LoadingSkeleton variant="study" label="Loading study…" /> : study ? <StudyWorkspace study={study} user={user} versions={versions} view={view} setView={setView} questions={questions} responses={responses} analyses={versionAnalyses} members={members} role={role} saving={saving} refreshing={loadingData} startingQuestionId={startingQuestionId} saveDraft={saveDraft} setStatus={setStatus} copyLink={copyLink} load={load} setError={setError} setNotice={setNotice} launchAnalysis={launchAnalysis} /> : !loadingData && <p role="alert">Study unavailable. Check your access and try again.</p>}
