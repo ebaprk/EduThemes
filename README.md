@@ -117,3 +117,7 @@ The Render service is configured in [render.yaml](render.yaml). Before deploying
 AI coding and generated findings are proposals for researcher review. Check assignments against original responses, document decisions and limitations, and use genuine independent human coding when reporting human reliability. Scripted test-account demonstrations are workflow checks.
 
 Follow [AGENTS.md](AGENTS.md) for loading indicators, pending-action accessibility, retained form content, and shared UI conventions. Keep participant-facing behavior coordinated with the companion app.
+
+## License
+
+Original software and documentation are licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for copyright, attribution, and the scope of this grant. Third-party materials retain their own terms.
